@@ -2,6 +2,7 @@ package io.github.rt993.firetvjellyfin.ui.details
 
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.util.Log
@@ -95,11 +96,14 @@ class ItemDetailsFragment : DetailsSupportFragment() {
     private fun setupRow(repository: JellyfinRepository, item: BaseItemDto) {
         val detailsPresenter = FullWidthDetailsOverviewRowPresenter(DescriptionPresenter())
         // Leanback's default description/actions panel is fully opaque, which reads as a hard
-        // slab against the backdrop behind it. Make it translucent instead so the backdrop
-        // stays visible through it - softer, less contrast-y.
+        // slab against the backdrop behind it. Make it translucent (glass-like) instead so the
+        // backdrop stays visible through it. The actions background sits nested inside the frame,
+        // so giving it the same translucent color as the frame would stack two translucent layers
+        // on top of each other there - visibly darker than the rest of the panel - leave it fully
+        // transparent so only the frame's single glass tint shows through everywhere.
         val panelColor = ContextCompat.getColor(requireContext(), R.color.details_panel_scrim)
         detailsPresenter.backgroundColor = panelColor
-        detailsPresenter.actionsBackgroundColor = panelColor
+        detailsPresenter.actionsBackgroundColor = Color.TRANSPARENT
         detailsPresenter.onActionClickedListener = OnActionClickedListener { action ->
             if (action.id == ACTION_PLAY) {
                 startActivity(
