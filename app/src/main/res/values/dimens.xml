@@ -2,8 +2,6 @@
 <resources>
     <!-- Height reserved for the top bar (logo/nav/username). -->
     <dimen name="home_topbar_height">104dp</dimen>
-    <!-- Where the row content starts when the Home hero banner is showing. -->
-    <dimen name="home_content_margin_with_hero">428dp</dimen>
-    <!-- Where the row content starts when the hero is hidden (Movies/TV Shows filter). -->
-    <dimen name="home_content_margin_no_hero">104dp</dimen>
+    <!-- Where the row content starts, below the top bar. -->
+    <dimen name="home_content_margin">104dp</dimen>
 </resources>

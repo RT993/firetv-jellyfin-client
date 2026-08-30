@@ -8,7 +8,6 @@ import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.view.ViewGroup
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.leanback.app.BackgroundManager
@@ -43,7 +42,6 @@ class MainBrowseFragment : BrowseSupportFragment() {
     private lateinit var backgroundManager: BackgroundManager
     private var repository: JellyfinRepository? = null
     private val loadedRows = mutableListOf<LoadedRow>()
-    private var recentlyAddedRow: ListRow? = null
 
     private data class LoadedRow(val collectionType: CollectionType?, val row: ListRow)
 
@@ -103,7 +101,6 @@ class MainBrowseFragment : BrowseSupportFragment() {
                         Toast.makeText(requireContext(), "Server returned 0 libraries for this user", Toast.LENGTH_LONG).show()
                     }
                     views.forEach { view -> loadRow(repo, cardPresenter, userId, view) }
-                    loadRecentlyAdded(repo, cardPresenter, userId)
                     showLibrary(null) // all rows - also clears the placeholder row seeded in onCreate()
                 }
                 .onFailure {
@@ -135,58 +132,15 @@ class MainBrowseFragment : BrowseSupportFragment() {
         loadedRows += LoadedRow(view.collectionType, ListRow(header, rowAdapter))
     }
 
-    /** Home-only: first row shown, and the row whose focused card drives the hero banner above it. */
-    private suspend fun loadRecentlyAdded(repo: JellyfinRepository, cardPresenter: CardPresenter, userId: UUID) {
-        val items = runCatching { repo.getRecentlyAddedMovies(userId) }
-            .onFailure { Log.e(TAG, "getRecentlyAddedMovies failed", it) }
-            .getOrDefault(emptyList())
-        Log.i(TAG, "recently added: ${items.size} item(s)")
-        if (items.isEmpty()) return
-
-        val rowAdapter = ArrayObjectAdapter(cardPresenter).apply { addAll(0, items) }
-        val header = HeaderItem(RECENTLY_ADDED_ROW_ID, getString(R.string.home_recently_added))
-        recentlyAddedRow = ListRow(header, rowAdapter)
-    }
-
     /**
-     * Shows only the row for [type] (a Movies/TV Shows nav filter), or the full Home layout -
-     * the Recently Added row (with its reactive hero banner) plus every regular row - if null.
+     * Shows only the row for [type] (a Movies/TV Shows nav filter), or every row if null.
      * Used by the top nav bar.
      */
     fun showLibrary(type: CollectionType?) {
         Log.i(TAG, "showLibrary(type=$type), loadedRows=${loadedRows.map { it.collectionType }}")
         rowsAdapter.clear()
-        val heroRow = recentlyAddedRow
-        val showHero = type == null && heroRow != null
-        setHeroVisible(showHero)
-        if (type == null) {
-            if (heroRow != null) rowsAdapter.add(heroRow)
-            loadedRows.forEach { rowsAdapter.add(it.row) }
-        } else {
-            loadedRows.filter { it.collectionType == type }.forEach { rowsAdapter.add(it.row) }
-        }
-    }
-
-    /** The hero banner lives in HomeActivity's layout, not this fragment's row content. */
-    private fun setHeroVisible(show: Boolean) {
-        val activity = activity ?: return
-        val hero = activity.findViewById<HeroBannerView>(R.id.hero_banner) ?: return
-        val browseContainer = activity.findViewById<View>(R.id.main_browse_fragment) ?: return
-
-        hero.visibility = if (show) View.VISIBLE else View.GONE
-        if (show) {
-            val firstItem = (recentlyAddedRow?.adapter as? ArrayObjectAdapter)?.get(0) as? BaseItemDto
-            firstItem?.let { updateHeroBanner(it) }
-        }
-
-        val params = browseContainer.layoutParams as? ViewGroup.MarginLayoutParams ?: return
-        val topMargin = resources.getDimensionPixelSize(
-            if (show) R.dimen.home_content_margin_with_hero else R.dimen.home_content_margin_no_hero,
-        )
-        if (params.topMargin != topMargin) {
-            params.topMargin = topMargin
-            browseContainer.layoutParams = params
-        }
+        val rows = if (type == null) loadedRows else loadedRows.filter { it.collectionType == type }
+        rows.forEach { rowsAdapter.add(it.row) }
     }
 
     /** True when the topmost row is selected, i.e. pressing up has nowhere left to go. */
@@ -215,16 +169,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
         ) {
             val baseItem = item as? BaseItemDto ?: return
             updateBackground(baseItem)
-            if (row === recentlyAddedRow) updateHeroBanner(baseItem)
         }
-    }
-
-    /** Reflects the focused card in the Recently Added row on the hero banner above it. */
-    private fun updateHeroBanner(item: BaseItemDto) {
-        if (!isAdded) return
-        val repo = repository ?: return
-        val hero = activity?.findViewById<HeroBannerView>(R.id.hero_banner) ?: return
-        hero.showItem(item, repo)
     }
 
     /** Sets the blurred/dimmed backdrop behind the rows to the currently focused item's art. */
@@ -251,6 +196,5 @@ class MainBrowseFragment : BrowseSupportFragment() {
     private companion object {
         const val TAG = "MainBrowseFragment"
         const val LOADING_ROW_ID = -1L
-        const val RECENTLY_ADDED_ROW_ID = -2L
     }
 }

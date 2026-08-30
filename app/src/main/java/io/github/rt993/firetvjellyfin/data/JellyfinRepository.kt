@@ -15,8 +15,6 @@ import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
 import org.jellyfin.sdk.model.api.ItemFields
-import org.jellyfin.sdk.model.api.ItemSortBy
-import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.api.PlaybackInfoDto
 import org.jellyfin.sdk.model.api.PlaybackInfoResponse
 import org.jellyfin.sdk.model.api.QuickConnectResult
@@ -58,19 +56,6 @@ class JellyfinRepository(private val api: ApiClient) {
             userId = userId,
             parentId = parentId,
             includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES),
-            limit = limit,
-        )
-        return api.itemsApi.getItems(request).content.items.orEmpty()
-    }
-
-    /** The most recently added movies across the whole library, newest first. For the Home carousel. */
-    suspend fun getRecentlyAddedMovies(userId: UUID, limit: Int = 15): List<BaseItemDto> {
-        val request = GetItemsRequest(
-            userId = userId,
-            recursive = true,
-            includeItemTypes = listOf(BaseItemKind.MOVIE),
-            sortBy = listOf(ItemSortBy.DATE_CREATED),
-            sortOrder = listOf(SortOrder.DESCENDING),
             limit = limit,
         )
         return api.itemsApi.getItems(request).content.items.orEmpty()
