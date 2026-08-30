@@ -24,7 +24,7 @@ object JellyfinClientHolder {
         credentialStore = CredentialStore(context)
         jellyfin = createJellyfin {
             this.context = context
-            clientInfo = ClientInfo(name = "Fire TV Jellyfin", version = BuildConfigVersion)
+            clientInfo = ClientInfo(name = "TreeHouse", version = BuildConfigVersion)
         }
 
         val savedServerUrl = credentialStore.serverUrl

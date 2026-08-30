@@ -3,15 +3,19 @@
     <item android:state_focused="true">
         <shape android:shape="rectangle">
             <corners android:radius="12dp" />
-            <solid android:color="#33FFFFFF" />
-            <stroke android:width="1.5dp" android:color="#80FFFFFF" />
+            <gradient
+                android:angle="90"
+                android:startColor="#4DFFFFFF"
+                android:endColor="#26FFFFFF" />
         </shape>
     </item>
     <item>
         <shape android:shape="rectangle">
             <corners android:radius="12dp" />
-            <solid android:color="#1AFFFFFF" />
-            <stroke android:width="1dp" android:color="#40FFFFFF" />
+            <gradient
+                android:angle="90"
+                android:startColor="#26FFFFFF"
+                android:endColor="#0DFFFFFF" />
         </shape>
     </item>
 </selector>

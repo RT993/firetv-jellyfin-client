@@ -1,6 +1,7 @@
 package io.github.rt993.firetvjellyfin.ui.home
 
 import android.os.Bundle
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.widget.TextView
@@ -44,14 +45,16 @@ class HomeActivity : FragmentActivity(R.layout.activity_home) {
      * top bar, so DPAD_UP still moves between rows normally everywhere else.
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (
-            event.action == KeyEvent.ACTION_DOWN &&
-            event.keyCode == KeyEvent.KEYCODE_DPAD_UP &&
-            !isFocusInTopBar() &&
-            browseFragment()?.isAtTopRow() == true
-        ) {
-            findViewById<View>(R.id.nav_home).requestFocus()
-            return true
+        if (event.keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) {
+            val inTopBar = isFocusInTopBar()
+            val fragment = browseFragment()
+            val atTop = fragment?.isAtTopRow()
+            Log.d(TAG, "DPAD_UP: inTopBar=$inTopBar fragment=$fragment atTopRow=$atTop currentFocus=$currentFocus")
+            if (!inTopBar && atTop == true) {
+                findViewById<View>(R.id.nav_home).requestFocus()
+                Log.d(TAG, "DPAD_UP: redirected to nav_home, now focused=${findViewById<View>(R.id.nav_home).isFocused}")
+                return true
+            }
         }
         return super.dispatchKeyEvent(event)
     }
@@ -64,6 +67,10 @@ class HomeActivity : FragmentActivity(R.layout.activity_home) {
             view = view.parent as? View
         }
         return false
+    }
+
+    private companion object {
+        const val TAG = "HomeActivity"
     }
 
     private fun setUpNavItem(viewId: Int, target: CollectionType?) {

@@ -25,7 +25,7 @@ import org.jellyfin.sdk.model.api.TranscodingProfile
  * static one.
  */
 fun buildDeviceProfile(): DeviceProfile = DeviceProfile(
-    name = "Fire TV Jellyfin",
+    name = "TreeHouse",
     maxStreamingBitrate = 120_000_000,
     maxStaticBitrate = 100_000_000,
     musicStreamingTranscodingBitrate = 384_000,

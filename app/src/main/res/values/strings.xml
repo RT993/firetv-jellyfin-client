@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Fire TV Jellyfin</string>
+    <string name="app_name">TreeHouse</string>
 
     <!-- Login -->
     <string name="login_title">Connect to Jellyfin</string>
@@ -16,10 +16,10 @@
     <string name="login_quick_connect_code_format">Enter code %1$s in another Jellyfin app or web page</string>
 
     <!-- Home -->
-    <string name="home_title">Fire TV Jellyfin</string>
+    <string name="home_title">TreeHouse</string>
     <string name="home_loading">Loading your libraries…</string>
     <string name="home_error">Could not load libraries from the server.</string>
-    <string name="app_logo">JELLYFIN</string>
+    <string name="app_logo">TreeHouse</string>
     <string name="nav_home">Home</string>
     <string name="nav_movies">Movies</string>
     <string name="nav_shows">TV Shows</string>

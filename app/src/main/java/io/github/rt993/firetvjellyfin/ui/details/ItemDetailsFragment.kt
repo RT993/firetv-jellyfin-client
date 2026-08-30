@@ -6,7 +6,9 @@ import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.leanback.app.DetailsSupportFragment
+import androidx.leanback.app.DetailsSupportFragmentBackgroundController
 import androidx.leanback.widget.AbstractDetailsDescriptionPresenter
 import androidx.leanback.widget.Action
 import androidx.leanback.widget.ArrayObjectAdapter
@@ -24,14 +26,20 @@ import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.playback.PlaybackActivity
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.ImageType
 import org.jellyfin.sdk.model.api.PersonKind
 import java.util.UUID
 
 /** Shows metadata for one item plus a Play action that hands off to [PlaybackActivity]. */
 class ItemDetailsFragment : DetailsSupportFragment() {
 
+    private val backgroundController = DetailsSupportFragmentBackgroundController(this)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        backgroundController.enableParallax()
+        backgroundController.setSolidColor(ContextCompat.getColor(requireContext(), R.color.background_dark))
 
         val api = JellyfinClientHolder.api
         val itemIdString = requireActivity().intent.getStringExtra(ItemDetailsActivity.EXTRA_ITEM_ID)
@@ -59,7 +67,24 @@ class ItemDetailsFragment : DetailsSupportFragment() {
             }
             Log.i(TAG, "loaded \"${item.name}\": overview=${item.overview?.take(20)}, genres=${item.genres}, cast=${item.people?.size}")
             setupRow(repository, item)
+            loadBackdrop(repository, item)
         }
+    }
+
+    private fun loadBackdrop(repository: JellyfinRepository, item: BaseItemDto) {
+        if (item.backdropImageTags.isNullOrEmpty()) return
+        val backdropUrl = repository.buildImageUrl(item.id, imageType = ImageType.BACKDROP, maxWidth = 1280)
+        Glide.with(this)
+            .asBitmap()
+            .load(backdropUrl)
+            .into(object : CustomTarget<Bitmap>() {
+                override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
+                    if (!isAdded) return
+                    backgroundController.coverBitmap = resource
+                }
+
+                override fun onLoadCleared(placeholder: Drawable?) = Unit
+            })
     }
 
     private fun setupRow(repository: JellyfinRepository, item: BaseItemDto) {
