@@ -12,10 +12,9 @@ android {
 
     defaultConfig {
         applicationId = "io.github.rt993.firetvjellyfin"
-        // NOTE: 23 (Android 6.0) is the practical floor with today's AndroidX releases - see the
-        // "minSdk" section of README.md for why 21 (the original target) is no longer achievable
-        // without pinning a whole graph of out-of-support library versions, and for how to verify
-        // this against the actual target device's Fire OS/Android version.
+        // 23 (Android 6.0) is the practical floor with today's AndroidX releases - see the
+        // "minSdk" section of README.md. Confirmed to comfortably cover the actual target
+        // device (Fire OS 7.7.1.5 / Android 9, API 28).
         minSdk = 23
         targetSdk = 36
         versionCode = 1

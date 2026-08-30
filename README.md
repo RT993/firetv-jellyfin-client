@@ -69,10 +69,10 @@ generations have different hardware decoders (some can't do HEVC or 4K at all). 
 `MediaCodecList` at runtime and feeding the result into the device profile would make this
 decision materially more accurate, and is the natural next step here.
 
-## The minSdk situation (please read before assuming 21 works)
+## The minSdk situation
 
-The task this was scaffolded from asked for **minSdk 21** (Fire OS 5 / Android 5.1, the oldest
-common Fire TV Stick generation), with a note to verify it against the real device. That
+The task this was scaffolded from originally asked for **minSdk 21** (Fire OS 5 / Android 5.1, the
+oldest common Fire TV Stick generation), with a note to verify it against the real device. That
 verification turned up a hard blocker worth recording:
 
 **As of `androidx.activity:activity:1.12.0-alpha06` (August 2025), AndroidX's own default minSdk
@@ -86,24 +86,18 @@ uses-sdk:minSdkVersion 21 cannot be smaller than version 23 declared in library
 [androidx.activity:activity:1.13.0] ... as the library might be using APIs not available in 21
 ```
 
-So **this project currently targets `minSdk = 23`**, not 21. Two ways to reconcile this with real
-hardware:
+So **this project targets `minSdk = 23`**, not 21. Reaching API 21/22 today would mean deliberately
+pinning `androidx.activity`, `androidx.fragment`, `androidx.core`, and `androidx.lifecycle` to
+versions older than their respective API-23 bumps and accepting unsupported/unpatched library
+versions - not worth it here.
 
-- **If the target Fire TV Stick is Android 6.0 (Marshmallow, API 23) or newer** - which covers the
-  large majority of "Fire TV Stick" devices still in use, including most that shipped with Fire OS
-  5.2+ - no action needed, `minSdk = 23` already covers it.
-- **If the target device is genuinely Android 5.0/5.1 (API 21/22)** - e.g. the original 2014/2016
-  Fire TV Stick - hitting that floor today requires deliberately pinning `androidx.activity`,
-  `androidx.fragment`, `androidx.core`, and `androidx.lifecycle` to versions older than their
-  respective API-23 bumps, verifying they still satisfy each other's minimum-version constraints,
-  and accepting you're on unsupported/unpatched library versions. That's a real path, just not one
-  this scaffold takes automatically - it trades a hard requirement (21) for a fragile,
-  high-maintenance dependency graph.
-
-**Action item before relying on this**: check the actual device's Android version (Settings ->
-My Fire TV -> About -> Fire OS version, cross-referenced against
-[Amazon's Fire OS/Android version table](https://developer.amazon.com/docs/fire-tv/device-specifications.html)).
-If it's API 23+, this scaffold is already correct. If it's older, see above.
+**Confirmed against the actual target device**: it reports Fire OS **7.7.1.5**, which is built on
+**Android 9 (API 28)** - the Fire TV Stick (2020, 3rd gen) / Fire TV Stick 4K / Fire TV Stick Lite
+generation (1.5GB RAM, quad-core 1.7GHz Cortex-A53). `minSdk = 23` comfortably covers this device;
+no dependency pinning needed. (minSdk is a floor, not a target - it doesn't need to equal the
+device's own API level, just be at or below it. `targetSdk` stays at the current SDK for
+up-to-date behavior/APIs.) The hardware is still weak by modern standards, so the lightweight
+Leanback + Media3 approach (rather than Compose/Flutter/RN) is still the right call.
 
 ## Building
 
