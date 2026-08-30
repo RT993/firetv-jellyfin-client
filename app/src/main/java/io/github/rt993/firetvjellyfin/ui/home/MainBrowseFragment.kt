@@ -167,6 +167,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
 
     /** Sets the blurred/dimmed backdrop behind the rows to the currently focused item's art. */
     private fun updateBackground(item: BaseItemDto) {
+        if (!isAdded) return
         val repo = repository ?: return
         if (item.backdropImageTags.isNullOrEmpty()) return
 

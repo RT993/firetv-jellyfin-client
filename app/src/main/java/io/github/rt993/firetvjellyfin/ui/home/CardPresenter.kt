@@ -63,7 +63,14 @@ class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
 
     override fun onUnbindViewHolder(viewHolder: ViewHolder) {
         val cardView = viewHolder.view as ImageCardView
-        cardView.mainImageView?.let { Glide.with(cardView.context).clear(it) }
+        // RecyclerView recycles/unbinds every view as part of the host Activity's own teardown
+        // (removeAndRecycleAllViews), which can run after the Activity is already marked
+        // destroyed - Glide.with() asserts against that and throws IllegalArgumentException,
+        // crashing the whole app on the way out. Clearing an in-flight load for a view that's
+        // being torn down anyway is a no-op at that point regardless.
+        runCatching {
+            cardView.mainImageView?.let { Glide.with(cardView.context).clear(it) }
+        }
         cardView.mainImage = null
     }
 

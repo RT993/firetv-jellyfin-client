@@ -66,13 +66,17 @@ class ItemDetailsFragment : DetailsSupportFragment() {
                 return@launch
             }
             Log.i(TAG, "loaded \"${item.name}\": overview=${item.overview?.take(20)}, genres=${item.genres}, cast=${item.people?.size}")
+            // getItem() suspends on a network call - the fragment may already be gone (user
+            // pressed back before it resolved) by the time this resumes, and Glide.with() throws
+            // if a load starts against an already-destroyed fragment/activity.
+            if (!isAdded) return@launch
             setupRow(repository, item)
             loadBackdrop(repository, item)
         }
     }
 
     private fun loadBackdrop(repository: JellyfinRepository, item: BaseItemDto) {
-        if (item.backdropImageTags.isNullOrEmpty()) return
+        if (!isAdded || item.backdropImageTags.isNullOrEmpty()) return
         val backdropUrl = repository.buildImageUrl(item.id, imageType = ImageType.BACKDROP, maxWidth = 1280)
         Glide.with(this)
             .asBitmap()
