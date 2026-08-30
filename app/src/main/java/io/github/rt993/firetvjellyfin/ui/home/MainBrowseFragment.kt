@@ -28,6 +28,20 @@ class MainBrowseFragment : BrowseSupportFragment() {
 
     private val rowsAdapter = ArrayObjectAdapter(ListRowPresenter())
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // BrowseSupportFragment decides whether to create its internal row-content fragment
+        // exactly once, synchronously inside its own onCreateView() - which runs before our
+        // onViewCreated() - and only if `adapter` is already a non-empty ObjectAdapter at that
+        // exact moment. Calling setAdapter() later, even with real data, does not retroactively
+        // trigger that creation - it only updates data on a fragment that was never built. Seed a
+        // placeholder row here, before the view is created, so that creation succeeds; it's
+        // replaced with real rows once the server responds.
+        rowsAdapter.add(ListRow(HeaderItem(LOADING_ROW_ID, ""), ArrayObjectAdapter(ListRowPresenter())))
+        adapter = rowsAdapter
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -64,11 +78,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
                         Toast.makeText(requireContext(), "Server returned 0 libraries for this user", Toast.LENGTH_LONG).show()
                     }
                     views.forEach { view -> loadRow(repository, cardPresenter, userId, view) }
-                    // BrowseSupportFragment decides which row-content fragment to create from the
-                    // adapter's contents the first time setAdapter() is called - assigning it while
-                    // still empty leaves it permanently stuck on its internal placeholder view, even
-                    // after rows are added later. Assign it only now that rowsAdapter is populated.
-                    adapter = rowsAdapter
+                    rowsAdapter.removeItems(0, 1) // drop the placeholder row seeded in onCreate()
                 }
                 .onFailure {
                     Log.e(TAG, "getUserViews failed", it)
@@ -114,5 +124,6 @@ class MainBrowseFragment : BrowseSupportFragment() {
 
     private companion object {
         const val TAG = "MainBrowseFragment"
+        const val LOADING_ROW_ID = -1L
     }
 }
