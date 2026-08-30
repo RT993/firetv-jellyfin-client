@@ -3,6 +3,17 @@
 
     <style name="Theme.FireTvJellyfin" parent="Theme.Leanback">
         <item name="android:windowBackground">@color/background_dark</item>
+        <item name="detailsActionButtonStyle">@style/Widget.FireTvJellyfin.DetailsActionButtonStyle</item>
+    </style>
+
+    <!-- Rounded-corner, semi-transparent "glass" action buttons (e.g. Play) on the details screen. -->
+    <style name="Widget.FireTvJellyfin.DetailsActionButtonStyle" parent="Widget.Leanback.DetailsActionButtonStyle">
+        <item name="android:background">@drawable/glass_button_bg</item>
+        <item name="android:paddingStart">20dp</item>
+        <item name="android:paddingEnd">20dp</item>
+        <item name="android:paddingTop">10dp</item>
+        <item name="android:paddingBottom">10dp</item>
+        <item name="android:layout_marginEnd">12dp</item>
     </style>
 
     <style name="Theme.FireTvJellyfin.GuidedStep" parent="Theme.Leanback.GuidedStep" />

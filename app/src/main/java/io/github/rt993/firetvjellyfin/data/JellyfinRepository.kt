@@ -14,6 +14,7 @@ import org.jellyfin.sdk.model.api.AuthenticationResult
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
+import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.PlaybackInfoDto
 import org.jellyfin.sdk.model.api.PlaybackInfoResponse
 import org.jellyfin.sdk.model.api.QuickConnectResult
@@ -60,8 +61,18 @@ class JellyfinRepository(private val api: ApiClient) {
         return api.itemsApi.getItems(request).content.items.orEmpty()
     }
 
+    /**
+     * A single item with the fields the details screen needs. Jellyfin's /Items endpoint omits
+     * overview, genres, and cast by default (to keep list responses small) unless explicitly
+     * requested via `fields` - without this, the details screen would silently get an item with
+     * a name and not much else.
+     */
     suspend fun getItem(userId: UUID, itemId: UUID): BaseItemDto? {
-        val request = GetItemsRequest(userId = userId, ids = listOf(itemId))
+        val request = GetItemsRequest(
+            userId = userId,
+            ids = listOf(itemId),
+            fields = listOf(ItemFields.OVERVIEW, ItemFields.GENRES, ItemFields.PEOPLE),
+        )
         return api.itemsApi.getItems(request).content.items.orEmpty().firstOrNull()
     }
 

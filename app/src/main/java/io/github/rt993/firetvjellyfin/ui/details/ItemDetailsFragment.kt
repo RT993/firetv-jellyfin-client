@@ -4,6 +4,8 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
 import androidx.leanback.app.DetailsSupportFragment
 import androidx.leanback.widget.AbstractDetailsDescriptionPresenter
 import androidx.leanback.widget.Action
@@ -31,15 +33,31 @@ class ItemDetailsFragment : DetailsSupportFragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val api = JellyfinClientHolder.api ?: return
-        val itemIdString = requireActivity().intent.getStringExtra(ItemDetailsActivity.EXTRA_ITEM_ID) ?: return
-        val userIdString = JellyfinClientHolder.currentUserId() ?: return
-        val itemId = runCatching { UUID.fromString(itemIdString) }.getOrNull() ?: return
-        val userId = runCatching { UUID.fromString(userIdString) }.getOrNull() ?: return
+        val api = JellyfinClientHolder.api
+        val itemIdString = requireActivity().intent.getStringExtra(ItemDetailsActivity.EXTRA_ITEM_ID)
+        val userIdString = JellyfinClientHolder.currentUserId()
+        if (api == null || itemIdString == null || userIdString == null) {
+            Log.e(TAG, "onCreate: missing session (api=$api, itemId=$itemIdString, userId=$userIdString)")
+            Toast.makeText(requireContext(), "Missing session or item id", Toast.LENGTH_LONG).show()
+            return
+        }
+        val itemId = runCatching { UUID.fromString(itemIdString) }.getOrNull()
+        val userId = runCatching { UUID.fromString(userIdString) }.getOrNull()
+        if (itemId == null || userId == null) {
+            Log.e(TAG, "onCreate: bad UUID (itemId=$itemIdString, userId=$userIdString)")
+            return
+        }
 
         val repository = JellyfinRepository(api)
         lifecycleScope.launch {
-            val item = runCatching { repository.getItem(userId, itemId) }.getOrNull() ?: return@launch
+            val item = runCatching { repository.getItem(userId, itemId) }
+                .onFailure { Log.e(TAG, "getItem failed", it) }
+                .getOrNull()
+            if (item == null) {
+                Toast.makeText(requireContext(), "Could not load this item's details", Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            Log.i(TAG, "loaded \"${item.name}\": overview=${item.overview?.take(20)}, genres=${item.genres}, cast=${item.people?.size}")
             setupRow(repository, item)
         }
     }
@@ -121,6 +139,7 @@ class ItemDetailsFragment : DetailsSupportFragment() {
     }
 
     private companion object {
+        const val TAG = "ItemDetailsFragment"
         const val ACTION_PLAY = 1L
         const val MAX_CAST_SHOWN = 6
     }
