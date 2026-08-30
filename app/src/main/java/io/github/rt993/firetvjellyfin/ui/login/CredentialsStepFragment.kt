@@ -3,6 +3,7 @@ package io.github.rt993.firetvjellyfin.ui.login
 import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
+import android.util.Log
 import android.widget.Toast
 import androidx.leanback.app.GuidedStepSupportFragment
 import androidx.leanback.widget.GuidanceStylist.Guidance
@@ -80,7 +81,7 @@ class CredentialsStepFragment : GuidedStepSupportFragment() {
                         showError()
                     }
                 }
-                .onFailure { showError() }
+                .onFailure { showError(it) }
         }
     }
 
@@ -96,12 +97,18 @@ class CredentialsStepFragment : GuidedStepSupportFragment() {
                         QuickConnectStepFragment.newInstance(result.secret, result.code),
                     )
                 }
-                .onFailure { showError() }
+                .onFailure { showError(it) }
         }
     }
 
-    private fun showError() {
-        Toast.makeText(requireContext(), R.string.login_error_generic, Toast.LENGTH_LONG).show()
+    private fun showError(cause: Throwable? = null) {
+        Log.e(TAG, "Login failed", cause)
+        val message = if (cause != null) {
+            "${getString(R.string.login_error_generic)}\n${cause.javaClass.simpleName}: ${cause.message}"
+        } else {
+            getString(R.string.login_error_generic)
+        }
+        Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
     }
 
     private fun startHome() {
@@ -110,6 +117,7 @@ class CredentialsStepFragment : GuidedStepSupportFragment() {
     }
 
     private companion object {
+        const val TAG = "CredentialsStep"
         const val ACTION_USERNAME = 1L
         const val ACTION_PASSWORD = 2L
         const val ACTION_SIGN_IN = 3L
