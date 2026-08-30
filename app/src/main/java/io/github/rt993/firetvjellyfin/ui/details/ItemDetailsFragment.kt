@@ -6,10 +6,10 @@ import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.util.Log
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.leanback.app.DetailsSupportFragment
-import androidx.leanback.app.DetailsSupportFragmentBackgroundController
 import androidx.leanback.widget.AbstractDetailsDescriptionPresenter
 import androidx.leanback.widget.Action
 import androidx.leanback.widget.ArrayObjectAdapter
@@ -35,13 +35,8 @@ import java.util.UUID
 /** Shows metadata for one item plus a Play action that hands off to [PlaybackActivity]. */
 class ItemDetailsFragment : DetailsSupportFragment() {
 
-    private val backgroundController = DetailsSupportFragmentBackgroundController(this)
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        backgroundController.enableParallax()
-        backgroundController.setSolidColor(ContextCompat.getColor(requireContext(), R.color.background_dark))
 
         val api = JellyfinClientHolder.api
         val itemIdString = requireActivity().intent.getStringExtra(ItemDetailsActivity.EXTRA_ITEM_ID)
@@ -77,40 +72,19 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         }
     }
 
+    /**
+     * Loaded straight into our own full-screen ImageView (centerCrop) instead of through
+     * Leanback's DetailsSupportFragmentBackgroundController - its FitWidthBitmapDrawable only
+     * scales to fit the screen's width and derives height from the bitmap's own aspect ratio, so
+     * a backdrop proportionally wider than the screen fell short vertically and left a solid-color
+     * gap where the details panel's translucency had nothing to reveal. centerCrop guarantees the
+     * image always fills the whole screen regardless of its source aspect ratio.
+     */
     private fun loadBackdrop(repository: JellyfinRepository, item: BaseItemDto) {
         if (!isAdded || item.backdropImageTags.isNullOrEmpty()) return
+        val backdropImage = activity?.findViewById<ImageView>(R.id.details_backdrop) ?: return
         val backdropUrl = repository.buildImageUrl(item.id, imageType = ImageType.BACKDROP, maxWidth = 1280)
-        Glide.with(this)
-            .asBitmap()
-            .load(backdropUrl)
-            .into(object : CustomTarget<Bitmap>() {
-                override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
-                    if (!isAdded) return
-                    backgroundController.coverBitmap = cropToScreenAspectRatio(resource)
-                }
-
-                override fun onLoadCleared(placeholder: Drawable?) = Unit
-            })
-    }
-
-    /**
-     * DetailsSupportFragmentBackgroundController draws the cover bitmap via
-     * FitWidthBitmapDrawable, which scales it to fill the screen's width and derives its height
-     * from the bitmap's own aspect ratio - it never crops to fill. A backdrop proportionally
-     * wider than the screen then falls short of the screen's height, leaving the plain solid
-     * background color exposed below it: a hard, high-contrast seam right above the details
-     * panel. Center-crop the bitmap to the screen's aspect ratio first so it always fills the
-     * full height with no gap.
-     */
-    private fun cropToScreenAspectRatio(bitmap: Bitmap): Bitmap {
-        val metrics = resources.displayMetrics
-        val screenRatio = metrics.widthPixels.toFloat() / metrics.heightPixels
-        val bitmapRatio = bitmap.width.toFloat() / bitmap.height
-        if (bitmapRatio <= screenRatio) return bitmap // already tall enough relative to its width
-
-        val targetWidth = (bitmap.height * screenRatio).toInt().coerceAtMost(bitmap.width)
-        val xOffset = (bitmap.width - targetWidth) / 2
-        return Bitmap.createBitmap(bitmap, xOffset, 0, targetWidth, bitmap.height)
+        Glide.with(this).load(backdropUrl).centerCrop().into(backdropImage)
     }
 
     private fun setupRow(repository: JellyfinRepository, item: BaseItemDto) {
