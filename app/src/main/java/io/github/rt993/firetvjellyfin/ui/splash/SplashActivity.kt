@@ -69,20 +69,25 @@ class SplashActivity : FragmentActivity(R.layout.activity_splash) {
         } else {
             LoginActivity::class.java
         }
-        startActivity(Intent(this, destination))
+        startActivity(Intent(this, destination).putExtra(EXTRA_FROM_SPLASH, true))
         finish()
     }
 
     private fun dpToPx(dp: Float): Float = dp * resources.displayMetrics.density
 
-    private companion object {
-        const val ENTRANCE_MS = 500L
-        const val FLOAT_STEP_MS = 1000L
-        const val EXIT_MS = 500L
-        const val ENTRANCE_SCALE = 0.6f
-        const val EXIT_SCALE = 1.35f
+    companion object {
+        // A cached/stale launcher shortcut can hold a direct reference to LoginActivity, skipping
+        // this intro entirely - LoginActivity checks for this extra and, if it's missing, forwards
+        // to Splash itself instead of showing the login step straight away.
+        const val EXTRA_FROM_SPLASH = "from_splash"
+
+        private const val ENTRANCE_MS = 500L
+        private const val FLOAT_STEP_MS = 1000L
+        private const val EXIT_MS = 500L
+        private const val ENTRANCE_SCALE = 0.6f
+        private const val EXIT_SCALE = 1.35f
 
         // A small wander loop - up-left, down-right, up-right, back to center - before the fade.
-        val FLOAT_OFFSETS = listOf(-18f to -14f, 18f to 12f, 14f to -10f, 0f to 0f)
+        private val FLOAT_OFFSETS = listOf(-18f to -14f, 18f to 12f, 14f to -10f, 0f to 0f)
     }
 }
