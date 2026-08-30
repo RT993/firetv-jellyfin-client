@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Fire TV Jellyfin</string>
+
+    <!-- Login -->
+    <string name="login_title">Connect to Jellyfin</string>
+    <string name="login_server_address_title">Server address</string>
+    <string name="login_server_address_description">e.g. http://192.168.1.10:8096</string>
+    <string name="login_username_title">Username</string>
+    <string name="login_password_title">Password</string>
+    <string name="login_quick_connect_title">Sign in with Quick Connect</string>
+    <string name="login_quick_connect_description">Use a code shown here to approve on another device</string>
+    <string name="login_sign_in_title">Sign in</string>
+    <string name="login_connecting">Connecting…</string>
+    <string name="login_error_generic">Could not sign in. Check the server address and credentials.</string>
+    <string name="login_quick_connect_code_format">Enter code %1$s in another Jellyfin app or web page</string>
+
+    <!-- Home -->
+    <string name="home_title">Fire TV Jellyfin</string>
+    <string name="home_loading">Loading your libraries…</string>
+    <string name="home_error">Could not load libraries from the server.</string>
+
+    <!-- Details -->
+    <string name="details_play">Play</string>
+    <string name="details_unknown_year">—</string>
+
+    <!-- Playback -->
+    <string name="playback_error">Playback failed.</string>
+    <string name="playback_mode_direct">Direct play</string>
+    <string name="playback_mode_transcode">Transcoding</string>
+</resources>

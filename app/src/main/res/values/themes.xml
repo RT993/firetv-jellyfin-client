@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.FireTvJellyfin" parent="Theme.Leanback">
+        <item name="android:windowBackground">@color/background_dark</item>
+    </style>
+
+    <style name="Theme.FireTvJellyfin.GuidedStep" parent="Theme.Leanback.GuidedStep" />
+
+    <style name="Theme.FireTvJellyfin.Playback" parent="Theme.Leanback">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+
+</resources>

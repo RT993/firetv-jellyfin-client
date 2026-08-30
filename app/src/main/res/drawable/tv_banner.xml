@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder TV banner (320x180dp, required by the leanback launcher). Replace with real
+     branded artwork before shipping. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <path
+        android:pathData="M0,0h320v180h-320z"
+        android:fillColor="#101418" />
+    <path
+        android:pathData="M120,60 L120,120 L136,120 L136,96 L152,96 L152,120 L168,120 L168,60 L152,60 L152,84 L136,84 L136,60 Z"
+        android:fillColor="#00A4DC" />
+</vector>
