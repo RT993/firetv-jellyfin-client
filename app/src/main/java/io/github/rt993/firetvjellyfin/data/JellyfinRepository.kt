@@ -44,13 +44,17 @@ class JellyfinRepository(private val api: ApiClient) {
     suspend fun getUserViews(userId: UUID): List<BaseItemDto> =
         api.userViewsApi.getUserViews(userId = userId).content.items.orEmpty()
 
-    /** Items directly inside a library/folder, newest first. */
+    /**
+     * Items directly inside a library/folder, newest first. Not recursive: a Shows library's
+     * direct children are series (not their episodes), and a Movies library's direct children
+     * are movies - recursing would pull in every episode of every series instead of one card
+     * per show.
+     */
     suspend fun getItems(userId: UUID, parentId: UUID, limit: Int = 50): List<BaseItemDto> {
         val request = GetItemsRequest(
             userId = userId,
             parentId = parentId,
-            recursive = true,
-            includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES, BaseItemKind.EPISODE),
+            includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES),
             limit = limit,
         )
         return api.itemsApi.getItems(request).content.items.orEmpty()
