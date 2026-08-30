@@ -10,8 +10,8 @@
         android:layout_height="match_parent"
         android:layout_marginTop="@dimen/home_content_margin_with_hero" />
 
-    <io.github.rt993.firetvjellyfin.ui.home.HeroCarouselView
-        android:id="@+id/hero_carousel"
+    <io.github.rt993.firetvjellyfin.ui.home.HeroBannerView
+        android:id="@+id/hero_banner"
         android:layout_width="match_parent"
         android:layout_height="300dp"
         android:layout_marginStart="24dp"
