@@ -24,6 +24,7 @@ import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.playback.PlaybackActivity
+import io.github.rt993.firetvjellyfin.util.formatRuntimeTicks
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.ImageType
@@ -143,7 +144,7 @@ class ItemDetailsFragment : DetailsSupportFragment() {
             val parts = mutableListOf<String>()
             item.communityRating?.let { parts += "★ %.1f".format(it) }
             parts += item.productionYear?.toString() ?: getString(R.string.details_unknown_year)
-            formatRuntime(item.runTimeTicks)?.let { parts += it }
+            formatRuntimeTicks(item.runTimeTicks)?.let { parts += it }
             item.officialRating?.let { parts += it }
             return parts.joinToString("  ·  ")
         }
@@ -160,16 +161,6 @@ class ItemDetailsFragment : DetailsSupportFragment() {
                 sections += "Starring: " + cast.joinToString(", ")
             }
             return sections.joinToString("\n\n")
-        }
-
-        /** Jellyfin runtimes are in 100-nanosecond .NET ticks; 10,000,000 ticks = 1 second. */
-        private fun formatRuntime(ticks: Long?): String? {
-            if (ticks == null) return null
-            val totalMinutes = (ticks / 10_000_000L / 60L).toInt()
-            if (totalMinutes <= 0) return null
-            val hours = totalMinutes / 60
-            val minutes = totalMinutes % 60
-            return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
         }
     }
 

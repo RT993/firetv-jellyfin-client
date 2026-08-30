@@ -8,6 +8,7 @@ import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.leanback.app.BackgroundManager
@@ -42,7 +43,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
     private lateinit var backgroundManager: BackgroundManager
     private var repository: JellyfinRepository? = null
     private val loadedRows = mutableListOf<LoadedRow>()
-    private var recentlyAddedRow: ListRow? = null
+    private var recentlyAdded: List<BaseItemDto> = emptyList()
 
     private data class LoadedRow(val collectionType: CollectionType?, val row: ListRow)
 
@@ -134,32 +135,49 @@ class MainBrowseFragment : BrowseSupportFragment() {
         loadedRows += LoadedRow(view.collectionType, ListRow(header, rowAdapter))
     }
 
-    /** Home-only: a big-card carousel of the most recently added movies, above the regular rows. */
+    /** Home-only: feeds the big paginated hero banner above the regular rows. */
     private suspend fun loadRecentlyAdded(repo: JellyfinRepository, userId: UUID) {
         val items = runCatching { repo.getRecentlyAddedMovies(userId) }
             .onFailure { Log.e(TAG, "getRecentlyAddedMovies failed", it) }
             .getOrDefault(emptyList())
         Log.i(TAG, "recently added: ${items.size} item(s)")
-        if (items.isEmpty()) return
-
-        val carouselPresenter = CarouselCardPresenter(repo)
-        val rowAdapter = ArrayObjectAdapter(carouselPresenter).apply { addAll(0, items) }
-        val header = HeaderItem(RECENTLY_ADDED_ROW_ID, getString(R.string.home_recently_added))
-        recentlyAddedRow = ListRow(header, rowAdapter)
+        recentlyAdded = items
     }
 
     /**
      * Shows only the row for [type] (a Movies/TV Shows nav filter), or the full Home layout -
-     * the recently-added carousel plus every regular row - if null. Used by the top nav bar.
+     * the recently-added hero banner plus every regular row - if null. Used by the top nav bar.
      */
     fun showLibrary(type: CollectionType?) {
         Log.i(TAG, "showLibrary(type=$type), loadedRows=${loadedRows.map { it.collectionType }}")
         rowsAdapter.clear()
+        val showHero = type == null && recentlyAdded.isNotEmpty()
+        updateHero(showHero)
         if (type == null) {
-            recentlyAddedRow?.let { rowsAdapter.add(it) }
             loadedRows.forEach { rowsAdapter.add(it.row) }
         } else {
             loadedRows.filter { it.collectionType == type }.forEach { rowsAdapter.add(it.row) }
+        }
+    }
+
+    /** The hero banner lives in HomeActivity's layout, not this fragment's row content. */
+    private fun updateHero(show: Boolean) {
+        val activity = activity ?: return
+        val hero = activity.findViewById<HeroCarouselView>(R.id.hero_carousel) ?: return
+        val browseContainer = activity.findViewById<View>(R.id.main_browse_fragment) ?: return
+
+        hero.visibility = if (show) View.VISIBLE else View.GONE
+        if (show) {
+            repository?.let { hero.setItems(recentlyAdded, it) }
+        }
+
+        val params = browseContainer.layoutParams as? ViewGroup.MarginLayoutParams ?: return
+        val topMargin = resources.getDimensionPixelSize(
+            if (show) R.dimen.home_content_margin_with_hero else R.dimen.home_content_margin_no_hero,
+        )
+        if (params.topMargin != topMargin) {
+            params.topMargin = topMargin
+            browseContainer.layoutParams = params
         }
     }
 
@@ -216,6 +234,5 @@ class MainBrowseFragment : BrowseSupportFragment() {
     private companion object {
         const val TAG = "MainBrowseFragment"
         const val LOADING_ROW_ID = -1L
-        const val RECENTLY_ADDED_ROW_ID = -2L
     }
 }
