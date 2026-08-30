@@ -34,7 +34,6 @@ class MainBrowseFragment : BrowseSupportFragment() {
         title = getString(R.string.home_title)
         setHeadersState(HEADERS_DISABLED)
         setHeadersTransitionOnBackEnabled(false)
-        adapter = rowsAdapter
         onItemViewClickedListener = ItemClickedListener()
 
         loadLibraries()
@@ -65,6 +64,11 @@ class MainBrowseFragment : BrowseSupportFragment() {
                         Toast.makeText(requireContext(), "Server returned 0 libraries for this user", Toast.LENGTH_LONG).show()
                     }
                     views.forEach { view -> loadRow(repository, cardPresenter, userId, view) }
+                    // BrowseSupportFragment decides which row-content fragment to create from the
+                    // adapter's contents the first time setAdapter() is called - assigning it while
+                    // still empty leaves it permanently stuck on its internal placeholder view, even
+                    // after rows are added later. Assign it only now that rowsAdapter is populated.
+                    adapter = rowsAdapter
                 }
                 .onFailure {
                     Log.e(TAG, "getUserViews failed", it)
