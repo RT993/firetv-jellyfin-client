@@ -75,7 +75,10 @@ class HomeActivity : FragmentActivity(R.layout.activity_home) {
 
     private fun setUpNavItem(viewId: Int, target: CollectionType?) {
         val view = findViewById<TextView>(viewId)
-        view.setOnClickListener { browseFragment()?.scrollToLibrary(target) }
+        view.setOnClickListener {
+            Log.d(TAG, "nav item ${resources.getResourceEntryName(viewId)} clicked -> showLibrary($target)")
+            browseFragment()?.showLibrary(target)
+        }
         view.setOnFocusChangeListener { _, hasFocus ->
             view.setTextColor(
                 ContextCompat.getColor(this, if (hasFocus) R.color.text_primary else R.color.text_secondary),

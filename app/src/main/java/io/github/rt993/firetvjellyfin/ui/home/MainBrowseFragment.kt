@@ -41,7 +41,9 @@ class MainBrowseFragment : BrowseSupportFragment() {
     private val rowsAdapter = ArrayObjectAdapter(ListRowPresenter())
     private lateinit var backgroundManager: BackgroundManager
     private var repository: JellyfinRepository? = null
-    private val rowIndexByCollectionType = mutableMapOf<CollectionType, Int>()
+    private val loadedRows = mutableListOf<LoadedRow>()
+
+    private data class LoadedRow(val collectionType: CollectionType?, val row: ListRow)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -99,7 +101,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
                         Toast.makeText(requireContext(), "Server returned 0 libraries for this user", Toast.LENGTH_LONG).show()
                     }
                     views.forEach { view -> loadRow(repo, cardPresenter, userId, view) }
-                    rowsAdapter.removeItems(0, 1) // drop the placeholder row seeded in onCreate()
+                    showLibrary(null) // all rows - also clears the placeholder row seeded in onCreate()
                 }
                 .onFailure {
                     Log.e(TAG, "getUserViews failed", it)
@@ -125,15 +127,17 @@ class MainBrowseFragment : BrowseSupportFragment() {
         if (items.isEmpty()) return
 
         val rowAdapter = ArrayObjectAdapter(cardPresenter).apply { addAll(0, items) }
-        val header = HeaderItem(rowsAdapter.size().toLong(), view.name.orEmpty())
-        rowsAdapter.add(ListRow(header, rowAdapter))
-        view.collectionType?.let { rowIndexByCollectionType[it] = rowsAdapter.size() - 1 }
+        val header = HeaderItem(loadedRows.size.toLong(), view.name.orEmpty())
+        Log.i(TAG, "adding row for \"${view.name}\" with collectionType=${view.collectionType}")
+        loadedRows += LoadedRow(view.collectionType, ListRow(header, rowAdapter))
     }
 
-    /** Scrolls/focuses the row for [type], or the top of the page if null. Used by the top nav bar. */
-    fun scrollToLibrary(type: CollectionType?) {
-        val index = if (type == null) 0 else rowIndexByCollectionType[type] ?: return
-        if (index < rowsAdapter.size()) setSelectedPosition(index, true)
+    /** Shows only the row for [type], or every loaded row if null. Used by the top nav bar. */
+    fun showLibrary(type: CollectionType?) {
+        Log.i(TAG, "showLibrary(type=$type), loadedRows=${loadedRows.map { it.collectionType }}")
+        rowsAdapter.clear()
+        val toShow = if (type == null) loadedRows else loadedRows.filter { it.collectionType == type }
+        toShow.forEach { rowsAdapter.add(it.row) }
     }
 
     /** True when the topmost row is selected, i.e. pressing up has nowhere left to go. */
