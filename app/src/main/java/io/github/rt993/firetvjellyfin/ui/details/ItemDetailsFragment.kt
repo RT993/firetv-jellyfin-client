@@ -86,11 +86,31 @@ class ItemDetailsFragment : DetailsSupportFragment() {
             .into(object : CustomTarget<Bitmap>() {
                 override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
                     if (!isAdded) return
-                    backgroundController.coverBitmap = resource
+                    backgroundController.coverBitmap = cropToScreenAspectRatio(resource)
                 }
 
                 override fun onLoadCleared(placeholder: Drawable?) = Unit
             })
+    }
+
+    /**
+     * DetailsSupportFragmentBackgroundController draws the cover bitmap via
+     * FitWidthBitmapDrawable, which scales it to fill the screen's width and derives its height
+     * from the bitmap's own aspect ratio - it never crops to fill. A backdrop proportionally
+     * wider than the screen then falls short of the screen's height, leaving the plain solid
+     * background color exposed below it: a hard, high-contrast seam right above the details
+     * panel. Center-crop the bitmap to the screen's aspect ratio first so it always fills the
+     * full height with no gap.
+     */
+    private fun cropToScreenAspectRatio(bitmap: Bitmap): Bitmap {
+        val metrics = resources.displayMetrics
+        val screenRatio = metrics.widthPixels.toFloat() / metrics.heightPixels
+        val bitmapRatio = bitmap.width.toFloat() / bitmap.height
+        if (bitmapRatio <= screenRatio) return bitmap // already tall enough relative to its width
+
+        val targetWidth = (bitmap.height * screenRatio).toInt().coerceAtMost(bitmap.width)
+        val xOffset = (bitmap.width - targetWidth) / 2
+        return Bitmap.createBitmap(bitmap, xOffset, 0, targetWidth, bitmap.height)
     }
 
     private fun setupRow(repository: JellyfinRepository, item: BaseItemDto) {
