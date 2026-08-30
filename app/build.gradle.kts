@@ -19,6 +19,10 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+
+        // Vector drawable gradients (aapt:attr fillColor) render natively from API 24; the
+        // support library backports them down to minSdk 23.
+        vectorDrawables.useSupportLibrary = true
     }
 
     buildTypes {
