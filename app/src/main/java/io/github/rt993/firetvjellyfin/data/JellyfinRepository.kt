@@ -7,6 +7,7 @@ import org.jellyfin.sdk.api.client.extensions.imageApi
 import org.jellyfin.sdk.api.client.extensions.itemsApi
 import org.jellyfin.sdk.api.client.extensions.mediaInfoApi
 import org.jellyfin.sdk.api.client.extensions.quickConnectApi
+import org.jellyfin.sdk.api.client.extensions.tvShowsApi
 import org.jellyfin.sdk.api.client.extensions.userApi
 import org.jellyfin.sdk.api.client.extensions.userViewsApi
 import org.jellyfin.sdk.model.UUID
@@ -18,7 +19,9 @@ import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.PlaybackInfoDto
 import org.jellyfin.sdk.model.api.PlaybackInfoResponse
 import org.jellyfin.sdk.model.api.QuickConnectResult
+import org.jellyfin.sdk.model.api.request.GetEpisodesRequest
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
+import org.jellyfin.sdk.model.api.request.GetSeasonsRequest
 import io.github.rt993.firetvjellyfin.playback.buildDeviceProfile
 
 /**
@@ -74,6 +77,23 @@ class JellyfinRepository(private val api: ApiClient) {
             fields = listOf(ItemFields.OVERVIEW, ItemFields.GENRES, ItemFields.PEOPLE),
         )
         return api.itemsApi.getItems(request).content.items.orEmpty().firstOrNull()
+    }
+
+    /** The seasons of a series, in order. */
+    suspend fun getSeasons(userId: UUID, seriesId: UUID): List<BaseItemDto> {
+        val request = GetSeasonsRequest(seriesId = seriesId, userId = userId)
+        return api.tvShowsApi.getSeasons(request).content.items.orEmpty()
+    }
+
+    /** The episodes of one season, in order. */
+    suspend fun getEpisodes(userId: UUID, seriesId: UUID, seasonId: UUID): List<BaseItemDto> {
+        val request = GetEpisodesRequest(
+            seriesId = seriesId,
+            userId = userId,
+            seasonId = seasonId,
+            fields = listOf(ItemFields.OVERVIEW),
+        )
+        return api.tvShowsApi.getEpisodes(request).content.items.orEmpty()
     }
 
     fun buildImageUrl(itemId: UUID, imageType: ImageType = ImageType.PRIMARY, maxWidth: Int = 440): String =

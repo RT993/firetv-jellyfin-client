@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -16,7 +17,14 @@ import androidx.leanback.widget.ArrayObjectAdapter
 import androidx.leanback.widget.ClassPresenterSelector
 import androidx.leanback.widget.DetailsOverviewRow
 import androidx.leanback.widget.FullWidthDetailsOverviewRowPresenter
+import androidx.leanback.widget.HeaderItem
+import androidx.leanback.widget.ListRow
+import androidx.leanback.widget.ListRowPresenter
 import androidx.leanback.widget.OnActionClickedListener
+import androidx.leanback.widget.OnItemViewClickedListener
+import androidx.leanback.widget.Presenter
+import androidx.leanback.widget.Row
+import androidx.leanback.widget.RowPresenter
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
@@ -28,15 +36,22 @@ import io.github.rt993.firetvjellyfin.ui.playback.PlaybackActivity
 import io.github.rt993.firetvjellyfin.util.formatRuntimeTicks
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
 import org.jellyfin.sdk.model.api.PersonKind
 import java.util.UUID
 
-/** Shows metadata for one item plus a Play action that hands off to [PlaybackActivity]. */
+/**
+ * Shows metadata for one item. Movies get a Play action that hands off to [PlaybackActivity]
+ * directly; series have no single video to play, so instead show one row per season, each row
+ * full of episode cards - picking an episode is what starts playback.
+ */
 class ItemDetailsFragment : DetailsSupportFragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        onItemViewClickedListener = EpisodeClickedListener()
 
         val api = JellyfinClientHolder.api
         val itemIdString = requireActivity().intent.getStringExtra(ItemDetailsActivity.EXTRA_ITEM_ID)
@@ -67,8 +82,11 @@ class ItemDetailsFragment : DetailsSupportFragment() {
             // pressed back before it resolved) by the time this resumes, and Glide.with() throws
             // if a load starts against an already-destroyed fragment/activity.
             if (!isAdded) return@launch
-            setupRow(repository, item)
+            val rowsAdapter = setupRows(repository, item)
             loadBackdrop(repository, item)
+            if (item.type == BaseItemKind.SERIES) {
+                loadSeasonRows(repository, userId, item, rowsAdapter)
+            }
         }
     }
 
@@ -87,8 +105,18 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         Glide.with(this).load(backdropUrl).centerCrop().into(backdropImage)
     }
 
-    private fun setupRow(repository: JellyfinRepository, item: BaseItemDto) {
-        val detailsPresenter = FullWidthDetailsOverviewRowPresenter(DescriptionPresenter())
+    /** Builds the overview row (and its Play action, for movies) and returns the adapter it was added to. */
+    private fun setupRows(repository: JellyfinRepository, item: BaseItemDto): ArrayObjectAdapter {
+        val isSeries = item.type == BaseItemKind.SERIES
+        val detailsPresenter = object : FullWidthDetailsOverviewRowPresenter(DescriptionPresenter()) {
+            override fun onBindRowViewHolder(vh: RowPresenter.ViewHolder, item: Any) {
+                super.onBindRowViewHolder(vh, item)
+                // The overview frame carries a fixed elevation for its own drop shadow, which
+                // renders as a visible dark band right at the panel's top edge no matter how
+                // transparent its background color is. A flat glass panel doesn't need a shadow.
+                vh.view.findViewById<View>(androidx.leanback.R.id.details_frame)?.elevation = 0f
+            }
+        }
         // Leanback's default description/actions panel is fully opaque, which reads as a hard
         // slab against the backdrop behind it. Make it translucent (glass-like) instead so the
         // backdrop stays visible through it. The actions background sits nested inside the frame,
@@ -101,23 +129,28 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         // FullWidthDetailsOverviewRowPresenter also layers its own dim overlay - a foreground
         // Drawable covering the whole panel, independent of the colors above - that goes to 60%
         // opaque black whenever the row is considered "unselected" (its default state until the
-        // Rows fragment explicitly marks it selected). With only one row and no related-content
-        // rows below to navigate to, that dimming serves no purpose here and stacks yet another
-        // dark layer on top of everything, including the text. Turn it off outright.
+        // Rows fragment explicitly marks it selected). That dimming serves no purpose here (we
+        // don't want anything about this screen going darker as you navigate), so turn it off.
         detailsPresenter.setSelectEffectEnabled(false)
-        detailsPresenter.onActionClickedListener = OnActionClickedListener { action ->
-            if (action.id == ACTION_PLAY) {
-                startActivity(
-                    Intent(requireContext(), PlaybackActivity::class.java)
-                        .putExtra(PlaybackActivity.EXTRA_ITEM_ID, item.id.toString())
-                        .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, item.name),
-                )
+        if (!isSeries) {
+            detailsPresenter.onActionClickedListener = OnActionClickedListener { action ->
+                if (action.id == ACTION_PLAY) {
+                    startActivity(
+                        Intent(requireContext(), PlaybackActivity::class.java)
+                            .putExtra(PlaybackActivity.EXTRA_ITEM_ID, item.id.toString())
+                            .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, item.name),
+                    )
+                }
             }
         }
 
         val row = DetailsOverviewRow(item)
-        row.actionsAdapter = ArrayObjectAdapter().apply {
-            add(Action(ACTION_PLAY, getString(R.string.details_play)))
+        if (!isSeries) {
+            // A series has no single video to play - picking an episode from the season rows
+            // below is what starts playback instead, so it gets no Play action here.
+            row.actionsAdapter = ArrayObjectAdapter().apply {
+                add(Action(ACTION_PLAY, getString(R.string.details_play)))
+            }
         }
 
         val imageUrl = repository.buildImageUrl(item.id, maxWidth = 600)
@@ -134,7 +167,51 @@ class ItemDetailsFragment : DetailsSupportFragment() {
 
         val presenterSelector = ClassPresenterSelector()
         presenterSelector.addClassPresenter(DetailsOverviewRow::class.java, detailsPresenter)
-        adapter = ArrayObjectAdapter(presenterSelector).apply { add(row) }
+        presenterSelector.addClassPresenter(ListRow::class.java, ListRowPresenter())
+        val rowsAdapter = ArrayObjectAdapter(presenterSelector).apply { add(row) }
+        adapter = rowsAdapter
+        return rowsAdapter
+    }
+
+    /** One row per season, each row full of that season's episode cards. */
+    private suspend fun loadSeasonRows(
+        repository: JellyfinRepository,
+        userId: UUID,
+        series: BaseItemDto,
+        rowsAdapter: ArrayObjectAdapter,
+    ) {
+        val seasons = runCatching { repository.getSeasons(userId, series.id) }
+            .onFailure { Log.e(TAG, "getSeasons failed", it) }
+            .getOrDefault(emptyList())
+        Log.i(TAG, "\"${series.name}\": ${seasons.size} season(s)")
+        val episodePresenter = EpisodeCardPresenter(repository)
+        seasons.forEachIndexed { index, season ->
+            if (!isAdded) return
+            val episodes = runCatching { repository.getEpisodes(userId, series.id, season.id) }
+                .onFailure { Log.e(TAG, "getEpisodes failed for season ${season.name}", it) }
+                .getOrDefault(emptyList())
+            if (episodes.isEmpty()) return@forEachIndexed
+            val episodeAdapter = ArrayObjectAdapter(episodePresenter).apply { addAll(0, episodes) }
+            val header = HeaderItem(index.toLong(), season.name.orEmpty())
+            rowsAdapter.add(ListRow(header, episodeAdapter))
+        }
+    }
+
+    private inner class EpisodeClickedListener : OnItemViewClickedListener {
+        override fun onItemClicked(
+            itemViewHolder: Presenter.ViewHolder,
+            item: Any,
+            rowViewHolder: RowPresenter.ViewHolder,
+            row: Row,
+        ) {
+            val episode = item as? BaseItemDto ?: return
+            if (episode.type != BaseItemKind.EPISODE) return
+            startActivity(
+                Intent(requireContext(), PlaybackActivity::class.java)
+                    .putExtra(PlaybackActivity.EXTRA_ITEM_ID, episode.id.toString())
+                    .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, episode.name),
+            )
+        }
     }
 
     private inner class DescriptionPresenter : AbstractDetailsDescriptionPresenter() {
