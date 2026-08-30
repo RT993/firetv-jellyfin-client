@@ -93,6 +93,12 @@ class ItemDetailsFragment : DetailsSupportFragment() {
 
     private fun setupRow(repository: JellyfinRepository, item: BaseItemDto) {
         val detailsPresenter = FullWidthDetailsOverviewRowPresenter(DescriptionPresenter())
+        // Leanback's default description/actions panel is fully opaque, which reads as a hard
+        // slab against the backdrop behind it. Make it translucent instead so the backdrop
+        // stays visible through it - softer, less contrast-y.
+        val panelColor = ContextCompat.getColor(requireContext(), R.color.details_panel_scrim)
+        detailsPresenter.backgroundColor = panelColor
+        detailsPresenter.actionsBackgroundColor = panelColor
         detailsPresenter.onActionClickedListener = OnActionClickedListener { action ->
             if (action.id == ACTION_PLAY) {
                 startActivity(
