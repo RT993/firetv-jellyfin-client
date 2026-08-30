@@ -1,35 +1,52 @@
 package io.github.rt993.firetvjellyfin.ui.home
 
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.Toast
+import androidx.core.content.ContextCompat
+import androidx.leanback.app.BackgroundManager
 import androidx.leanback.app.BrowseSupportFragment
 import androidx.leanback.widget.ArrayObjectAdapter
 import androidx.leanback.widget.HeaderItem
 import androidx.leanback.widget.ListRow
 import androidx.leanback.widget.ListRowPresenter
 import androidx.leanback.widget.OnItemViewClickedListener
+import androidx.leanback.widget.OnItemViewSelectedListener
 import androidx.leanback.widget.Presenter
 import androidx.leanback.widget.Row
 import androidx.leanback.widget.RowPresenter
 import androidx.lifecycle.lifecycleScope
+import com.bumptech.glide.Glide
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.details.ItemDetailsActivity
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.ImageType
 import java.util.UUID
 
 /** Home screen: one row per Jellyfin library, each row filled with that library's items. */
 class MainBrowseFragment : BrowseSupportFragment() {
 
     private val rowsAdapter = ArrayObjectAdapter(ListRowPresenter())
+    private lateinit var backgroundManager: BackgroundManager
+    private var repository: JellyfinRepository? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        backgroundManager = BackgroundManager.getInstance(requireActivity()).apply {
+            attach(requireActivity().window)
+        }
 
         // BrowseSupportFragment decides whether to create its internal row-content fragment
         // exactly once, synchronously inside its own onCreateView() - which runs before our
@@ -49,6 +66,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
         setHeadersState(HEADERS_DISABLED)
         setHeadersTransitionOnBackEnabled(false)
         onItemViewClickedListener = ItemClickedListener()
+        onItemViewSelectedListener = ItemSelectedListener()
 
         loadLibraries()
     }
@@ -67,17 +85,18 @@ class MainBrowseFragment : BrowseSupportFragment() {
             Toast.makeText(requireContext(), "Bad userId: $userIdString", Toast.LENGTH_LONG).show()
             return
         }
-        val repository = JellyfinRepository(api)
-        val cardPresenter = CardPresenter(repository)
+        val repo = JellyfinRepository(api)
+        repository = repo
+        val cardPresenter = CardPresenter(repo)
 
         lifecycleScope.launch {
-            runCatching { repository.getUserViews(userId) }
+            runCatching { repo.getUserViews(userId) }
                 .onSuccess { views ->
                     Log.i(TAG, "getUserViews returned ${views.size} view(s): ${views.map { it.name to it.collectionType }}")
                     if (views.isEmpty()) {
                         Toast.makeText(requireContext(), "Server returned 0 libraries for this user", Toast.LENGTH_LONG).show()
                     }
-                    views.forEach { view -> loadRow(repository, cardPresenter, userId, view) }
+                    views.forEach { view -> loadRow(repo, cardPresenter, userId, view) }
                     rowsAdapter.removeItems(0, 1) // drop the placeholder row seeded in onCreate()
                 }
                 .onFailure {
@@ -92,12 +111,12 @@ class MainBrowseFragment : BrowseSupportFragment() {
     }
 
     private suspend fun loadRow(
-        repository: JellyfinRepository,
+        repo: JellyfinRepository,
         cardPresenter: CardPresenter,
         userId: UUID,
         view: BaseItemDto,
     ) {
-        val items = runCatching { repository.getItems(userId, view.id) }
+        val items = runCatching { repo.getItems(userId, view.id) }
             .onFailure { Log.e(TAG, "getItems failed for view ${view.name}", it) }
             .getOrDefault(emptyList())
         Log.i(TAG, "view \"${view.name}\" (${view.collectionType}): ${items.size} item(s)")
@@ -120,6 +139,38 @@ class MainBrowseFragment : BrowseSupportFragment() {
                 .putExtra(ItemDetailsActivity.EXTRA_ITEM_ID, baseItem.id.toString())
             startActivity(intent)
         }
+    }
+
+    private inner class ItemSelectedListener : OnItemViewSelectedListener {
+        override fun onItemSelected(
+            itemViewHolder: Presenter.ViewHolder?,
+            item: Any?,
+            rowViewHolder: RowPresenter.ViewHolder?,
+            row: Row?,
+        ) {
+            val baseItem = item as? BaseItemDto ?: return
+            updateBackground(baseItem)
+        }
+    }
+
+    /** Sets the blurred/dimmed backdrop behind the rows to the currently focused item's art. */
+    private fun updateBackground(item: BaseItemDto) {
+        val repo = repository ?: return
+        if (item.backdropImageTags.isNullOrEmpty()) return
+
+        val url = repo.buildImageUrl(item.id, imageType = ImageType.BACKDROP, maxWidth = 1280)
+        Glide.with(this)
+            .asBitmap()
+            .load(url)
+            .into(object : CustomTarget<Bitmap>() {
+                override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
+                    if (!isAdded) return
+                    val scrim = ColorDrawable(ContextCompat.getColor(requireContext(), R.color.backdrop_scrim))
+                    backgroundManager.drawable = LayerDrawable(arrayOf(BitmapDrawable(resources, resource), scrim))
+                }
+
+                override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) = Unit
+            })
     }
 
     private companion object {

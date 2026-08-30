@@ -1,7 +1,12 @@
 package io.github.rt993.firetvjellyfin.ui.home
 
+import android.content.Context
+import android.graphics.Outline
 import android.util.TypedValue
+import android.view.View
 import android.view.ViewGroup
+import android.view.ViewOutlineProvider
+import androidx.core.content.ContextCompat
 import androidx.leanback.widget.ImageCardView
 import androidx.leanback.widget.Presenter
 import com.bumptech.glide.Glide
@@ -11,6 +16,7 @@ import org.jellyfin.sdk.model.api.BaseItemDto
 
 private const val CARD_WIDTH_DP = 180
 private const val CARD_HEIGHT_DP = 270
+private const val CARD_CORNER_RADIUS_DP = 8
 
 /** Renders a single [BaseItemDto] as a poster card inside a leanback row. */
 class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
@@ -20,6 +26,8 @@ class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
             isFocusable = true
             isFocusableInTouchMode = true
             setMainImageDimensions(parent.context, CARD_WIDTH_DP, CARD_HEIGHT_DP)
+            infoAreaBackground = ContextCompat.getDrawable(context, R.color.card_default)
+            clipRoundedCorners(context)
         }
         return ViewHolder(cardView)
     }
@@ -46,11 +54,24 @@ class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
         cardView.mainImage = null
     }
 
-    private fun ImageCardView.setMainImageDimensions(context: android.content.Context, widthDp: Int, heightDp: Int) {
-        val density = context.resources.displayMetrics.density
+    private fun ImageCardView.setMainImageDimensions(context: Context, widthDp: Int, heightDp: Int) {
         setMainImageDimensions(
             TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, widthDp.toFloat(), context.resources.displayMetrics).toInt(),
             TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, heightDp.toFloat(), context.resources.displayMetrics).toInt(),
         )
+    }
+
+    private fun ImageCardView.clipRoundedCorners(context: Context) {
+        val radiusPx = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            CARD_CORNER_RADIUS_DP.toFloat(),
+            context.resources.displayMetrics,
+        )
+        outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, radiusPx)
+            }
+        }
+        clipToOutline = true
     }
 }
