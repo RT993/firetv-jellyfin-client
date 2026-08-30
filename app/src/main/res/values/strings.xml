@@ -19,6 +19,10 @@
     <string name="home_title">Fire TV Jellyfin</string>
     <string name="home_loading">Loading your libraries…</string>
     <string name="home_error">Could not load libraries from the server.</string>
+    <string name="app_logo">JELLYFIN</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_movies">Movies</string>
+    <string name="nav_shows">TV Shows</string>
 
     <!-- Details -->
     <string name="details_play">Play</string>

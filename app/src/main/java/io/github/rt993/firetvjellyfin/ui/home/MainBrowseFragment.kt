@@ -31,6 +31,7 @@ import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.details.ItemDetailsActivity
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.CollectionType
 import org.jellyfin.sdk.model.api.ImageType
 import java.util.UUID
 
@@ -40,6 +41,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
     private val rowsAdapter = ArrayObjectAdapter(ListRowPresenter())
     private lateinit var backgroundManager: BackgroundManager
     private var repository: JellyfinRepository? = null
+    private val rowIndexByCollectionType = mutableMapOf<CollectionType, Int>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,7 +64,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        title = getString(R.string.home_title)
+        // No Leanback title/breadcrumb - HomeActivity's own top bar (logo, nav, username) replaces it.
         setHeadersState(HEADERS_DISABLED)
         setHeadersTransitionOnBackEnabled(false)
         onItemViewClickedListener = ItemClickedListener()
@@ -125,6 +127,13 @@ class MainBrowseFragment : BrowseSupportFragment() {
         val rowAdapter = ArrayObjectAdapter(cardPresenter).apply { addAll(0, items) }
         val header = HeaderItem(rowsAdapter.size().toLong(), view.name.orEmpty())
         rowsAdapter.add(ListRow(header, rowAdapter))
+        view.collectionType?.let { rowIndexByCollectionType[it] = rowsAdapter.size() - 1 }
+    }
+
+    /** Scrolls/focuses the row for [type], or the top of the page if null. Used by the top nav bar. */
+    fun scrollToLibrary(type: CollectionType?) {
+        val index = if (type == null) 0 else rowIndexByCollectionType[type] ?: return
+        if (index < rowsAdapter.size()) setSelectedPosition(index, true)
     }
 
     private inner class ItemClickedListener : OnItemViewClickedListener {

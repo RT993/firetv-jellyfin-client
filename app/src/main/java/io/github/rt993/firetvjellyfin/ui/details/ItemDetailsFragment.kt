@@ -22,6 +22,7 @@ import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.playback.PlaybackActivity
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.PersonKind
 import java.util.UUID
 
 /** Shows metadata for one item plus a Play action that hands off to [PlaybackActivity]. */
@@ -81,13 +82,46 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         override fun onBindDescription(viewHolder: ViewHolder, item: Any) {
             val baseItem = item as BaseItemDto
             viewHolder.title.text = baseItem.name
-            viewHolder.subtitle.text = baseItem.productionYear?.toString()
-                ?: getString(R.string.details_unknown_year)
-            viewHolder.body.text = baseItem.overview.orEmpty()
+            viewHolder.subtitle.text = buildSubtitle(baseItem)
+            viewHolder.body.text = buildBody(baseItem)
+        }
+
+        private fun buildSubtitle(item: BaseItemDto): String {
+            val parts = mutableListOf<String>()
+            item.communityRating?.let { parts += "★ %.1f".format(it) }
+            parts += item.productionYear?.toString() ?: getString(R.string.details_unknown_year)
+            formatRuntime(item.runTimeTicks)?.let { parts += it }
+            item.officialRating?.let { parts += it }
+            return parts.joinToString("  ·  ")
+        }
+
+        private fun buildBody(item: BaseItemDto): String {
+            val sections = mutableListOf<String>()
+            item.overview?.takeIf { it.isNotBlank() }?.let { sections += it }
+            item.genres?.takeIf { it.isNotEmpty() }?.let { sections += it.joinToString(", ") }
+            val cast = item.people
+                ?.filter { it.type == PersonKind.ACTOR }
+                ?.take(MAX_CAST_SHOWN)
+                ?.mapNotNull { it.name }
+            if (!cast.isNullOrEmpty()) {
+                sections += "Starring: " + cast.joinToString(", ")
+            }
+            return sections.joinToString("\n\n")
+        }
+
+        /** Jellyfin runtimes are in 100-nanosecond .NET ticks; 10,000,000 ticks = 1 second. */
+        private fun formatRuntime(ticks: Long?): String? {
+            if (ticks == null) return null
+            val totalMinutes = (ticks / 10_000_000L / 60L).toInt()
+            if (totalMinutes <= 0) return null
+            val hours = totalMinutes / 60
+            val minutes = totalMinutes % 60
+            return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
         }
     }
 
     private companion object {
         const val ACTION_PLAY = 1L
+        const val MAX_CAST_SHOWN = 6
     }
 }

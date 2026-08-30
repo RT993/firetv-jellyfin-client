@@ -3,8 +3,9 @@
     <color name="jellyfin_purple">#00A4DC</color>
     <color name="background_dark">#101418</color>
     <color name="card_default">#202832</color>
+    <color name="card_default_translucent">#CC202832</color>
     <color name="text_primary">#FFFFFF</color>
     <color name="text_secondary">#B0B8C0</color>
     <color name="backdrop_scrim">#CC101418</color>
-    <color name="focus_ring_amber">#FFB43A</color>
+    <color name="topbar_bg">#B3101418</color>
 </resources>

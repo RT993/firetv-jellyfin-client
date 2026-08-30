@@ -75,7 +75,7 @@ class CredentialsStepFragment : GuidedStepSupportFragment() {
                     val token = result.accessToken
                     val userId = result.user?.id
                     if (token != null && userId != null) {
-                        JellyfinClientHolder.persistSession(token, userId.toString())
+                        JellyfinClientHolder.persistSession(token, userId.toString(), result.user?.name)
                         startHome()
                     } else {
                         showError()

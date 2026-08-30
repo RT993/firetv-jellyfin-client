@@ -43,13 +43,16 @@ object JellyfinClientHolder {
         return client
     }
 
-    fun persistSession(accessToken: String, userId: String) {
+    fun persistSession(accessToken: String, userId: String, username: String?) {
         api?.update(accessToken = accessToken)
         credentialStore.accessToken = accessToken
         credentialStore.userId = userId
+        credentialStore.username = username
     }
 
     fun currentUserId(): String? = credentialStore.userId
+
+    fun currentUsername(): String? = credentialStore.username
 
     fun hasStoredSession(): Boolean = credentialStore.hasSession
 

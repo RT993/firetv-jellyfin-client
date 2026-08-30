@@ -27,6 +27,10 @@ class CredentialStore(context: Context) {
         get() = prefs.getString(KEY_USER_ID, null)
         set(value) = prefs.edit().putString(KEY_USER_ID, value).apply()
 
+    var username: String?
+        get() = prefs.getString(KEY_USERNAME, null)
+        set(value) = prefs.edit().putString(KEY_USERNAME, value).apply()
+
     val hasSession: Boolean
         get() = !serverUrl.isNullOrBlank() && !accessToken.isNullOrBlank()
 
@@ -39,5 +43,6 @@ class CredentialStore(context: Context) {
         const val KEY_SERVER_URL = "server_url"
         const val KEY_ACCESS_TOKEN = "access_token"
         const val KEY_USER_ID = "user_id"
+        const val KEY_USERNAME = "username"
     }
 }

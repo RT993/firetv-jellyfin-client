@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Dome, left half -->
+    <path
+        android:pathData="M15,45 A35,35 0 0 1 50,10 L50,45 Z"
+        android:fillColor="#AA5CC3" />
+    <!-- Dome, right half -->
+    <path
+        android:pathData="M50,10 A35,35 0 0 1 85,45 L50,45 Z"
+        android:fillColor="#00A4DC" />
+    <!-- Shine highlight -->
+    <path
+        android:pathData="M22,26 a8,4.5 0 1,0 16,0 a8,4.5 0 1,0 -16,0 Z"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.25" />
+
+    <!-- Tentacles -->
+    <path
+        android:pathData="M30,44 C24,54 36,60 30,70 C25,79 32,81 30,87"
+        android:strokeColor="#C15CC0"
+        android:strokeWidth="3.4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M50,44 C44,54 56,62 50,72 C44,82 53,85 50,91"
+        android:strokeColor="#7B68C4"
+        android:strokeWidth="3.4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M70,44 C76,54 64,60 70,70 C76,79 68,81 70,86"
+        android:strokeColor="#29B6DA"
+        android:strokeWidth="3.4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Tentacle end dots -->
+    <path android:pathData="M30,87 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" android:fillColor="#C15CC0" />
+    <path android:pathData="M50,91 m-3.4,0 a3.4,3.4 0 1,0 6.8,0 a3.4,3.4 0 1,0 -6.8,0" android:fillColor="#7B68C4" />
+    <path android:pathData="M70,86 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" android:fillColor="#29B6DA" />
+</vector>
