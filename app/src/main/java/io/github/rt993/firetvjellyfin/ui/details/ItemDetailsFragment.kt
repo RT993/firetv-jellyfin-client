@@ -104,6 +104,13 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         val panelColor = ContextCompat.getColor(requireContext(), R.color.details_panel_scrim)
         detailsPresenter.backgroundColor = panelColor
         detailsPresenter.actionsBackgroundColor = Color.TRANSPARENT
+        // FullWidthDetailsOverviewRowPresenter also layers its own dim overlay - a foreground
+        // Drawable covering the whole panel, independent of the colors above - that goes to 60%
+        // opaque black whenever the row is considered "unselected" (its default state until the
+        // Rows fragment explicitly marks it selected). With only one row and no related-content
+        // rows below to navigate to, that dimming serves no purpose here and stacks yet another
+        // dark layer on top of everything, including the text. Turn it off outright.
+        detailsPresenter.setSelectEffectEnabled(false)
         detailsPresenter.onActionClickedListener = OnActionClickedListener { action ->
             if (action.id == ACTION_PLAY) {
                 startActivity(
