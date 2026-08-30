@@ -35,20 +35,25 @@ class HomeActivity : FragmentActivity(R.layout.activity_home) {
         supportFragmentManager.findFragmentById(R.id.main_browse_fragment) as? MainBrowseFragment
 
     /**
-     * Leanback's BrowseSupportFragment keeps D-pad focus contained within its own row content
-     * and does not hand DPAD_UP off to sibling views outside it (the top bar lives in the
-     * Activity's own layout, not inside BrowseSupportFragment's view tree), so pressing up from
-     * the top row never reaches the nav bar via normal focus search. Catch it explicitly here:
-     * this only fires when nothing below already consumed the key (i.e. focus had nowhere left
-     * to go), so it's safe to always redirect to the nav bar rather than trying to detect
-     * "currently on the top row".
+     * Leanback's BrowseSupportFragment/BrowseFrameLayout keeps D-pad focus contained within its
+     * own row content and swallows DPAD_UP itself (returns true / consumes it) even when there's
+     * nowhere left for it to move focus to, rather than letting it bubble back up unconsumed - so
+     * catching it in onKeyDown() (which only fires for events nothing else consumed) never fired.
+     * dispatchKeyEvent() runs before the view hierarchy gets a chance to swallow anything, so
+     * intercept it there instead - but only when actually on the top row and not already in the
+     * top bar, so DPAD_UP still moves between rows normally everywhere else.
      */
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_DPAD_UP && !isFocusInTopBar()) {
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (
+            event.action == KeyEvent.ACTION_DOWN &&
+            event.keyCode == KeyEvent.KEYCODE_DPAD_UP &&
+            !isFocusInTopBar() &&
+            browseFragment()?.isAtTopRow() == true
+        ) {
             findViewById<View>(R.id.nav_home).requestFocus()
             return true
         }
-        return super.onKeyDown(keyCode, event)
+        return super.dispatchKeyEvent(event)
     }
 
     private fun isFocusInTopBar(): Boolean {

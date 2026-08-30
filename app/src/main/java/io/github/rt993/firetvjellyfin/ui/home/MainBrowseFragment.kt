@@ -136,6 +136,9 @@ class MainBrowseFragment : BrowseSupportFragment() {
         if (index < rowsAdapter.size()) setSelectedPosition(index, true)
     }
 
+    /** True when the topmost row is selected, i.e. pressing up has nowhere left to go. */
+    fun isAtTopRow(): Boolean = selectedPosition <= 0
+
     private inner class ItemClickedListener : OnItemViewClickedListener {
         override fun onItemClicked(
             itemViewHolder: Presenter.ViewHolder,

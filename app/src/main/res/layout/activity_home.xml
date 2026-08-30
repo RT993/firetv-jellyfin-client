@@ -26,8 +26,6 @@
         <ImageView
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:elevation="10dp"
-            android:outlineProvider="bounds"
             android:src="@drawable/ic_jellyfin_logo"
             android:contentDescription="@null" />
 
