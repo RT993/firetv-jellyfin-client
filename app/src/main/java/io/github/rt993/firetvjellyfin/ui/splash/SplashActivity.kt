@@ -76,9 +76,9 @@ class SplashActivity : FragmentActivity(R.layout.activity_splash) {
     private fun dpToPx(dp: Float): Float = dp * resources.displayMetrics.density
 
     private companion object {
-        const val ENTRANCE_MS = 450L
-        const val FLOAT_STEP_MS = 650L
-        const val EXIT_MS = 450L
+        const val ENTRANCE_MS = 500L
+        const val FLOAT_STEP_MS = 1000L
+        const val EXIT_MS = 500L
         const val ENTRANCE_SCALE = 0.6f
         const val EXIT_SCALE = 1.35f
 
