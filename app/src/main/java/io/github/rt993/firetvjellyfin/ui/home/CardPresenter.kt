@@ -1,7 +1,9 @@
 package io.github.rt993.firetvjellyfin.ui.home
 
 import android.content.Context
+import android.graphics.Color
 import android.graphics.Outline
+import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
@@ -16,7 +18,10 @@ import org.jellyfin.sdk.model.api.BaseItemDto
 
 private const val CARD_WIDTH_DP = 180
 private const val CARD_HEIGHT_DP = 270
-private const val CARD_CORNER_RADIUS_DP = 8
+private const val CARD_CORNER_RADIUS_DP = 14
+private const val FOCUS_RING_WIDTH_DP = 3
+private const val FOCUS_SCALE = 1.08f
+private const val FOCUS_ANIM_MS = 150L
 
 /** Renders a single [BaseItemDto] as a poster card inside a leanback row. */
 class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
@@ -28,6 +33,16 @@ class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
             setMainImageDimensions(parent.context, CARD_WIDTH_DP, CARD_HEIGHT_DP)
             infoAreaBackground = ContextCompat.getDrawable(context, R.color.card_default)
             clipRoundedCorners(context)
+
+            val focusRing = createFocusRingDrawable(context)
+            onFocusChangeListener = View.OnFocusChangeListener { view, hasFocus ->
+                view.foreground = if (hasFocus) focusRing else null
+                view.animate()
+                    .scaleX(if (hasFocus) FOCUS_SCALE else 1f)
+                    .scaleY(if (hasFocus) FOCUS_SCALE else 1f)
+                    .setDuration(FOCUS_ANIM_MS)
+                    .start()
+            }
         }
         return ViewHolder(cardView)
     }
@@ -62,11 +77,7 @@ class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
     }
 
     private fun ImageCardView.clipRoundedCorners(context: Context) {
-        val radiusPx = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            CARD_CORNER_RADIUS_DP.toFloat(),
-            context.resources.displayMetrics,
-        )
+        val radiusPx = dpToPx(context, CARD_CORNER_RADIUS_DP)
         outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
                 outline.setRoundRect(0, 0, view.width, view.height, radiusPx)
@@ -74,4 +85,15 @@ class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
         }
         clipToOutline = true
     }
+
+    /** Crisp amber ring shown around the card while it has D-pad focus. */
+    private fun createFocusRingDrawable(context: Context): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = dpToPx(context, CARD_CORNER_RADIUS_DP)
+        setStroke(dpToPx(context, FOCUS_RING_WIDTH_DP).toInt(), ContextCompat.getColor(context, R.color.focus_ring_amber))
+        setColor(Color.TRANSPARENT)
+    }
+
+    private fun dpToPx(context: Context, dp: Int): Float =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp.toFloat(), context.resources.displayMetrics)
 }
