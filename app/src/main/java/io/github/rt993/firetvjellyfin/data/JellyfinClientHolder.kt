@@ -2,7 +2,6 @@ package io.github.rt993.firetvjellyfin.data
 
 import android.content.Context
 import org.jellyfin.sdk.Jellyfin
-import org.jellyfin.sdk.android
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.createJellyfin
 import org.jellyfin.sdk.model.ClientInfo
@@ -24,7 +23,7 @@ object JellyfinClientHolder {
     fun initialize(context: Context) {
         credentialStore = CredentialStore(context)
         jellyfin = createJellyfin {
-            android(context)
+            this.context = context
             clientInfo = ClientInfo(name = "Fire TV Jellyfin", version = BuildConfigVersion)
         }
 

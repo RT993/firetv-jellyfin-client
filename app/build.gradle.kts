@@ -71,9 +71,10 @@ dependencies {
     implementation(libs.media3.ui.leanback)
     implementation(libs.media3.session)
 
-    // Jellyfin server communication
+    // Jellyfin server communication. jellyfin-core has built-in Android support (JellyfinOptions
+    // .Builder.context) as of 1.6.x - the separate jellyfin-platform-android artifact is stuck at
+    // 1.0.3 (matching only jellyfin-core:1.0.3) and is binary-incompatible with current releases.
     implementation(libs.jellyfin.core)
-    implementation(libs.jellyfin.platform.android)
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)

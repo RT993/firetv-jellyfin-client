@@ -10,7 +10,6 @@ media3 = "1.11.0"
 coroutines = "1.10.2"
 serializationJson = "1.9.0"
 jellyfinSdk = "1.6.8"
-jellyfinPlatformAndroid = "1.0.3"
 glide = "4.16.0"
 
 [libraries]
@@ -28,7 +27,6 @@ media3-session = { group = "androidx.media3", name = "media3-session", version.r
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serializationJson" }
 jellyfin-core = { group = "org.jellyfin.sdk", name = "jellyfin-core", version.ref = "jellyfinSdk" }
-jellyfin-platform-android = { group = "org.jellyfin.sdk", name = "jellyfin-platform-android", version.ref = "jellyfinPlatformAndroid" }
 glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
 
 [plugins]
