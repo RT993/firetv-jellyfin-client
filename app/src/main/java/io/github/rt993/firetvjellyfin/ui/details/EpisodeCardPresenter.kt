@@ -16,9 +16,9 @@ import io.github.rt993.firetvjellyfin.util.formatRuntimeTicks
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.ImageType
 
-private const val CARD_WIDTH_DP = 320
-private const val CARD_HEIGHT_DP = 180
-private const val CARD_CORNER_RADIUS_DP = 12
+private const val CARD_WIDTH_DP = 240
+private const val CARD_HEIGHT_DP = 135
+private const val CARD_CORNER_RADIUS_DP = 10
 private const val FOCUS_SCALE = 1.06f
 private const val FOCUS_ELEVATION_DP = 18
 private const val FOCUS_ANIM_MS = 150L
