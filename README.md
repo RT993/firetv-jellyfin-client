@@ -19,7 +19,7 @@ The easiest way, with no computer required:
    tinyurl.com/25r4a86f
    ```
    (Expands to `https://github.com/RT993/firetv-jellyfin-client/releases/latest/download/TreeHouse.apk`.)
-4. Downloader will fetch and install it. Launch **TreeHouse** from the Fire TV home screen.
+4. Downloader will fetch and install it. Launch **Jellythin** from the Fire TV home screen.
 
 This link always points at the newest release, so re-entering the same URL in Downloader later
 gets you the latest update. See [Releases](https://github.com/RT993/firetv-jellyfin-client/releases)
