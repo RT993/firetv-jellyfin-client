@@ -14,10 +14,11 @@ The easiest way, with no computer required:
    About** and click on the build number a few times to unlock it.)
 2. Install **Downloader** (search for it in the Fire TV's app store - it's free, published by
    AFTVnews).
-3. Open Downloader and enter this URL:
+3. Open Downloader and enter this URL (short, easier to type with a remote):
    ```
-   https://github.com/RT993/firetv-jellyfin-client/releases/latest/download/TreeHouse.apk
+   tinyurl.com/25r4a86f
    ```
+   (Expands to `https://github.com/RT993/firetv-jellyfin-client/releases/latest/download/TreeHouse.apk`.)
 4. Downloader will fetch and install it. Launch **TreeHouse** from the Fire TV home screen.
 
 This link always points at the newest release, so re-entering the same URL in Downloader later
