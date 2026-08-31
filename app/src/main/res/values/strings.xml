@@ -27,6 +27,9 @@
     <string name="nav_movies">Movies</string>
     <string name="nav_shows">TV Shows</string>
     <string name="home_recently_added">Recently Added</string>
+    <string name="hero_ends_at_format">Ends at %1$s</string>
+    <string name="hero_info">More info</string>
+    <string name="hero_favorite">Favorite</string>
 
     <!-- Details -->
     <string name="details_play">Play</string>

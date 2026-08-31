@@ -9,6 +9,7 @@ import org.jellyfin.sdk.api.client.extensions.mediaInfoApi
 import org.jellyfin.sdk.api.client.extensions.quickConnectApi
 import org.jellyfin.sdk.api.client.extensions.tvShowsApi
 import org.jellyfin.sdk.api.client.extensions.userApi
+import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.api.client.extensions.userViewsApi
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.AuthenticationResult
@@ -98,7 +99,11 @@ class JellyfinRepository(private val api: ApiClient) {
         return api.tvShowsApi.getEpisodes(request).content.items.orEmpty()
     }
 
-    /** The most recently added movies and series across the whole library, newest first. */
+    /**
+     * The most recently added movies and series across the whole library, newest first, with the
+     * overview/user-data (favorite state, resume position) the hero banner needs - the plain
+     * per-library [getItems] above skips both to keep those responses small.
+     */
     suspend fun getRecentlyAdded(userId: UUID, limit: Int = 20): List<BaseItemDto> {
         val request = GetItemsRequest(
             userId = userId,
@@ -106,9 +111,21 @@ class JellyfinRepository(private val api: ApiClient) {
             includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES),
             sortBy = listOf(ItemSortBy.DATE_CREATED),
             sortOrder = listOf(SortOrder.DESCENDING),
+            fields = listOf(ItemFields.OVERVIEW, ItemFields.GENRES),
+            enableUserData = true,
             limit = limit,
         )
         return api.itemsApi.getItems(request).content.items.orEmpty()
+    }
+
+    /** Marks/unmarks an item as a favorite for this user, returning the resulting favorite state. */
+    suspend fun setFavorite(userId: UUID, itemId: UUID, favorite: Boolean): Boolean {
+        val response = if (favorite) {
+            api.userLibraryApi.markFavoriteItem(itemId = itemId, userId = userId)
+        } else {
+            api.userLibraryApi.unmarkFavoriteItem(itemId = itemId, userId = userId)
+        }
+        return response.content.isFavorite
     }
 
     fun buildImageUrl(itemId: UUID, imageType: ImageType = ImageType.PRIMARY, maxWidth: Int = 440): String =

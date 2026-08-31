@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import androidx.leanback.app.BackgroundManager
 import androidx.leanback.app.BrowseSupportFragment
 import androidx.leanback.widget.ArrayObjectAdapter
+import androidx.leanback.widget.ClassPresenterSelector
 import androidx.leanback.widget.HeaderItem
 import androidx.leanback.widget.ListRow
 import androidx.leanback.widget.ListRowPresenter
@@ -29,6 +30,7 @@ import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.details.ItemDetailsActivity
+import io.github.rt993.firetvjellyfin.ui.playback.PlaybackActivity
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.CollectionType
@@ -38,11 +40,14 @@ import java.util.UUID
 /** Home screen: one row per Jellyfin library, each row filled with that library's items. */
 class MainBrowseFragment : BrowseSupportFragment() {
 
-    private val rowsAdapter = ArrayObjectAdapter(ListRowPresenter())
+    private val presenterSelector = ClassPresenterSelector().apply {
+        addClassPresenter(ListRow::class.java, ListRowPresenter())
+    }
+    private val rowsAdapter = ArrayObjectAdapter(presenterSelector)
     private lateinit var backgroundManager: BackgroundManager
     private var repository: JellyfinRepository? = null
     private val loadedRows = mutableListOf<LoadedRow>()
-    private var recentlyAddedRow: ListRow? = null
+    private var recentlyAddedRow: HeroRow? = null
 
     private data class LoadedRow(val collectionType: CollectionType?, val row: ListRow)
 
@@ -93,9 +98,15 @@ class MainBrowseFragment : BrowseSupportFragment() {
         val repo = JellyfinRepository(api)
         repository = repo
         val cardPresenter = CardPresenter(repo)
-        // Only the Recently Added row gets the hold-to-preview treatment - a distinct presenter
-        // instance so the other rows' cards are unaffected.
-        val recentlyAddedPresenter = CardPresenter(repo, previewOnFocus = true)
+        presenterSelector.addClassPresenter(
+            HeroRow::class.java,
+            HeroRowPresenter(
+                repository = repo,
+                userId = userId,
+                onPlayClicked = ::openPlayback,
+                onInfoClicked = ::openDetails,
+            ),
+        )
 
         lifecycleScope.launch {
             runCatching { repo.getUserViews(userId) }
@@ -105,7 +116,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
                         Toast.makeText(requireContext(), "Server returned 0 libraries for this user", Toast.LENGTH_LONG).show()
                     }
                     views.forEach { view -> loadRow(repo, cardPresenter, userId, view) }
-                    loadRecentlyAdded(repo, recentlyAddedPresenter, userId)
+                    loadRecentlyAdded(repo, userId)
                     showLibrary(null) // all rows - also clears the placeholder row seeded in onCreate()
                 }
                 .onFailure {
@@ -137,22 +148,21 @@ class MainBrowseFragment : BrowseSupportFragment() {
         loadedRows += LoadedRow(view.collectionType, ListRow(header, rowAdapter))
     }
 
-    /** Home-only: first row shown, pulling in newly added movies and series across all libraries. */
-    private suspend fun loadRecentlyAdded(repo: JellyfinRepository, cardPresenter: CardPresenter, userId: UUID) {
+    /** Home-only: first row shown, a big paginated banner of newly added movies and series. */
+    private suspend fun loadRecentlyAdded(repo: JellyfinRepository, userId: UUID) {
         val items = runCatching { repo.getRecentlyAdded(userId) }
             .onFailure { Log.e(TAG, "getRecentlyAdded failed", it) }
             .getOrDefault(emptyList())
         Log.i(TAG, "recently added: ${items.size} item(s)")
         if (items.isEmpty()) return
 
-        val rowAdapter = ArrayObjectAdapter(cardPresenter).apply { addAll(0, items) }
         val header = HeaderItem(RECENTLY_ADDED_ROW_ID, getString(R.string.home_recently_added))
-        recentlyAddedRow = ListRow(header, rowAdapter)
+        recentlyAddedRow = HeroRow(header, items)
     }
 
     /**
-     * Shows only the row for [type] (a Movies/TV Shows nav filter), or every row - Recently Added
-     * first, then one per library - if null. Used by the top nav bar.
+     * Shows only the row for [type] (a Movies/TV Shows nav filter), or every row - the Recently
+     * Added hero first, then one per library - if null. Used by the top nav bar.
      */
     fun showLibrary(type: CollectionType?) {
         Log.i(TAG, "showLibrary(type=$type), loadedRows=${loadedRows.map { it.collectionType }}")
@@ -168,6 +178,21 @@ class MainBrowseFragment : BrowseSupportFragment() {
     /** True when the topmost row is selected, i.e. pressing up has nowhere left to go. */
     fun isAtTopRow(): Boolean = selectedPosition <= 0
 
+    private fun openDetails(item: BaseItemDto) {
+        startActivity(
+            Intent(requireContext(), ItemDetailsActivity::class.java)
+                .putExtra(ItemDetailsActivity.EXTRA_ITEM_ID, item.id.toString()),
+        )
+    }
+
+    private fun openPlayback(item: BaseItemDto) {
+        startActivity(
+            Intent(requireContext(), PlaybackActivity::class.java)
+                .putExtra(PlaybackActivity.EXTRA_ITEM_ID, item.id.toString())
+                .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, item.name),
+        )
+    }
+
     private inner class ItemClickedListener : OnItemViewClickedListener {
         override fun onItemClicked(
             itemViewHolder: Presenter.ViewHolder,
@@ -176,9 +201,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
             row: Row,
         ) {
             val baseItem = item as? BaseItemDto ?: return
-            val intent = Intent(requireContext(), ItemDetailsActivity::class.java)
-                .putExtra(ItemDetailsActivity.EXTRA_ITEM_ID, baseItem.id.toString())
-            startActivity(intent)
+            openDetails(baseItem)
         }
     }
 
