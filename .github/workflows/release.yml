@@ -5,6 +5,10 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag (e.g. v0.1.1) - only used for a manual run, ignored on a tag push"
+        required: true
 
 permissions:
   contents: write
@@ -29,5 +33,6 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
           files: app/build/outputs/apk/debug/TreeHouse.apk
           generate_release_notes: true
