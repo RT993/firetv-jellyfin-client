@@ -1,12 +1,50 @@
-# firetv-jellyfin-client
+# TreeHouse
 
 A lightweight, native Jellyfin client for Android TV, built specifically to run well on old,
 low-spec Amazon Fire TV Stick hardware (1-1.5GB RAM, weak quad-core CPUs). No Compose, no
 Flutter/React Native - just Leanback + Media3, which is about as light as a modern Android TV app
 gets.
 
-This is a scaffold: the screens are functional (real server login, real library browsing, real
-playback) but intentionally minimal. It's a starting point to build out, not a finished client.
+## Installing on your Fire TV Stick
+
+The easiest way, with no computer required:
+
+1. On the Fire TV Stick: **Settings -> My Fire TV -> Developer Options** -> turn on **Apps from
+   Unknown Sources**. (If you don't see Developer Options, first go to **Settings -> My Fire TV ->
+   About** and click on the build number a few times to unlock it.)
+2. Install **Downloader** (search for it in the Fire TV's app store - it's free, published by
+   AFTVnews).
+3. Open Downloader and enter this URL:
+   ```
+   https://github.com/RT993/firetv-jellyfin-client/releases/latest/download/TreeHouse.apk
+   ```
+4. Downloader will fetch and install it. Launch **TreeHouse** from the Fire TV home screen.
+
+This link always points at the newest release, so re-entering the same URL in Downloader later
+gets you the latest update. See [Releases](https://github.com/RT993/firetv-jellyfin-client/releases)
+for the full version history.
+
+If you'd rather install from a machine on the same network via ADB, see
+[Building](#building) below.
+
+## Features
+
+- **Server login**: server address entry, username/password, or Quick Connect (approve from
+  another already-signed-in Jellyfin app/web page).
+- **Home**: one row per library (Movies, TV Shows, etc.), plus **Movies**/**TV Shows** filters in
+  the top nav bar that narrow the view to a single library's rows.
+- **Details screen**: poster, title, rating/year/runtime, cast, and a translucent "glass" info
+  panel over the item's own backdrop image (loaded full-bleed via `centerCrop`, not Leanback's
+  built-in background controller - see [`ItemDetailsFragment.loadBackdrop`](app/src/main/java/io/github/rt993/firetvjellyfin/ui/details/ItemDetailsFragment.kt)
+  for why).
+- **TV series get per-episode playback**: instead of one "Play" button for the whole series, the
+  details screen lists one row per season, each full of that season's episodes as landscape
+  thumbnail cards - picking one plays that specific episode.
+- **Playback**: direct-play when the server says the file's compatible with this device, HLS
+  transcode fallback otherwise (see [below](#the-direct-play-vs-transcode-decision)), with D-pad
+  transport controls.
+- **Splash intro**: a short floating-logo animation on launch before handing off to Home (if
+  already signed in) or the login flow.
 
 ## Tech stack
 
@@ -40,9 +78,10 @@ app/src/main/java/io/github/rt993/firetvjellyfin/
 │   ├── DeviceProfileFactory.kt     Declares this device's playback capabilities to the server
 │   └── PlaybackDecisionMaker.kt    The direct-play-vs-transcode decision point (see below)
 └── ui/
+    ├── splash/   SplashActivity: launcher activity, plays the intro then routes to Home/Login
     ├── login/    Server address -> username/password or Quick Connect (GuidedStepSupportFragment flow)
     ├── home/     BrowseSupportFragment: one row per library, poster cards via CardPresenter
-    ├── details/  DetailsSupportFragment: item metadata + Play action
+    ├── details/  DetailsSupportFragment: item metadata, Play action (movies), season/episode rows (series)
     └── playback/ VideoSupportFragment wrapping a Media3 ExoPlayer instance
 ```
 
@@ -108,12 +147,12 @@ Android Studio setup is required to build from the command line:
 ./gradlew assembleDebug
 ```
 
-The debug APK lands at `app/build/outputs/apk/debug/app-debug.apk`. This project was built and
-verified with this exact command in a sandboxed CI-like environment (JDK 21, Gradle 8.14.3,
-AGP 8.13.2) with no emulator available, so only compilation/packaging was verified - the flows
-below have not been exercised on an actual device or emulator yet.
+The debug APK lands at `app/build/outputs/apk/debug/app-debug.apk`. Every push of a `v*` tag also
+builds this via [`.github/workflows/release.yml`](.github/workflows/release.yml) and publishes it
+as a [GitHub release](https://github.com/RT993/firetv-jellyfin-client/releases) - that's what the
+Downloader link above points at, and it can also be triggered manually from the Actions tab.
 
-## Sideloading onto a Fire TV Stick
+### Installing via ADB instead
 
 1. On the Fire TV Stick: **Settings -> My Fire TV -> Developer Options** -> turn on **ADB
    debugging** and **Apps from Unknown Sources**.
@@ -140,6 +179,9 @@ below have not been exercised on an actual device or emulator yet.
 - `usesCleartextTraffic="true"` is set in the manifest because most self-hosted Jellyfin servers on
   a home network are `http://`-only; scope this to a network security config allow-listing trusted
   hosts before a wider release.
+- Releases are signed with Gradle's auto-generated debug keystore, not a dedicated release key -
+  fine for sideloading, but every install shares the same debug signature. Set up a real signing
+  config before distributing this any more widely.
 - A harmless manifest-merger warning appears about `org.jellyfin.sdk` being used as the namespace
   by both `jellyfin-platform-android` and `jellyfin-core-android-debug` - that's inside the SDK
   dependency itself, not this app's code.

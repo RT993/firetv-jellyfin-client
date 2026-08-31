@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Rename APK to a stable asset name
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/TreeHouse.apk
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/debug/TreeHouse.apk
+          generate_release_notes: true
