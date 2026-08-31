@@ -4,14 +4,33 @@
     android:layout_height="match_parent"
     android:background="@color/background_dark">
 
-    <ImageView
+    <LinearLayout
         android:id="@+id/splash_logo"
-        android:layout_width="153dp"
-        android:layout_height="108dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:scaleType="fitCenter"
-        android:src="@drawable/img_treehouse_logo"
-        android:contentDescription="@null" />
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+
+        <ImageView
+            android:layout_width="269dp"
+            android:layout_height="190dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/img_treehouse_logo"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/app_logo"
+            android:textAllCaps="true"
+            android:textColor="@color/text_primary"
+            android:textSize="44sp"
+            android:letterSpacing="0.04"
+            android:fontFamily="@font/royalty_criminals" />
+
+    </LinearLayout>
 
     <TextView
         android:layout_width="wrap_content"

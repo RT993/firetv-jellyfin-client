@@ -93,6 +93,9 @@ class MainBrowseFragment : BrowseSupportFragment() {
         val repo = JellyfinRepository(api)
         repository = repo
         val cardPresenter = CardPresenter(repo)
+        // Only the Recently Added row gets the hold-to-preview treatment - a distinct presenter
+        // instance so the other rows' cards are unaffected.
+        val recentlyAddedPresenter = CardPresenter(repo, previewOnFocus = true)
 
         lifecycleScope.launch {
             runCatching { repo.getUserViews(userId) }
@@ -102,7 +105,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
                         Toast.makeText(requireContext(), "Server returned 0 libraries for this user", Toast.LENGTH_LONG).show()
                     }
                     views.forEach { view -> loadRow(repo, cardPresenter, userId, view) }
-                    loadRecentlyAdded(repo, cardPresenter, userId)
+                    loadRecentlyAdded(repo, recentlyAddedPresenter, userId)
                     showLibrary(null) // all rows - also clears the placeholder row seeded in onCreate()
                 }
                 .onFailure {
