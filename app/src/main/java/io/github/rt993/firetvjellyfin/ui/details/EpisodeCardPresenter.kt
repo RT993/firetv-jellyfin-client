@@ -6,6 +6,8 @@ import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import androidx.core.content.ContextCompat
 import androidx.leanback.widget.ImageCardView
 import androidx.leanback.widget.Presenter
@@ -19,9 +21,11 @@ import org.jellyfin.sdk.model.api.ImageType
 private const val CARD_WIDTH_DP = 240
 private const val CARD_HEIGHT_DP = 135
 private const val CARD_CORNER_RADIUS_DP = 10
-private const val FOCUS_SCALE = 1.06f
+private const val FOCUS_SCALE = 1.1f
 private const val FOCUS_ELEVATION_DP = 18
-private const val FOCUS_ANIM_MS = 150L
+private const val FOCUS_IN_ANIM_MS = 220L
+private const val FOCUS_OUT_ANIM_MS = 150L
+private const val FOCUS_OVERSHOOT_TENSION = 2.5f
 
 /** Renders a single episode as a landscape still-frame card inside a season row. */
 class EpisodeCardPresenter(private val repository: JellyfinRepository) : Presenter() {
@@ -40,7 +44,8 @@ class EpisodeCardPresenter(private val repository: JellyfinRepository) : Present
                     .scaleX(if (hasFocus) FOCUS_SCALE else 1f)
                     .scaleY(if (hasFocus) FOCUS_SCALE else 1f)
                     .translationZ(if (hasFocus) focusElevationPx else 0f)
-                    .setDuration(FOCUS_ANIM_MS)
+                    .setDuration(if (hasFocus) FOCUS_IN_ANIM_MS else FOCUS_OUT_ANIM_MS)
+                    .setInterpolator(if (hasFocus) OvershootInterpolator(FOCUS_OVERSHOOT_TENSION) else DecelerateInterpolator())
                     .start()
             }
         }

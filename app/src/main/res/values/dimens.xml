@@ -4,4 +4,9 @@
     <dimen name="home_topbar_height">104dp</dimen>
     <!-- Where the row content starts, below the top bar. -->
     <dimen name="home_content_margin">104dp</dimen>
+
+    <!-- Overrides Leanback's own defaults (8dp/8dp) - too tight, reads as cluttered with cards
+         this size. Also gives the focus-scale pop room to grow without clipping into neighbors. -->
+    <dimen name="lb_browse_item_horizontal_spacing">28dp</dimen>
+    <dimen name="lb_browse_item_vertical_spacing">28dp</dimen>
 </resources>

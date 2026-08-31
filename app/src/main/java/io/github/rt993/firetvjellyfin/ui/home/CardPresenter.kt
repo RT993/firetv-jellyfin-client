@@ -6,6 +6,8 @@ import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import androidx.core.content.ContextCompat
 import androidx.leanback.widget.ImageCardView
 import androidx.leanback.widget.Presenter
@@ -17,9 +19,11 @@ import org.jellyfin.sdk.model.api.BaseItemDto
 private const val CARD_WIDTH_DP = 150
 private const val CARD_HEIGHT_DP = 225
 private const val CARD_CORNER_RADIUS_DP = 14
-private const val FOCUS_SCALE = 1.08f
+private const val FOCUS_SCALE = 1.12f
 private const val FOCUS_ELEVATION_DP = 18
-private const val FOCUS_ANIM_MS = 150L
+private const val FOCUS_IN_ANIM_MS = 220L
+private const val FOCUS_OUT_ANIM_MS = 150L
+private const val FOCUS_OVERSHOOT_TENSION = 2.5f
 
 /** Renders a single [BaseItemDto] as a poster card inside a leanback row. */
 class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
@@ -38,7 +42,10 @@ class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
                     .scaleX(if (hasFocus) FOCUS_SCALE else 1f)
                     .scaleY(if (hasFocus) FOCUS_SCALE else 1f)
                     .translationZ(if (hasFocus) focusElevationPx else 0f)
-                    .setDuration(FOCUS_ANIM_MS)
+                    .setDuration(if (hasFocus) FOCUS_IN_ANIM_MS else FOCUS_OUT_ANIM_MS)
+                    // A slight overshoot on the way in gives the card a springy "pop"; settling
+                    // back down plays smooth instead, so it doesn't visibly overshoot below 1x.
+                    .setInterpolator(if (hasFocus) OvershootInterpolator(FOCUS_OVERSHOOT_TENSION) else DecelerateInterpolator())
                     .start()
             }
         }
