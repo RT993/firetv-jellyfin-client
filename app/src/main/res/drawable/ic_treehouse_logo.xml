@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A simplified tree-with-play-button mark, in the same clean vector line-art style as the
+     rest of the app - a detailed sketch (the reference artwork) would just turn to noise at the
+     small sizes this renders at (the 40dp top bar icon in particular). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Canopy - three overlapping leaf clusters -->
+    <path android:pathData="M32,36 m-16,0 a16,16 0 1,0 32,0 a16,16 0 1,0 -32,0" android:fillColor="@color/text_primary" />
+    <path android:pathData="M50,25 m-19,0 a19,19 0 1,0 38,0 a19,19 0 1,0 -38,0" android:fillColor="@color/text_primary" />
+    <path android:pathData="M68,36 m-16,0 a16,16 0 1,0 32,0 a16,16 0 1,0 -32,0" android:fillColor="@color/text_primary" />
+
+    <!-- Trunk, flaring into two roots -->
+    <path
+        android:pathData="M48,46 C47,56 46,65 44,73 C42,83 36,90 27,94"
+        android:strokeColor="@color/text_primary"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M52,46 C53,56 54,65 56,73 C58,83 64,90 73,94"
+        android:strokeColor="@color/text_primary"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Deck plank -->
+    <path
+        android:pathData="M30,63 L70,63"
+        android:strokeColor="@color/text_primary"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Window, with a play triangle inside -->
+    <path android:pathData="M50,47 m-14,0 a14,14 0 1,0 28,0 a14,14 0 1,0 -28,0" android:fillColor="@color/background_dark" />
+    <path android:pathData="M45,39 L45,55 L59,47 Z" android:fillColor="@color/text_primary" />
+
+</vector>

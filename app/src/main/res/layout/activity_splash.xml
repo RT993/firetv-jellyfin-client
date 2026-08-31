@@ -9,7 +9,7 @@
         android:layout_width="108dp"
         android:layout_height="108dp"
         android:layout_gravity="center"
-        android:src="@drawable/ic_jellyfin_logo"
+        android:src="@drawable/ic_treehouse_logo"
         android:contentDescription="@null" />
 
     <TextView
