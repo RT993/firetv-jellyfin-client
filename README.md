@@ -1,4 +1,4 @@
-# TreeHouse
+# JellyThin
 
 A lightweight, native Jellyfin client for Android TV, built specifically to run well on old,
 low-spec Amazon Fire TV Stick hardware (1-1.5GB RAM, weak quad-core CPUs). No Compose, no
