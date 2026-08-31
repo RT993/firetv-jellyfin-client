@@ -1,14 +1,15 @@
 package io.github.rt993.firetvjellyfin.ui.details
 
 import android.content.Context
+import android.graphics.Color
 import android.graphics.Outline
+import android.graphics.drawable.ColorDrawable
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
-import androidx.core.content.ContextCompat
 import androidx.leanback.widget.ImageCardView
 import androidx.leanback.widget.Presenter
 import com.bumptech.glide.Glide
@@ -35,7 +36,7 @@ class EpisodeCardPresenter(private val repository: JellyfinRepository) : Present
             isFocusable = true
             isFocusableInTouchMode = true
             setMainImageDimensions(parent.context, CARD_WIDTH_DP, CARD_HEIGHT_DP)
-            infoAreaBackground = ContextCompat.getDrawable(context, R.color.card_default_translucent)
+            infoAreaBackground = ColorDrawable(Color.TRANSPARENT)
             clipRoundedCorners(context)
 
             val focusElevationPx = dpToPx(context, FOCUS_ELEVATION_DP)
