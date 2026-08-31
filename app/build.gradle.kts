@@ -25,6 +25,22 @@ android {
         vectorDrawables.useSupportLibrary = true
     }
 
+    // Gradle's implicit debug signing config auto-generates a fresh, per-machine keystore
+    // (~/.android/debug.keystore) the first time it's needed - fine for a single dev machine, but
+    // it means every CI runner (a fresh machine each run) mints its own distinct key, so a debug
+    // APK built by CI has a different signature than one built locally. Android refuses to install
+    // an update whose signature doesn't match what's already installed ("App not installed"), so
+    // sideloaded builds and GitHub Release builds would permanently conflict with each other.
+    // Pin a real, checked-in keystore instead so every build - local or CI - is signed identically.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("../keystore/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -32,6 +48,7 @@ android {
         }
         debug {
             isDebuggable = true
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
