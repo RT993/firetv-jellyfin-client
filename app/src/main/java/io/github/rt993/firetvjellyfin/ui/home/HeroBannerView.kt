@@ -1,16 +1,19 @@
 package io.github.rt993.firetvjellyfin.ui.home
 
 import android.content.Context
+import android.graphics.Outline
 import android.util.AttributeSet
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewOutlineProvider
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import io.github.rt993.firetvjellyfin.R
@@ -29,6 +32,7 @@ import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
 
 private const val BACKDROP_CROSSFADE_MS = 350
+private const val CARD_CORNER_RADIUS_DP = 24
 
 /**
  * One big item at a time (title/description/backdrop/actions), paged with D-pad left/right - not
@@ -73,6 +77,15 @@ class HeroBannerView @JvmOverloads constructor(
         btnInfo = findViewById(R.id.hero_btn_info)
         btnFavorite = findViewById(R.id.hero_btn_favorite)
         dotsContainer = findViewById(R.id.hero_dots)
+
+        val card = findViewById<View>(R.id.hero_card)
+        card.outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, dpToPx(CARD_CORNER_RADIUS_DP))
+            }
+        }
+        card.clipToOutline = true
+        card.foreground = ContextCompat.getDrawable(context, R.drawable.hero_card_border)
 
         btnPlay.setOnClickListener { withCurrentItem { item -> routeToPlayOrInfo(item) } }
         btnInfo.setOnClickListener { withCurrentItem { item -> onInfoClicked?.invoke(item) } }

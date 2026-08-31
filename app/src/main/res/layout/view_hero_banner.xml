@@ -2,132 +2,141 @@
 <merge xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <ImageView
-        android:id="@+id/hero_backdrop"
+    <FrameLayout
+        android:id="@+id/hero_card"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:scaleType="centerCrop"
-        android:contentDescription="@null" />
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@drawable/hero_gradient_scrim" />
-
-    <LinearLayout
-        android:layout_width="640dp"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|start"
-        android:layout_marginStart="48dp"
-        android:layout_marginEnd="48dp"
-        android:layout_marginBottom="36dp"
-        android:orientation="vertical">
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp">
 
         <ImageView
-            android:id="@+id/hero_logo"
-            android:layout_width="wrap_content"
-            android:layout_height="90dp"
-            android:layout_gravity="start"
-            android:adjustViewBounds="true"
-            android:scaleType="fitStart"
+            android:id="@+id/hero_backdrop"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
             android:contentDescription="@null" />
 
-        <TextView
-            android:id="@+id/hero_title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@color/text_primary"
-            android:textSize="34sp"
-            android:textStyle="bold"
-            android:maxLines="1"
-            android:ellipsize="end"
-            tools:text="The Lord of the Rings" />
-
-        <TextView
-            android:id="@+id/hero_meta"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:textColor="@color/text_secondary"
-            android:textSize="14sp"
-            tools:text="★ 8.4  •  91%  •  2001  •  PG-13  •  Ends at 9:48 PM" />
-
-        <TextView
-            android:id="@+id/hero_genres"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="@color/text_secondary"
-            android:textSize="14sp"
-            tools:text="Adventure  •  Fantasy  •  Action" />
-
-        <TextView
-            android:id="@+id/hero_description"
+        <View
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:textColor="@color/text_secondary"
-            android:textSize="14sp"
-            android:maxLines="2"
-            android:ellipsize="end"
-            tools:text="Young hobbit Frodo Baggins, after inheriting a mysterious ring from his uncle Bilbo, must leave his home in order to keep it from falling into the hands of its evil creator." />
+            android:layout_height="match_parent"
+            android:background="@drawable/hero_gradient_scrim" />
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="640dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="40dp"
+            android:layout_marginEnd="40dp"
+            android:layout_marginBottom="36dp"
+            android:orientation="vertical">
 
-            <Button
-                android:id="@+id/hero_btn_play"
+            <ImageView
+                android:id="@+id/hero_logo"
                 android:layout_width="wrap_content"
-                android:layout_height="52dp"
-                android:background="@drawable/login_button_primary_bg"
-                android:drawableStart="@drawable/ic_hero_play"
-                android:drawablePadding="10dp"
-                android:paddingStart="22dp"
-                android:paddingEnd="26dp"
-                android:text="@string/details_play"
-                android:textAllCaps="false"
+                android:layout_height="90dp"
+                android:layout_gravity="start"
+                android:adjustViewBounds="true"
+                android:scaleType="fitStart"
+                android:contentDescription="@null" />
+
+            <TextView
+                android:id="@+id/hero_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:textColor="@color/text_primary"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                android:textSize="34sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end"
+                tools:text="The Lord of the Rings" />
 
-            <ImageButton
-                android:id="@+id/hero_btn_info"
-                android:layout_width="52dp"
-                android:layout_height="52dp"
-                android:layout_marginStart="12dp"
-                android:background="@drawable/hero_icon_button_bg"
-                android:padding="14dp"
-                android:scaleType="fitCenter"
-                android:src="@drawable/ic_hero_info"
-                android:contentDescription="@string/hero_info" />
+            <TextView
+                android:id="@+id/hero_meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp"
+                tools:text="★ 8.4  •  91%  •  2001  •  PG-13  •  Ends at 9:48 PM" />
 
-            <ImageButton
-                android:id="@+id/hero_btn_favorite"
-                android:layout_width="52dp"
-                android:layout_height="52dp"
-                android:layout_marginStart="12dp"
-                android:background="@drawable/hero_icon_button_bg"
-                android:padding="14dp"
-                android:scaleType="fitCenter"
-                android:src="@drawable/ic_hero_heart_outline"
-                android:contentDescription="@string/hero_favorite" />
+            <TextView
+                android:id="@+id/hero_genres"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp"
+                tools:text="Adventure  •  Fantasy  •  Action" />
+
+            <TextView
+                android:id="@+id/hero_description"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp"
+                android:maxLines="2"
+                android:ellipsize="end"
+                tools:text="Young hobbit Frodo Baggins, after inheriting a mysterious ring from his uncle Bilbo, must leave his home in order to keep it from falling into the hands of its evil creator." />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <Button
+                    android:id="@+id/hero_btn_play"
+                    android:layout_width="wrap_content"
+                    android:layout_height="52dp"
+                    android:background="@drawable/login_button_primary_bg"
+                    android:drawableStart="@drawable/ic_hero_play"
+                    android:drawablePadding="10dp"
+                    android:paddingStart="22dp"
+                    android:paddingEnd="26dp"
+                    android:text="@string/details_play"
+                    android:textAllCaps="false"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <ImageButton
+                    android:id="@+id/hero_btn_info"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:layout_marginStart="12dp"
+                    android:background="@drawable/hero_icon_button_bg"
+                    android:padding="14dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_hero_info"
+                    android:contentDescription="@string/hero_info" />
+
+                <ImageButton
+                    android:id="@+id/hero_btn_favorite"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:layout_marginStart="12dp"
+                    android:background="@drawable/hero_icon_button_bg"
+                    android:padding="14dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_hero_heart_outline"
+                    android:contentDescription="@string/hero_favorite" />
+
+            </LinearLayout>
 
         </LinearLayout>
 
-    </LinearLayout>
+        <LinearLayout
+            android:id="@+id/hero_dots"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="40dp"
+            android:layout_marginBottom="40dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical" />
 
-    <LinearLayout
-        android:id="@+id/hero_dots"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="48dp"
-        android:layout_marginBottom="40dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical" />
+    </FrameLayout>
 
 </merge>
