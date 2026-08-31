@@ -24,9 +24,10 @@
         android:paddingBottom="40dp">
 
         <ImageView
-            android:layout_width="40dp"
+            android:layout_width="57dp"
             android:layout_height="40dp"
-            android:src="@drawable/ic_treehouse_logo"
+            android:scaleType="fitCenter"
+            android:src="@drawable/img_treehouse_logo"
             android:contentDescription="@null" />
 
         <TextView

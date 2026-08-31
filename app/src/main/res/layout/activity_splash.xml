@@ -6,10 +6,11 @@
 
     <ImageView
         android:id="@+id/splash_logo"
-        android:layout_width="108dp"
+        android:layout_width="153dp"
         android:layout_height="108dp"
         android:layout_gravity="center"
-        android:src="@drawable/ic_treehouse_logo"
+        android:scaleType="fitCenter"
+        android:src="@drawable/img_treehouse_logo"
         android:contentDescription="@null" />
 
     <TextView
