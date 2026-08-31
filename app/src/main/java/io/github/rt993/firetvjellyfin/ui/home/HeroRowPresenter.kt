@@ -7,7 +7,7 @@ import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
 
-private const val HERO_HEIGHT_DP = 460
+private const val HERO_HEIGHT_DP = 340
 
 /** Binds a [HeroRow] to a [HeroBannerView]. */
 class HeroRowPresenter(
