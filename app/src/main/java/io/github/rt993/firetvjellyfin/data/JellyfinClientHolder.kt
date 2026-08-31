@@ -71,5 +71,5 @@ object JellyfinClientHolder {
     }
 
     // Kept separate from BuildConfig.VERSION_NAME so this file has no Gradle-generated dependency.
-    private const val BuildConfigVersion = "0.2.0"
+    private const val BuildConfigVersion = "0.1.2"
 }
