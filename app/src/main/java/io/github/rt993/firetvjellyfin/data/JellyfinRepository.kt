@@ -16,9 +16,11 @@ import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
 import org.jellyfin.sdk.model.api.ItemFields
+import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.PlaybackInfoDto
 import org.jellyfin.sdk.model.api.PlaybackInfoResponse
 import org.jellyfin.sdk.model.api.QuickConnectResult
+import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.api.request.GetEpisodesRequest
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
 import org.jellyfin.sdk.model.api.request.GetSeasonsRequest
@@ -94,6 +96,19 @@ class JellyfinRepository(private val api: ApiClient) {
             fields = listOf(ItemFields.OVERVIEW),
         )
         return api.tvShowsApi.getEpisodes(request).content.items.orEmpty()
+    }
+
+    /** The most recently added movies and series across the whole library, newest first. */
+    suspend fun getRecentlyAdded(userId: UUID, limit: Int = 20): List<BaseItemDto> {
+        val request = GetItemsRequest(
+            userId = userId,
+            recursive = true,
+            includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES),
+            sortBy = listOf(ItemSortBy.DATE_CREATED),
+            sortOrder = listOf(SortOrder.DESCENDING),
+            limit = limit,
+        )
+        return api.itemsApi.getItems(request).content.items.orEmpty()
     }
 
     fun buildImageUrl(itemId: UUID, imageType: ImageType = ImageType.PRIMARY, maxWidth: Int = 440): String =

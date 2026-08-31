@@ -42,6 +42,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
     private lateinit var backgroundManager: BackgroundManager
     private var repository: JellyfinRepository? = null
     private val loadedRows = mutableListOf<LoadedRow>()
+    private var recentlyAddedRow: ListRow? = null
 
     private data class LoadedRow(val collectionType: CollectionType?, val row: ListRow)
 
@@ -101,6 +102,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
                         Toast.makeText(requireContext(), "Server returned 0 libraries for this user", Toast.LENGTH_LONG).show()
                     }
                     views.forEach { view -> loadRow(repo, cardPresenter, userId, view) }
+                    loadRecentlyAdded(repo, cardPresenter, userId)
                     showLibrary(null) // all rows - also clears the placeholder row seeded in onCreate()
                 }
                 .onFailure {
@@ -132,15 +134,32 @@ class MainBrowseFragment : BrowseSupportFragment() {
         loadedRows += LoadedRow(view.collectionType, ListRow(header, rowAdapter))
     }
 
+    /** Home-only: first row shown, pulling in newly added movies and series across all libraries. */
+    private suspend fun loadRecentlyAdded(repo: JellyfinRepository, cardPresenter: CardPresenter, userId: UUID) {
+        val items = runCatching { repo.getRecentlyAdded(userId) }
+            .onFailure { Log.e(TAG, "getRecentlyAdded failed", it) }
+            .getOrDefault(emptyList())
+        Log.i(TAG, "recently added: ${items.size} item(s)")
+        if (items.isEmpty()) return
+
+        val rowAdapter = ArrayObjectAdapter(cardPresenter).apply { addAll(0, items) }
+        val header = HeaderItem(RECENTLY_ADDED_ROW_ID, getString(R.string.home_recently_added))
+        recentlyAddedRow = ListRow(header, rowAdapter)
+    }
+
     /**
-     * Shows only the row for [type] (a Movies/TV Shows nav filter), or every row if null.
-     * Used by the top nav bar.
+     * Shows only the row for [type] (a Movies/TV Shows nav filter), or every row - Recently Added
+     * first, then one per library - if null. Used by the top nav bar.
      */
     fun showLibrary(type: CollectionType?) {
         Log.i(TAG, "showLibrary(type=$type), loadedRows=${loadedRows.map { it.collectionType }}")
         rowsAdapter.clear()
-        val rows = if (type == null) loadedRows else loadedRows.filter { it.collectionType == type }
-        rows.forEach { rowsAdapter.add(it.row) }
+        if (type == null) {
+            recentlyAddedRow?.let { rowsAdapter.add(it) }
+            loadedRows.forEach { rowsAdapter.add(it.row) }
+        } else {
+            loadedRows.filter { it.collectionType == type }.forEach { rowsAdapter.add(it.row) }
+        }
     }
 
     /** True when the topmost row is selected, i.e. pressing up has nowhere left to go. */
@@ -196,5 +215,6 @@ class MainBrowseFragment : BrowseSupportFragment() {
     private companion object {
         const val TAG = "MainBrowseFragment"
         const val LOADING_ROW_ID = -1L
+        const val RECENTLY_ADDED_ROW_ID = -2L
     }
 }
