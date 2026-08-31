@@ -4,6 +4,11 @@
     <style name="Theme.FireTvJellyfin" parent="Theme.Leanback">
         <item name="android:windowBackground">@color/background_dark</item>
         <item name="detailsActionButtonStyle">@style/Widget.FireTvJellyfin.DetailsActionButtonStyle</item>
+        <!-- BrowseSupportFragment reserves room for its own built-in title/header row here
+             (167dp top, 238dp start by default) - dead space for us, since HomeActivity's own
+             top bar replaces that entirely and headers are disabled. -->
+        <item name="browseRowsMarginTop">0dp</item>
+        <item name="browseRowsMarginStart">0dp</item>
     </style>
 
     <!-- Rounded-corner, semi-transparent "glass" action buttons (e.g. Play) on the details screen. -->
