@@ -9,4 +9,5 @@
     <color name="backdrop_scrim">#CC101418</color>
     <color name="topbar_bg">#B3101418</color>
     <color name="details_panel_scrim">#33101418</color>
+    <color name="login_error">#FF8080</color>
 </resources>
