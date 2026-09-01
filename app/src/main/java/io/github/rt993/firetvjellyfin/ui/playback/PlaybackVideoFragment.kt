@@ -40,6 +40,7 @@ class PlaybackVideoFragment : VideoSupportFragment() {
         val repository = JellyfinRepository(api)
         val decisionMaker = PlaybackDecisionMaker(api)
         val itemName = requireActivity().intent.getStringExtra(PlaybackActivity.EXTRA_ITEM_NAME)
+        val startPositionTicks = requireActivity().intent.getLongExtra(PlaybackActivity.EXTRA_START_POSITION_TICKS, 0L)
 
         lifecycleScope.launch {
             val playbackInfo = runCatching { repository.getPlaybackInfo(userId, itemId) }.getOrNull()
@@ -48,11 +49,11 @@ class PlaybackVideoFragment : VideoSupportFragment() {
                 finishWithError()
                 return@launch
             }
-            startPlayback(selection.streamUrl, selection.mode, itemName)
+            startPlayback(selection.streamUrl, selection.mode, itemName, startPositionTicks)
         }
     }
 
-    private fun startPlayback(streamUrl: String, mode: PlaybackMode, itemName: String?) {
+    private fun startPlayback(streamUrl: String, mode: PlaybackMode, itemName: String?, startPositionTicks: Long) {
         val exoPlayer = ExoPlayer.Builder(requireContext()).build().also { player = it }
 
         val playerAdapter = LeanbackPlayerAdapter(requireContext(), exoPlayer, UPDATE_PERIOD_MS)
@@ -67,6 +68,8 @@ class PlaybackVideoFragment : VideoSupportFragment() {
         )
 
         exoPlayer.setMediaItem(MediaItem.fromUri(streamUrl))
+        // Ticks are Jellyfin's own 100-ns unit; ExoPlayer wants milliseconds - 10,000 ticks/ms.
+        if (startPositionTicks > 0) exoPlayer.seekTo(startPositionTicks / 10_000L)
         exoPlayer.prepare()
         glue.playWhenPrepared()
     }

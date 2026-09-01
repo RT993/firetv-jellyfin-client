@@ -32,7 +32,10 @@ import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.CollectionType
 import java.util.UUID
 
-/** Home screen: one row per Jellyfin library, each row filled with that library's items. */
+/**
+ * Home screen: the Recently Added hero and a Continue Watching row by default; a per-library row
+ * of that library's items when filtered from the top nav bar (see [showLibrary]).
+ */
 class MainBrowseFragment : BrowseSupportFragment() {
 
     private val presenterSelector = ClassPresenterSelector().apply {
@@ -42,6 +45,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
     private lateinit var backgroundManager: BackgroundManager
     private val loadedRows = mutableListOf<LoadedRow>()
     private var recentlyAddedRow: HeroRow? = null
+    private var continueWatchingRow: ListRow? = null
 
     private data class LoadedRow(val collectionType: CollectionType?, val row: ListRow)
 
@@ -109,6 +113,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
                     }
                     views.forEach { view -> loadRow(repo, cardPresenter, userId, view) }
                     loadRecentlyAdded(repo, userId)
+                    loadContinueWatching(repo, userId)
                     showLibrary(null) // all rows - also clears the placeholder row seeded in onCreate()
                 }
                 .onFailure {
@@ -148,20 +153,35 @@ class MainBrowseFragment : BrowseSupportFragment() {
         Log.i(TAG, "recently added: ${items.size} item(s)")
         if (items.isEmpty()) return
 
-        val header = HeaderItem(RECENTLY_ADDED_ROW_ID, getString(R.string.home_recently_added))
-        recentlyAddedRow = HeroRow(header, items)
+        // No label above the banner itself - it's a self-contained visual, see HeroRowPresenter.
+        recentlyAddedRow = HeroRow(HeaderItem(RECENTLY_ADDED_ROW_ID, ""), items)
+    }
+
+    /** Home-only: movies and episodes with an in-progress watch position, most recent first. */
+    private suspend fun loadContinueWatching(repo: JellyfinRepository, userId: UUID) {
+        val items = runCatching { repo.getResumeItems(userId) }
+            .onFailure { Log.e(TAG, "getResumeItems failed", it) }
+            .getOrDefault(emptyList())
+        Log.i(TAG, "continue watching: ${items.size} item(s)")
+        if (items.isEmpty()) return
+
+        val header = HeaderItem(CONTINUE_WATCHING_ROW_ID, getString(R.string.home_continue_watching))
+        val rowAdapter = ArrayObjectAdapter(ContinueWatchingPresenter(repo)).apply { addAll(0, items) }
+        continueWatchingRow = ListRow(header, rowAdapter)
     }
 
     /**
-     * Shows only the row for [type] (a Movies/TV Shows nav filter), or every row - the Recently
-     * Added hero first, then one per library - if null. Used by the top nav bar.
+     * Shows only the row for [type] (a Movies/TV Shows nav filter), or the Home view - the
+     * Recently Added hero plus Continue Watching, with no full per-library browsing - if null.
+     * The per-library rows themselves are still loaded regardless (see [loadRow]), just not shown
+     * here; they only ever appear behind a nav filter. Used by the top nav bar.
      */
     fun showLibrary(type: CollectionType?) {
         Log.i(TAG, "showLibrary(type=$type), loadedRows=${loadedRows.map { it.collectionType }}")
         rowsAdapter.clear()
         if (type == null) {
             recentlyAddedRow?.let { rowsAdapter.add(it) }
-            loadedRows.forEach { rowsAdapter.add(it.row) }
+            continueWatchingRow?.let { rowsAdapter.add(it) }
         } else {
             loadedRows.filter { it.collectionType == type }.forEach { rowsAdapter.add(it.row) }
         }
@@ -181,7 +201,8 @@ class MainBrowseFragment : BrowseSupportFragment() {
         startActivity(
             Intent(requireContext(), PlaybackActivity::class.java)
                 .putExtra(PlaybackActivity.EXTRA_ITEM_ID, item.id.toString())
-                .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, item.name),
+                .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, item.name)
+                .putExtra(PlaybackActivity.EXTRA_START_POSITION_TICKS, item.userData?.playbackPositionTicks ?: 0L),
         )
     }
 
@@ -211,5 +232,6 @@ class MainBrowseFragment : BrowseSupportFragment() {
         const val TAG = "MainBrowseFragment"
         const val LOADING_ROW_ID = -1L
         const val RECENTLY_ADDED_ROW_ID = -2L
+        const val CONTINUE_WATCHING_ROW_ID = -3L
     }
 }

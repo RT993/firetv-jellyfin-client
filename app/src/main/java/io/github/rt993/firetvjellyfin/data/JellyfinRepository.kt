@@ -23,6 +23,7 @@ import org.jellyfin.sdk.model.api.QuickConnectResult
 import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.api.request.GetEpisodesRequest
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
+import org.jellyfin.sdk.model.api.request.GetResumeItemsRequest
 import org.jellyfin.sdk.model.api.request.GetSeasonsRequest
 import io.github.rt993.firetvjellyfin.playback.buildDeviceProfile
 
@@ -77,6 +78,7 @@ class JellyfinRepository(private val api: ApiClient) {
             userId = userId,
             ids = listOf(itemId),
             fields = listOf(ItemFields.OVERVIEW, ItemFields.GENRES, ItemFields.PEOPLE),
+            enableUserData = true,
         )
         return api.itemsApi.getItems(request).content.items.orEmpty().firstOrNull()
     }
@@ -94,6 +96,7 @@ class JellyfinRepository(private val api: ApiClient) {
             userId = userId,
             seasonId = seasonId,
             fields = listOf(ItemFields.OVERVIEW),
+            enableUserData = true,
         )
         return api.tvShowsApi.getEpisodes(request).content.items.orEmpty()
     }
@@ -115,6 +118,21 @@ class JellyfinRepository(private val api: ApiClient) {
             limit = limit,
         )
         return api.itemsApi.getItems(request).content.items.orEmpty()
+    }
+
+    /**
+     * "Pick up where you left off": movies and episodes with an in-progress playback position for
+     * this user, most recently played first (the server's own default ordering for this endpoint).
+     */
+    suspend fun getResumeItems(userId: UUID, limit: Int = 20): List<BaseItemDto> {
+        val request = GetResumeItemsRequest(
+            userId = userId,
+            includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.EPISODE),
+            fields = listOf(ItemFields.OVERVIEW),
+            enableUserData = true,
+            limit = limit,
+        )
+        return api.itemsApi.getResumeItems(request).content.items.orEmpty()
     }
 
     fun buildImageUrl(itemId: UUID, imageType: ImageType = ImageType.PRIMARY, maxWidth: Int = 440): String =

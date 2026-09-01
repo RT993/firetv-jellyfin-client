@@ -15,6 +15,11 @@ class HeroRowPresenter(
     private val onInfoClicked: (BaseItemDto) -> Unit,
 ) : RowPresenter() {
 
+    init {
+        // The banner is its own self-contained visual - no "Recently Added" label floating above it.
+        headerPresenter = null
+    }
+
     override fun createRowViewHolder(parent: ViewGroup): ViewHolder {
         val heightPx = TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP,

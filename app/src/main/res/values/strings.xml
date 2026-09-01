@@ -28,8 +28,9 @@
     <string name="nav_home">Home</string>
     <string name="nav_movies">Movies</string>
     <string name="nav_shows">TV Shows</string>
-    <string name="home_recently_added">Recently Added</string>
     <string name="hero_ends_at_format">Ends at %1$s</string>
+    <string name="home_continue_watching">Pick up where you left off</string>
+    <string name="continue_watching_episode_format">S%1$d E%2$d</string>
 
     <!-- User menu -->
     <string name="user_menu_info">Info</string>

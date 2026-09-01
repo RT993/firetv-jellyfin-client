@@ -19,5 +19,7 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
     companion object {
         const val EXTRA_ITEM_ID = "extra_item_id"
         const val EXTRA_ITEM_NAME = "extra_item_name"
+        /** Where to start playback from, in Jellyfin's 100-ns ticks - 0 (the default) starts from the beginning. */
+        const val EXTRA_START_POSITION_TICKS = "extra_start_position_ticks"
     }
 }

@@ -138,7 +138,11 @@ class ItemDetailsFragment : DetailsSupportFragment() {
                     startActivity(
                         Intent(requireContext(), PlaybackActivity::class.java)
                             .putExtra(PlaybackActivity.EXTRA_ITEM_ID, item.id.toString())
-                            .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, item.name),
+                            .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, item.name)
+                            .putExtra(
+                                PlaybackActivity.EXTRA_START_POSITION_TICKS,
+                                item.userData?.playbackPositionTicks ?: 0L,
+                            ),
                     )
                 }
             }
@@ -209,7 +213,11 @@ class ItemDetailsFragment : DetailsSupportFragment() {
             startActivity(
                 Intent(requireContext(), PlaybackActivity::class.java)
                     .putExtra(PlaybackActivity.EXTRA_ITEM_ID, episode.id.toString())
-                    .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, episode.name),
+                    .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, episode.name)
+                    .putExtra(
+                        PlaybackActivity.EXTRA_START_POSITION_TICKS,
+                        episode.userData?.playbackPositionTicks ?: 0L,
+                    ),
             )
         }
     }
