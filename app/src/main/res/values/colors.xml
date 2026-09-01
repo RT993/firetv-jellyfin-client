@@ -9,5 +9,4 @@
     <color name="topbar_bg">#B3101418</color>
     <color name="details_panel_scrim">#33101418</color>
     <color name="login_error">#FF8080</color>
-    <color name="favorite_active">#FF5A6B</color>
 </resources>

@@ -152,8 +152,8 @@ class HeroBannerView @JvmOverloads constructor(
         // load starts (not just once the new image is ready) - on a slow connection that briefly
         // shows the static background behind the row through the now-empty backdrop. Keep
         // whatever's already on screen showing until the new image lands instead.
-        val request = Glide.with(this).load(backdropUrl).placeholder(backdrop.drawable)
-        if (crossfade) request.transition(DrawableTransitionOptions.withCrossFade(BACKDROP_CROSSFADE_MS))
+        var request = Glide.with(this).load(backdropUrl).placeholder(backdrop.drawable)
+        if (crossfade) request = request.transition(DrawableTransitionOptions.withCrossFade(BACKDROP_CROSSFADE_MS))
         request.into(backdrop)
 
         for (i in 0 until dotsContainer.childCount) {

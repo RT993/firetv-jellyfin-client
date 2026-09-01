@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Height reserved for the top bar (logo/nav/username). -->
     <dimen name="home_topbar_height">104dp</dimen>
     <!-- Where the row content starts, below the top bar. Less than home_topbar_height itself -
@@ -9,7 +9,10 @@
     <dimen name="home_content_margin">64dp</dimen>
 
     <!-- Overrides Leanback's own defaults (8dp/8dp) - too tight, reads as cluttered with cards
-         this size. Also gives the focus-scale pop room to grow without clipping into neighbors. -->
-    <dimen name="lb_browse_item_horizontal_spacing">28dp</dimen>
-    <dimen name="lb_browse_item_vertical_spacing">28dp</dimen>
+         this size. Also gives the focus-scale pop room to grow without clipping into neighbors.
+         Deliberately overriding a Leanback-private resource, not an unused/dead one - lint can't
+         see that Leanback's own internal layouts reference these by name, only that nothing in
+         this app's own code does. tools:override documents that instead of silencing it blind. -->
+    <dimen name="lb_browse_item_horizontal_spacing" tools:override="true">28dp</dimen>
+    <dimen name="lb_browse_item_vertical_spacing" tools:override="true">28dp</dimen>
 </resources>
