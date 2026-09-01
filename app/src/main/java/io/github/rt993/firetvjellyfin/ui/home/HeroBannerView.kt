@@ -148,7 +148,11 @@ class HeroBannerView @JvmOverloads constructor(
         description.visibility = if (overview == null) View.GONE else View.VISIBLE
 
         val backdropUrl = repo.buildImageUrl(item.id, imageType = ImageType.BACKDROP, maxWidth = 1280)
-        val request = Glide.with(this).load(backdropUrl)
+        // Without an explicit placeholder, Glide clears the ImageView to blank the instant this
+        // load starts (not just once the new image is ready) - on a slow connection that briefly
+        // shows the static background behind the row through the now-empty backdrop. Keep
+        // whatever's already on screen showing until the new image lands instead.
+        val request = Glide.with(this).load(backdropUrl).placeholder(backdrop.drawable)
         if (crossfade) request.transition(DrawableTransitionOptions.withCrossFade(BACKDROP_CROSSFADE_MS))
         request.into(backdrop)
 
