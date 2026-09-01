@@ -20,9 +20,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * A single glass card that walks through server address -> credentials (or Quick Connect) ->
- * sign-in, swapping which section is visible instead of Leanback's boxy GuidedStepSupportFragment
- * default look.
+ * A single glass card that walks through add server (a plus button, since this is normally only
+ * ever seen once - see [JellyfinClientHolder.hasStoredSession]) -> server address -> credentials
+ * (or Quick Connect) -> sign-in, swapping which section is visible instead of Leanback's boxy
+ * GuidedStepSupportFragment default look.
  *
  * Normally reached only after SplashActivity has already run its intro and found no stored
  * session - but it's a separately launchable activity (a Fire TV home-screen tile pinned from an
@@ -32,14 +33,16 @@ import kotlinx.coroutines.launch
  */
 class LoginActivity : FragmentActivity(R.layout.activity_login) {
 
-    private enum class Step { SERVER, CREDENTIALS, QUICK_CONNECT }
+    private enum class Step { WELCOME, SERVER, CREDENTIALS, QUICK_CONNECT }
 
     private lateinit var subtitle: TextView
+    private lateinit var stepWelcome: View
     private lateinit var stepServer: View
     private lateinit var stepCredentials: View
     private lateinit var stepQuickConnect: View
     private lateinit var errorText: TextView
 
+    private lateinit var btnAddServer: View
     private lateinit var inputServerAddress: EditText
     private lateinit var btnContinue: Button
     private lateinit var inputUsername: EditText
@@ -49,7 +52,7 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
     private lateinit var quickConnectCode: TextView
     private lateinit var quickConnectInstructions: TextView
 
-    private var step = Step.SERVER
+    private var step = Step.WELCOME
     private var quickConnectJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,11 +71,13 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
         }
 
         subtitle = findViewById(R.id.login_subtitle)
+        stepWelcome = findViewById(R.id.step_welcome)
         stepServer = findViewById(R.id.step_server)
         stepCredentials = findViewById(R.id.step_credentials)
         stepQuickConnect = findViewById(R.id.step_quick_connect)
         errorText = findViewById(R.id.login_error)
 
+        btnAddServer = findViewById(R.id.btn_add_server)
         inputServerAddress = findViewById(R.id.input_server_address)
         btnContinue = findViewById(R.id.btn_continue)
         inputUsername = findViewById(R.id.input_username)
@@ -82,6 +87,7 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
         quickConnectCode = findViewById(R.id.quick_connect_code)
         quickConnectInstructions = findViewById(R.id.quick_connect_instructions)
 
+        btnAddServer.setOnClickListener { showStep(Step.SERVER) }
         btnContinue.setOnClickListener { connectToServer() }
         btnSignIn.setOnClickListener { signIn() }
         btnQuickConnect.setOnClickListener { startQuickConnect() }
@@ -89,17 +95,18 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when (step) {
-                    Step.SERVER -> {
+                    Step.WELCOME -> {
                         isEnabled = false
                         onBackPressedDispatcher.onBackPressed()
                     }
+                    Step.SERVER -> showStep(Step.WELCOME)
                     Step.CREDENTIALS -> showStep(Step.SERVER)
                     Step.QUICK_CONNECT -> showStep(Step.CREDENTIALS)
                 }
             }
         })
 
-        showStep(Step.SERVER)
+        showStep(Step.WELCOME)
     }
 
     private fun showStep(newStep: Step) {
@@ -110,17 +117,20 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
         step = newStep
         clearError()
 
+        stepWelcome.visibility = if (newStep == Step.WELCOME) View.VISIBLE else View.GONE
         stepServer.visibility = if (newStep == Step.SERVER) View.VISIBLE else View.GONE
         stepCredentials.visibility = if (newStep == Step.CREDENTIALS) View.VISIBLE else View.GONE
         stepQuickConnect.visibility = if (newStep == Step.QUICK_CONNECT) View.VISIBLE else View.GONE
 
         subtitle.text = when (newStep) {
+            Step.WELCOME -> getString(R.string.login_step_welcome_subtitle)
             Step.SERVER -> getString(R.string.login_step_server_subtitle)
             Step.CREDENTIALS -> getString(R.string.login_step_credentials_subtitle)
             Step.QUICK_CONNECT -> getString(R.string.login_quick_connect_title)
         }
 
         when (newStep) {
+            Step.WELCOME -> btnAddServer.requestFocus()
             Step.SERVER -> inputServerAddress.requestFocus()
             Step.CREDENTIALS -> inputUsername.requestFocus()
             Step.QUICK_CONNECT -> Unit

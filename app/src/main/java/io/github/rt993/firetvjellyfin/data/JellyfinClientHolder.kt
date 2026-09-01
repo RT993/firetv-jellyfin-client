@@ -28,9 +28,13 @@ object JellyfinClientHolder {
         }
 
         val savedServerUrl = credentialStore.serverUrl
-        if (savedServerUrl != null) {
+        if (savedServerUrl != null && credentialStore.hasSession) {
             connect(savedServerUrl)
             api?.update(accessToken = credentialStore.accessToken)
+        } else if (savedServerUrl != null) {
+            // A stored server with no valid (or expired) session - drop it so the login flow
+            // starts clean instead of silently trying a dead token.
+            credentialStore.clear()
         }
     }
 
@@ -48,6 +52,7 @@ object JellyfinClientHolder {
         credentialStore.accessToken = accessToken
         credentialStore.userId = userId
         credentialStore.username = username
+        credentialStore.loginTimestamp = System.currentTimeMillis()
     }
 
     fun currentUserId(): String? = credentialStore.userId

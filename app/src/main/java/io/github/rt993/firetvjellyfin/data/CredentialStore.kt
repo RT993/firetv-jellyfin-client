@@ -31,8 +31,16 @@ class CredentialStore(context: Context) {
         get() = prefs.getString(KEY_USERNAME, null)
         set(value) = prefs.edit().putString(KEY_USERNAME, value).apply()
 
+    /** When the current access token was issued, so it can be aged out after [SESSION_TTL_MS]. */
+    var loginTimestamp: Long
+        get() = prefs.getLong(KEY_LOGIN_TIMESTAMP, 0L)
+        set(value) = prefs.edit().putLong(KEY_LOGIN_TIMESTAMP, value).apply()
+
+    private val isSessionExpired: Boolean
+        get() = loginTimestamp > 0L && System.currentTimeMillis() - loginTimestamp > SESSION_TTL_MS
+
     val hasSession: Boolean
-        get() = !serverUrl.isNullOrBlank() && !accessToken.isNullOrBlank()
+        get() = !serverUrl.isNullOrBlank() && !accessToken.isNullOrBlank() && !isSessionExpired
 
     fun clear() {
         prefs.edit().clear().apply()
@@ -44,5 +52,7 @@ class CredentialStore(context: Context) {
         const val KEY_ACCESS_TOKEN = "access_token"
         const val KEY_USER_ID = "user_id"
         const val KEY_USERNAME = "username"
+        const val KEY_LOGIN_TIMESTAMP = "login_timestamp"
+        const val SESSION_TTL_MS = 90L * 24 * 60 * 60 * 1000 // 90 days
     }
 }
