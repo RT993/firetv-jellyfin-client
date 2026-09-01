@@ -9,7 +9,6 @@ import org.jellyfin.sdk.api.client.extensions.mediaInfoApi
 import org.jellyfin.sdk.api.client.extensions.quickConnectApi
 import org.jellyfin.sdk.api.client.extensions.tvShowsApi
 import org.jellyfin.sdk.api.client.extensions.userApi
-import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.api.client.extensions.userViewsApi
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.AuthenticationResult
@@ -116,16 +115,6 @@ class JellyfinRepository(private val api: ApiClient) {
             limit = limit,
         )
         return api.itemsApi.getItems(request).content.items.orEmpty()
-    }
-
-    /** Marks/unmarks an item as a favorite for this user, returning the resulting favorite state. */
-    suspend fun setFavorite(userId: UUID, itemId: UUID, favorite: Boolean): Boolean {
-        val response = if (favorite) {
-            api.userLibraryApi.markFavoriteItem(itemId = itemId, userId = userId)
-        } else {
-            api.userLibraryApi.unmarkFavoriteItem(itemId = itemId, userId = userId)
-        }
-        return response.content.isFavorite
     }
 
     fun buildImageUrl(itemId: UUID, imageType: ImageType = ImageType.PRIMARY, maxWidth: Int = 440): String =

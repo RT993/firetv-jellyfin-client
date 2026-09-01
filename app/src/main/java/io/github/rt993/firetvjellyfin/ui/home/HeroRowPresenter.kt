@@ -4,7 +4,6 @@ import android.util.TypedValue
 import android.view.ViewGroup
 import androidx.leanback.widget.RowPresenter
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
-import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
 
 private const val HERO_HEIGHT_DP = 340
@@ -12,7 +11,6 @@ private const val HERO_HEIGHT_DP = 340
 /** Binds a [HeroRow] to a [HeroBannerView]. */
 class HeroRowPresenter(
     private val repository: JellyfinRepository,
-    private val userId: UUID,
     private val onPlayClicked: (BaseItemDto) -> Unit,
     private val onInfoClicked: (BaseItemDto) -> Unit,
 ) : RowPresenter() {
@@ -33,7 +31,7 @@ class HeroRowPresenter(
         super.onBindRowViewHolder(viewHolder, item)
         val row = item as HeroRow
         val heroView = viewHolder.view as HeroBannerView
-        heroView.bind(row.items, repository, userId, onPlayClicked, onInfoClicked)
+        heroView.bind(row.items, repository, onPlayClicked, onInfoClicked)
     }
 
     override fun onUnbindRowViewHolder(viewHolder: ViewHolder) {

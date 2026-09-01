@@ -1,7 +1,7 @@
 package io.github.rt993.firetvjellyfin.ui.home
 
 import android.content.Intent
-import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.LayerDrawable
@@ -18,14 +18,10 @@ import androidx.leanback.widget.HeaderItem
 import androidx.leanback.widget.ListRow
 import androidx.leanback.widget.ListRowPresenter
 import androidx.leanback.widget.OnItemViewClickedListener
-import androidx.leanback.widget.OnItemViewSelectedListener
 import androidx.leanback.widget.Presenter
 import androidx.leanback.widget.Row
 import androidx.leanback.widget.RowPresenter
 import androidx.lifecycle.lifecycleScope
-import com.bumptech.glide.Glide
-import com.bumptech.glide.request.target.CustomTarget
-import com.bumptech.glide.request.transition.Transition
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
@@ -34,7 +30,6 @@ import io.github.rt993.firetvjellyfin.ui.playback.PlaybackActivity
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.CollectionType
-import org.jellyfin.sdk.model.api.ImageType
 import java.util.UUID
 
 /** Home screen: one row per Jellyfin library, each row filled with that library's items. */
@@ -45,7 +40,6 @@ class MainBrowseFragment : BrowseSupportFragment() {
     }
     private val rowsAdapter = ArrayObjectAdapter(presenterSelector)
     private lateinit var backgroundManager: BackgroundManager
-    private var repository: JellyfinRepository? = null
     private val loadedRows = mutableListOf<LoadedRow>()
     private var recentlyAddedRow: HeroRow? = null
 
@@ -57,6 +51,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
         backgroundManager = BackgroundManager.getInstance(requireActivity()).apply {
             attach(requireActivity().window)
         }
+        setStaticBackground()
 
         // BrowseSupportFragment decides whether to create its internal row-content fragment
         // exactly once, synchronously inside its own onCreateView() - which runs before our
@@ -76,7 +71,6 @@ class MainBrowseFragment : BrowseSupportFragment() {
         setHeadersState(HEADERS_DISABLED)
         setHeadersTransitionOnBackEnabled(false)
         onItemViewClickedListener = ItemClickedListener()
-        onItemViewSelectedListener = ItemSelectedListener()
 
         loadLibraries()
     }
@@ -96,13 +90,11 @@ class MainBrowseFragment : BrowseSupportFragment() {
             return
         }
         val repo = JellyfinRepository(api)
-        repository = repo
         val cardPresenter = CardPresenter(repo)
         presenterSelector.addClassPresenter(
             HeroRow::class.java,
             HeroRowPresenter(
                 repository = repo,
-                userId = userId,
                 onPlayClicked = ::openPlayback,
                 onInfoClicked = ::openDetails,
             ),
@@ -205,37 +197,14 @@ class MainBrowseFragment : BrowseSupportFragment() {
         }
     }
 
-    private inner class ItemSelectedListener : OnItemViewSelectedListener {
-        override fun onItemSelected(
-            itemViewHolder: Presenter.ViewHolder?,
-            item: Any?,
-            rowViewHolder: RowPresenter.ViewHolder?,
-            row: Row?,
-        ) {
-            val baseItem = item as? BaseItemDto ?: return
-            updateBackground(baseItem)
-        }
-    }
-
-    /** Sets the blurred/dimmed backdrop behind the rows to the currently focused item's art. */
-    private fun updateBackground(item: BaseItemDto) {
-        if (!isAdded) return
-        val repo = repository ?: return
-        if (item.backdropImageTags.isNullOrEmpty()) return
-
-        val url = repo.buildImageUrl(item.id, imageType = ImageType.BACKDROP, maxWidth = 1280)
-        Glide.with(this)
-            .asBitmap()
-            .load(url)
-            .into(object : CustomTarget<Bitmap>() {
-                override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
-                    if (!isAdded) return
-                    val scrim = ColorDrawable(ContextCompat.getColor(requireContext(), R.color.backdrop_scrim))
-                    backgroundManager.drawable = LayerDrawable(arrayOf(BitmapDrawable(resources, resource), scrim))
-                }
-
-                override fun onLoadCleared(placeholder: android.graphics.drawable.Drawable?) = Unit
-            })
+    /**
+     * A fixed branded backdrop behind the rows, set once - simpler and steadier than swapping in
+     * each focused item's own art (which also meant a network fetch on every D-pad move).
+     */
+    private fun setStaticBackground() {
+        val bitmap = BitmapFactory.decodeResource(resources, R.drawable.home_static_background)
+        val scrim = ColorDrawable(ContextCompat.getColor(requireContext(), R.color.backdrop_scrim))
+        backgroundManager.drawable = LayerDrawable(arrayOf(BitmapDrawable(resources, bitmap), scrim))
     }
 
     private companion object {

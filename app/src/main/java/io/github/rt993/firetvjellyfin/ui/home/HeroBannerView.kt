@@ -9,7 +9,6 @@ import android.view.View
 import android.view.ViewOutlineProvider
 import android.widget.Button
 import android.widget.FrameLayout
-import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -20,13 +19,6 @@ import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.util.formatEndsAt
 import io.github.rt993.firetvjellyfin.util.formatRuntimeTicks
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
-import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
@@ -35,7 +27,7 @@ private const val BACKDROP_CROSSFADE_MS = 350
 private const val CARD_CORNER_RADIUS_DP = 24
 
 /**
- * One big item at a time (title/description/backdrop/actions), paged with D-pad left/right - not
+ * One big item at a time (title/description/backdrop/Play), paged with D-pad left/right - not
  * a Leanback [androidx.leanback.widget.ListRow], which only supports a horizontally scrolling
  * list of same-sized items, not "one big item with page indicators". Used as the content view of
  * a [HeroRow] via [HeroRowPresenter].
@@ -52,18 +44,13 @@ class HeroBannerView @JvmOverloads constructor(
     private val genres: TextView
     private val description: TextView
     private val btnPlay: Button
-    private val btnInfo: ImageButton
-    private val btnFavorite: ImageButton
     private val dotsContainer: LinearLayout
 
     private var items: List<BaseItemDto> = emptyList()
     private var currentIndex = 0
     private var repository: JellyfinRepository? = null
-    private var userId: UUID? = null
     private var onPlayClicked: ((BaseItemDto) -> Unit)? = null
     private var onInfoClicked: ((BaseItemDto) -> Unit)? = null
-    private var scope: CoroutineScope? = null
-    private var favoriteJob: Job? = null
 
     init {
         LayoutInflater.from(context).inflate(R.layout.view_hero_banner, this, true)
@@ -74,8 +61,6 @@ class HeroBannerView @JvmOverloads constructor(
         genres = findViewById(R.id.hero_genres)
         description = findViewById(R.id.hero_description)
         btnPlay = findViewById(R.id.hero_btn_play)
-        btnInfo = findViewById(R.id.hero_btn_info)
-        btnFavorite = findViewById(R.id.hero_btn_favorite)
         dotsContainer = findViewById(R.id.hero_dots)
 
         val card = findViewById<View>(R.id.hero_card)
@@ -88,25 +73,16 @@ class HeroBannerView @JvmOverloads constructor(
         card.foreground = ContextCompat.getDrawable(context, R.drawable.hero_card_border)
 
         btnPlay.setOnClickListener { withCurrentItem { item -> routeToPlayOrInfo(item) } }
-        btnInfo.setOnClickListener { withCurrentItem { item -> onInfoClicked?.invoke(item) } }
-        btnFavorite.setOnClickListener { toggleFavorite() }
 
-        // Play is the leftmost focusable control and Favorite the rightmost - past either edge
-        // there's nothing else to focus within the banner, so treat that as "page" instead.
+        // Play is the only focusable control left in the banner, so both edges page instead of
+        // moving focus anywhere else.
         btnPlay.setOnKeyListener { _, keyCode, event ->
-            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) {
-                page(-1)
-                true
-            } else {
+            if (event.action != KeyEvent.ACTION_DOWN) {
                 false
-            }
-        }
-        btnFavorite.setOnKeyListener { _, keyCode, event ->
-            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && event.action == KeyEvent.ACTION_DOWN) {
-                page(1)
-                true
-            } else {
-                false
+            } else when (keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> { page(-1); true }
+                KeyEvent.KEYCODE_DPAD_RIGHT -> { page(1); true }
+                else -> false
             }
         }
     }
@@ -114,26 +90,19 @@ class HeroBannerView @JvmOverloads constructor(
     fun bind(
         items: List<BaseItemDto>,
         repository: JellyfinRepository,
-        userId: UUID,
         onPlayClicked: (BaseItemDto) -> Unit,
         onInfoClicked: (BaseItemDto) -> Unit,
     ) {
         this.items = items
         this.repository = repository
-        this.userId = userId
         this.onPlayClicked = onPlayClicked
         this.onInfoClicked = onInfoClicked
-        this.scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
         currentIndex = 0
         rebuildDots()
         showCurrent(crossfade = false)
     }
 
     fun unbind() {
-        favoriteJob?.cancel()
-        favoriteJob = null
-        scope?.cancel()
-        scope = null
         repository = null
         onPlayClicked = null
         onInfoClicked = null
@@ -151,25 +120,8 @@ class HeroBannerView @JvmOverloads constructor(
 
     private fun routeToPlayOrInfo(item: BaseItemDto) {
         // A series has no single video to play - send it to the details screen (season/episode
-        // picker) the same as the Info button, same as everywhere else this app handles series.
+        // picker) instead, same as everywhere else this app handles series.
         if (item.type == BaseItemKind.SERIES) onInfoClicked?.invoke(item) else onPlayClicked?.invoke(item)
-    }
-
-    private fun toggleFavorite() {
-        val repo = repository ?: return
-        val uid = userId ?: return
-        val item = items.getOrNull(currentIndex) ?: return
-        val target = item.userData?.isFavorite != true
-
-        btnFavorite.isEnabled = false
-        favoriteJob = scope?.launch {
-            val result = runCatching { repo.setFavorite(uid, item.id, target) }
-            btnFavorite.isEnabled = true
-            val newFavorite = result.getOrNull() ?: return@launch
-            val updated = item.copy(userData = item.userData?.copy(isFavorite = newFavorite))
-            items = items.toMutableList().also { it[currentIndex] = updated }
-            if (items.getOrNull(currentIndex)?.id == updated.id) applyFavoriteIcon(updated)
-        }
     }
 
     private fun showCurrent(crossfade: Boolean) {
@@ -195,8 +147,6 @@ class HeroBannerView @JvmOverloads constructor(
         description.text = overview.orEmpty()
         description.visibility = if (overview == null) View.GONE else View.VISIBLE
 
-        applyFavoriteIcon(item)
-
         val backdropUrl = repo.buildImageUrl(item.id, imageType = ImageType.BACKDROP, maxWidth = 1280)
         val request = Glide.with(this).load(backdropUrl)
         if (crossfade) request.transition(DrawableTransitionOptions.withCrossFade(BACKDROP_CROSSFADE_MS))
@@ -208,12 +158,6 @@ class HeroBannerView @JvmOverloads constructor(
                 if (i == currentIndex) R.drawable.hero_dot_active else R.drawable.hero_dot_inactive,
             )
         }
-    }
-
-    private fun applyFavoriteIcon(item: BaseItemDto) {
-        btnFavorite.setImageResource(
-            if (item.userData?.isFavorite == true) R.drawable.ic_hero_heart_filled else R.drawable.ic_hero_heart_outline,
-        )
     }
 
     private fun buildMetaLine(item: BaseItemDto): String {

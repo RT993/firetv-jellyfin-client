@@ -101,28 +101,6 @@
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
-                <ImageButton
-                    android:id="@+id/hero_btn_info"
-                    android:layout_width="46dp"
-                    android:layout_height="46dp"
-                    android:layout_marginStart="12dp"
-                    android:background="@drawable/hero_icon_button_bg"
-                    android:padding="14dp"
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/ic_hero_info"
-                    android:contentDescription="@string/hero_info" />
-
-                <ImageButton
-                    android:id="@+id/hero_btn_favorite"
-                    android:layout_width="46dp"
-                    android:layout_height="46dp"
-                    android:layout_marginStart="12dp"
-                    android:background="@drawable/hero_icon_button_bg"
-                    android:padding="14dp"
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/ic_hero_heart_outline"
-                    android:contentDescription="@string/hero_favorite" />
-
             </LinearLayout>
 
         </LinearLayout>

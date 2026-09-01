@@ -96,9 +96,60 @@
             android:id="@+id/topbar_username"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:background="@drawable/nav_item_bg"
+            android:focusable="true"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
             android:textColor="@color/text_secondary"
             android:textSize="15sp"
             tools:text="User" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/user_menu"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="@dimen/home_topbar_height"
+        android:layout_marginEnd="40dp"
+        android:background="@drawable/dropdown_menu_bg"
+        android:orientation="vertical"
+        android:padding="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/user_menu_info"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/glass_button_bg"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
+            android:text="@string/user_menu_info"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/user_menu_logout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/glass_button_bg"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
+            android:text="@string/user_menu_logout"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp" />
 
     </LinearLayout>
 

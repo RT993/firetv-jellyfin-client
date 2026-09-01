@@ -1,17 +1,25 @@
 package io.github.rt993.firetvjellyfin.ui.home
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
+import io.github.rt993.firetvjellyfin.ui.login.LoginActivity
+import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
 import org.jellyfin.sdk.model.api.CollectionType
 
 class HomeActivity : FragmentActivity(R.layout.activity_home) {
+
+    private lateinit var userMenu: View
+    private lateinit var userMenuBackCallback: OnBackPressedCallback
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,10 +34,56 @@ class HomeActivity : FragmentActivity(R.layout.activity_home) {
                 .commit()
         }
 
-        findViewById<TextView>(R.id.topbar_username).text = JellyfinClientHolder.currentUsername().orEmpty()
+        val userTrigger = findViewById<TextView>(R.id.topbar_username)
+        userTrigger.text = JellyfinClientHolder.currentUsername().orEmpty()
+        userMenu = findViewById(R.id.user_menu)
+        userTrigger.setOnClickListener { toggleUserMenu() }
+        findViewById<View>(R.id.user_menu_info).setOnClickListener { showAccountInfo() }
+        findViewById<View>(R.id.user_menu_logout).setOnClickListener { logOut() }
+
+        userMenuBackCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() = closeUserMenu()
+        }
+        onBackPressedDispatcher.addCallback(this, userMenuBackCallback)
+
         setUpNavItem(R.id.nav_home, null)
         setUpNavItem(R.id.nav_movies, CollectionType.MOVIES)
         setUpNavItem(R.id.nav_shows, CollectionType.TVSHOWS)
+    }
+
+    private fun toggleUserMenu() {
+        if (userMenu.visibility == View.VISIBLE) closeUserMenu() else openUserMenu()
+    }
+
+    private fun openUserMenu() {
+        userMenu.visibility = View.VISIBLE
+        userMenuBackCallback.isEnabled = true
+        findViewById<View>(R.id.user_menu_info).requestFocus()
+    }
+
+    private fun closeUserMenu() {
+        userMenu.visibility = View.GONE
+        userMenuBackCallback.isEnabled = false
+        findViewById<View>(R.id.topbar_username).requestFocus()
+    }
+
+    private fun showAccountInfo() {
+        val username = JellyfinClientHolder.currentUsername().orEmpty()
+        val serverUrl = JellyfinClientHolder.api?.baseUrl.orEmpty()
+        Toast.makeText(
+            this,
+            getString(R.string.user_menu_info_format, username, serverUrl),
+            Toast.LENGTH_LONG,
+        ).show()
+        closeUserMenu()
+    }
+
+    private fun logOut() {
+        JellyfinClientHolder.signOut()
+        startActivity(
+            Intent(this, LoginActivity::class.java).putExtra(SplashActivity.EXTRA_FROM_SPLASH, true),
+        )
+        finish()
     }
 
     private fun browseFragment(): MainBrowseFragment? =
@@ -45,7 +99,7 @@ class HomeActivity : FragmentActivity(R.layout.activity_home) {
      * top bar, so DPAD_UP still moves between rows normally everywhere else.
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN) {
+        if (event.keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN && userMenu.visibility != View.VISIBLE) {
             val inTopBar = isFocusInTopBar()
             val fragment = browseFragment()
             val atTop = fragment?.isAtTopRow()
