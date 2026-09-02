@@ -1,9 +1,25 @@
-# JellyThin
+# TreeHouse
+
+**Version 0.1.3** · a personal project, built for one household's own Fire TV Sticks and one
+Jellyfin server - not published to any app store, not intended for general distribution.
 
 A lightweight, native Jellyfin client for Android TV, built specifically to run well on old,
-low-spec Amazon Fire TV Stick hardware (1-1.5GB RAM, weak quad-core CPUs). No Compose, no
-Flutter/React Native - just Leanback + Media3, which is about as light as a modern Android TV app
-gets.
+low-spec Amazon Fire TV Stick hardware (1-1.5GB RAM, weak quad-core CPUs). Jellyfin's own official
+Android TV app (and most third-party ones) are built on Compose for TV or otherwise carry more
+overhead than that hardware wants; TreeHouse instead uses Leanback + Media3 - about as light as a
+modern Android TV app gets - and a hand-rolled, Apple-TV-inspired playback UI instead of Leanback's
+stock transport controls, in exchange for staying firmly in "one dev's spare time" scope rather
+than chasing feature parity with a general-purpose client.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Splash screen](screenshots/splash.png) | ![Connect to server](screenshots/login-server.png) |
+| ![Quick Connect sign-in](screenshots/login-quick-connect.png) | ![Home screen](screenshots/home.png) |
+| ![Movies library](screenshots/movies.png) | |
+
+*(Screenshot files pending - see note below.)*
 
 ## Installing on your Fire TV Stick
 
@@ -19,7 +35,7 @@ The easiest way, with no computer required:
    tinyurl.com/25r4a86f
    ```
    (Expands to `https://github.com/RT993/firetv-jellyfin-client/releases/latest/download/TreeHouse.apk`.)
-4. Downloader will fetch and install it. Launch **Jellythin** from the Fire TV home screen.
+4. Downloader will fetch and install it. Launch **TreeHouse** from the Fire TV home screen.
 
 This link always points at the newest release, so re-entering the same URL in Downloader later
 gets you the latest update. See [Releases](https://github.com/RT993/firetv-jellyfin-client/releases)
@@ -42,8 +58,12 @@ If you'd rather install from a machine on the same network via ADB, see
   details screen lists one row per season, each full of that season's episodes as landscape
   thumbnail cards - picking one plays that specific episode.
 - **Playback**: direct-play when the server says the file's compatible with this device, HLS
-  transcode fallback otherwise (see [below](#the-direct-play-vs-transcode-decision)), with D-pad
-  transport controls.
+  transcode fallback otherwise (see [below](#the-direct-play-vs-transcode-decision)). A custom,
+  minimal transport UI (not Leanback's stock boxy controls) over a raw `SurfaceView` - play/pause,
+  10s skip back/forward, a thin scrubber, auto-hiding after a few seconds idle - plus **Skip
+  Intro** (reads the server's Media Segments data, when a plugin like Intro Skipper provides it)
+  and **Play Next** (an "Up Next" prompt in an episode's last 30 seconds, and a persistent
+  next-episode button, both auto-resolving the next episode in the season/series).
 - **Splash intro**: a short floating-logo animation on launch before handing off to Home (if
   already signed in) or the login flow.
 
@@ -53,9 +73,13 @@ If you'd rather install from a machine on the same network via ADB, see
   (`BrowseSupportFragment`, `GuidedStepSupportFragment`, `DetailsSupportFragment`) for D-pad-first
   navigation on TV. Leanback is a thin, TV-optimized widget layer - much less overhead on old
   hardware than Compose for TV or a cross-platform framework.
-- **Playback**: [Media3/ExoPlayer](https://developer.android.com/media/media3) via
-  `androidx.media3.ui.leanback.LeanbackPlayerAdapter`, wired into Leanback's
-  `PlaybackTransportControlGlue` for D-pad transport controls.
+- **Playback**: [Media3/ExoPlayer](https://developer.android.com/media/media3) driving a raw
+  `SurfaceView` directly (`ExoPlayer.setVideoSurfaceView`), not Leanback's
+  `VideoSupportFragment`/`PlaybackTransportControlGlue` stack - that gets Leanback's stock,
+  boxy transport UI out of the way in favor of the custom Apple-TV-style controls described above.
+  `androidx.media3.ui.AspectRatioFrameLayout` handles correct letterboxing/pillarboxing, wired
+  manually from `Player.Listener.onVideoSizeChanged` since a plain `SurfaceView` doesn't do that
+  on its own.
 - **Server API**: the official [jellyfin-sdk-kotlin](https://github.com/jellyfin/jellyfin-sdk-kotlin)
   (`org.jellyfin.sdk:jellyfin-core` + `jellyfin-platform-android`) for auth, library browsing,
   media info, and playback URL construction. No hand-rolled REST calls.
@@ -81,9 +105,13 @@ app/src/main/java/io/github/rt993/firetvjellyfin/
 └── ui/
     ├── splash/   SplashActivity: launcher activity, plays the intro then routes to Home/Login
     ├── login/    Server address -> username/password or Quick Connect (GuidedStepSupportFragment flow)
-    ├── home/     BrowseSupportFragment: one row per library, poster cards via CardPresenter
-    ├── details/  DetailsSupportFragment: item metadata, Play action (movies), season/episode rows (series)
-    └── playback/ VideoSupportFragment wrapping a Media3 ExoPlayer instance
+    ├── home/     BrowseSupportFragment (MainBrowseFragment): hero banner, one row per library,
+    │             poster cards (CardPresenter) and a "Continue Watching" row
+    ├── details/  DetailsSupportFragment (ItemDetailsFragment): item metadata, series
+    │             Play/Resume (resolved via Jellyfin's own "next up" logic), one row of episode
+    │             cards (EpisodeCardPresenter) per season for a series
+    └── playback/ PlaybackActivity: Media3 ExoPlayer over a raw SurfaceView with a custom
+                  transport UI, Skip Intro, and Play Next (see Features above)
 ```
 
 ### The direct-play vs. transcode decision
@@ -100,7 +128,7 @@ rather than inlined into the player:
    HLS URL).
 3. [`playback/PlaybackDecisionMaker.kt`](app/src/main/java/io/github/rt993/firetvjellyfin/playback/PlaybackDecisionMaker.kt)
    turns that server answer into one concrete, playable URL. This is the single place in the app
-   where that choice is made - `PlaybackVideoFragment` never inspects codecs itself, it just hands
+   where that choice is made - `PlaybackActivity` never inspects codecs itself, it just hands
    ExoPlayer whatever URL comes out.
 
 The current codec list in `DeviceProfileFactory` is a reasonable generic baseline (H.264/HEVC,
