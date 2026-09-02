@@ -1,6 +1,7 @@
 package io.github.rt993.firetvjellyfin.ui.playback
 
 import android.os.Bundle
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.leanback.app.VideoSupportFragment
 import androidx.leanback.app.VideoSupportFragmentGlueHost
@@ -31,6 +32,11 @@ class PlaybackVideoFragment : VideoSupportFragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // The remote sending D-pad input to ExoPlayer doesn't register as "user activity" to the
+        // system the way it would for e.g. scrolling a list - left unset, the Fire TV screensaver
+        // (and eventual sleep) kicks in mid-playback exactly as if the screen were idle.
+        requireActivity().window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
         val api = JellyfinClientHolder.api ?: return finishWithError()
         val itemIdString = requireActivity().intent.getStringExtra(PlaybackActivity.EXTRA_ITEM_ID)
         val userIdString = JellyfinClientHolder.currentUserId()
@@ -59,6 +65,11 @@ class PlaybackVideoFragment : VideoSupportFragment() {
         val playerAdapter = LeanbackPlayerAdapter(requireContext(), exoPlayer, UPDATE_PERIOD_MS)
         val glue = PlaybackTransportControlGlue(requireContext(), playerAdapter)
         glue.host = VideoSupportFragmentGlueHost(this)
+        // Without a PlaybackSeekDataProvider (thumbnail-preview scrubbing, which needs the server
+        // to pre-generate trickplay images this app doesn't request), seeking on the transport
+        // row's progress bar is off by default - this is what actually turns D-pad left/right on
+        // it into PlayerAdapter#seekTo() calls at all, not just a cosmetic option.
+        glue.setSeekEnabled(true)
         glue.title = itemName
         glue.setSubtitle(
             getString(
@@ -81,6 +92,7 @@ class PlaybackVideoFragment : VideoSupportFragment() {
 
     override fun onStop() {
         super.onStop()
+        requireActivity().window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         player?.release()
         player = null
     }
