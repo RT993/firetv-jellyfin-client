@@ -58,10 +58,9 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         // DetailsSupportFragment's internal RowsSupportFragment, like BrowseSupportFragment's
         // (see MainBrowseFragment.onCreate), is only created if `adapter` is already a non-empty
         // ObjectAdapter at onCreateView() time - setting it later, once the network calls below
-        // resolve, doesn't retroactively fix that. The visible symptom is subtle: the real content
-        // renders fine, but the fragment's initial focus/scroll alignment doesn't settle until the
-        // first D-pad press "wakes" it (the row visibly jumps/resizes on that press), so reaching
-        // anything below row 0 - the season rows here - took a second, seemingly pointless press.
+        // resolve, doesn't retroactively fix that. Worth keeping regardless, but this alone turned
+        // out NOT to be the cause of the double-press-to-reach-episodes bug - see
+        // consumeDownFromOverviewRow() below for the actual fix.
         adapter = ArrayObjectAdapter(ListRowPresenter()).apply {
             add(ListRow(HeaderItem(LOADING_ROW_ID, ""), ArrayObjectAdapter(ListRowPresenter())))
         }
@@ -109,6 +108,24 @@ class ItemDetailsFragment : DetailsSupportFragment() {
                 loadSeasonRows(repository, userId, item, rowsAdapter)
             }
         }
+    }
+
+    /**
+     * Leanback's own row-to-row DOWN handling needs one press to internally settle the
+     * transition out of the overview row, and only a second press actually moves selection past
+     * it - visually that reads as the first press doing nothing. [ItemDetailsActivity] calls this
+     * on every DOWN press before Leanback sees it; driving the row selection here directly, one
+     * press early, skips that wasted first press instead of waiting on the internal transition
+     * (which three earlier attempts at fixing from that end never managed to avoid).
+     */
+    fun consumeDownFromOverviewRow(): Boolean {
+        val rows = rowsSupportFragment ?: return false
+        val rowCount = adapter?.size() ?: 0
+        if (rowCount > 1 && rows.selectedPosition == 0) {
+            rows.setSelectedPosition(1, true)
+            return true
+        }
+        return false
     }
 
     /**
