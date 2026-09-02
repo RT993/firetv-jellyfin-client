@@ -42,9 +42,10 @@ import org.jellyfin.sdk.model.api.PersonKind
 import java.util.UUID
 
 /**
- * Shows metadata for one item. Movies get a Play action that hands off to [PlaybackActivity]
- * directly; series have no single video to play, so instead show one row per season, each row
- * full of episode cards - picking an episode is what starts playback.
+ * Shows metadata for one item, with a Play action that hands off to [PlaybackActivity] - for a
+ * movie, itself; for a series (which has no single video of its own), its first episode. A series
+ * also gets one row per season below the overview, each full of episode cards, for picking a
+ * specific episode instead.
  */
 class ItemDetailsFragment : DetailsSupportFragment() {
 
@@ -82,7 +83,7 @@ class ItemDetailsFragment : DetailsSupportFragment() {
             // pressed back before it resolved) by the time this resumes, and Glide.with() throws
             // if a load starts against an already-destroyed fragment/activity.
             if (!isAdded) return@launch
-            val rowsAdapter = setupRows(repository, item)
+            val rowsAdapter = setupRows(repository, userId, item)
             loadBackdrop(repository, item)
             if (item.type == BaseItemKind.SERIES) {
                 loadSeasonRows(repository, userId, item, rowsAdapter)
@@ -105,8 +106,8 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         Glide.with(this).load(backdropUrl).centerCrop().into(backdropImage)
     }
 
-    /** Builds the overview row (and its Play action, for movies) and returns the adapter it was added to. */
-    private fun setupRows(repository: JellyfinRepository, item: BaseItemDto): ArrayObjectAdapter {
+    /** Builds the overview row (and its Play action) and returns the adapter it was added to. */
+    private fun setupRows(repository: JellyfinRepository, userId: UUID, item: BaseItemDto): ArrayObjectAdapter {
         val isSeries = item.type == BaseItemKind.SERIES
         val detailsPresenter = object : FullWidthDetailsOverviewRowPresenter(DescriptionPresenter()) {
             override fun onBindRowViewHolder(vh: RowPresenter.ViewHolder, item: Any) {
@@ -132,9 +133,11 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         // Rows fragment explicitly marks it selected). That dimming serves no purpose here (we
         // don't want anything about this screen going darker as you navigate), so turn it off.
         detailsPresenter.setSelectEffectEnabled(false)
-        if (!isSeries) {
-            detailsPresenter.onActionClickedListener = OnActionClickedListener { action ->
-                if (action.id == ACTION_PLAY) {
+        detailsPresenter.onActionClickedListener = OnActionClickedListener { action ->
+            if (action.id == ACTION_PLAY) {
+                if (isSeries) {
+                    playFirstEpisode(repository, userId, item)
+                } else {
                     startActivity(
                         Intent(requireContext(), PlaybackActivity::class.java)
                             .putExtra(PlaybackActivity.EXTRA_ITEM_ID, item.id.toString())
@@ -149,12 +152,14 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         }
 
         val row = DetailsOverviewRow(item)
-        if (!isSeries) {
-            // A series has no single video to play - picking an episode from the season rows
-            // below is what starts playback instead, so it gets no Play action here.
-            row.actionsAdapter = ArrayObjectAdapter().apply {
-                add(Action(ACTION_PLAY, getString(R.string.details_play)))
-            }
+        // Leanback's actions row is a real focusable HorizontalGridView even with zero items in
+        // it - leaving it empty (as this used to do for series, since there's no single video to
+        // play) doesn't hide it, it just sits there as an invisible extra focus stop, so reaching
+        // the season rows below took an extra, seemingly pointless D-pad press. Giving every item
+        // type a real Play action - starting the first episode for a series - fixes that and is a
+        // reasonable "just start watching" shortcut besides.
+        row.actionsAdapter = ArrayObjectAdapter().apply {
+            add(Action(ACTION_PLAY, getString(R.string.details_play)))
         }
 
         val imageUrl = repository.buildImageUrl(item.id, maxWidth = 600)
@@ -175,6 +180,34 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         val rowsAdapter = ArrayObjectAdapter(presenterSelector).apply { add(row) }
         adapter = rowsAdapter
         return rowsAdapter
+    }
+
+    /** The series' Play action: starts its very first episode (S1E1), resuming it if already in progress. */
+    private fun playFirstEpisode(repository: JellyfinRepository, userId: UUID, series: BaseItemDto) {
+        lifecycleScope.launch {
+            val firstSeason = runCatching { repository.getSeasons(userId, series.id) }
+                .getOrDefault(emptyList())
+                .minByOrNull { it.indexNumber ?: Int.MAX_VALUE }
+            val firstEpisode = firstSeason?.let { season ->
+                runCatching { repository.getEpisodes(userId, series.id, season.id) }
+                    .getOrDefault(emptyList())
+                    .minByOrNull { it.indexNumber ?: Int.MAX_VALUE }
+            }
+            if (!isAdded) return@launch
+            if (firstEpisode == null) {
+                Toast.makeText(requireContext(), R.string.playback_error, Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            startActivity(
+                Intent(requireContext(), PlaybackActivity::class.java)
+                    .putExtra(PlaybackActivity.EXTRA_ITEM_ID, firstEpisode.id.toString())
+                    .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, firstEpisode.name)
+                    .putExtra(
+                        PlaybackActivity.EXTRA_START_POSITION_TICKS,
+                        firstEpisode.userData?.playbackPositionTicks ?: 0L,
+                    ),
+            )
+        }
     }
 
     /** One row per season, each row full of that season's episode cards. */
