@@ -1,5 +1,6 @@
 package io.github.rt993.firetvjellyfin.ui.playback
 
+import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -24,23 +25,38 @@ import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.playback.PlaybackDecisionMaker
 import io.github.rt993.firetvjellyfin.playback.PlaybackMode
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.BaseItemKind
+import org.jellyfin.sdk.model.api.MediaSegmentDto
 import java.util.Locale
 import java.util.UUID
 
 /**
  * A minimal, Apple-TV-style playback screen: full-bleed video with a bottom gradient overlay
- * (title, thin scrubber, rewind/play-pause/forward) that auto-hides after a few seconds of no
- * input and reappears on any remote press. Built by hand on a raw [SurfaceView] + [ExoPlayer]
+ * (title, thin scrubber, rewind/play-pause/forward/next) that auto-hides after a few seconds of
+ * no input and reappears on any remote press. Built by hand on a raw [SurfaceView] + [ExoPlayer]
  * rather than Leanback's boxier PlaybackTransportControlGlue row, which doesn't offer this look -
  * [AspectRatioFrameLayout] (the one piece pulled from media3-ui) is what keeps the video itself
  * letterboxed/pillarboxed correctly instead of stretched to fill the screen.
+ *
+ * Also drives Skip Intro (via the server's Media Segments API - only populated if the server has
+ * a plugin, e.g. Intro Skipper, that actually detects and tags intros; this app only reads that
+ * data) and Play Next (auto-computed sibling episode, with both a manual button and an auto-shown
+ * "Up Next" prompt in the closing seconds that also auto-advances if playback runs to the end).
  */
 @OptIn(UnstableApi::class)
 class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
 
     private var player: ExoPlayer? = null
     private val uiHandler = Handler(Looper.getMainLooper())
+
+    private var repository: JellyfinRepository? = null
+    private var userId: UUID? = null
+    private var introSegment: MediaSegmentDto? = null
+    private var nextEpisode: BaseItemDto? = null
+    private var nextEpisodeStarted = false
 
     private lateinit var aspectContainer: AspectRatioFrameLayout
     private lateinit var playerSurface: SurfaceView
@@ -54,6 +70,11 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
     private lateinit var btnRewind: ImageButton
     private lateinit var btnPlayPause: ImageButton
     private lateinit var btnForward: ImageButton
+    private lateinit var btnNextEpisode: ImageButton
+    private lateinit var btnSkipIntro: View
+    private lateinit var upNextOverlay: View
+    private lateinit var upNextTitle: TextView
+    private lateinit var btnUpNextPlay: View
 
     private val hideControlsRunnable = Runnable { controls.visibility = View.GONE }
     private val progressRunnable = object : Runnable {
@@ -82,30 +103,52 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         btnRewind = findViewById(R.id.btn_rewind)
         btnPlayPause = findViewById(R.id.btn_play_pause)
         btnForward = findViewById(R.id.btn_forward)
+        btnNextEpisode = findViewById(R.id.btn_next_episode)
+        btnSkipIntro = findViewById(R.id.btn_skip_intro)
+        upNextOverlay = findViewById(R.id.up_next_overlay)
+        upNextTitle = findViewById(R.id.up_next_title)
+        btnUpNextPlay = findViewById(R.id.btn_up_next_play)
 
         btnRewind.setOnClickListener { seekBy(-SEEK_INCREMENT_MS) }
         btnForward.setOnClickListener { seekBy(SEEK_INCREMENT_MS) }
         btnPlayPause.setOnClickListener { togglePlayPause() }
+        btnNextEpisode.setOnClickListener { playNextEpisodeIfAvailable() }
+        btnUpNextPlay.setOnClickListener { playNextEpisodeIfAvailable() }
+        btnSkipIntro.setOnClickListener { skipIntro() }
 
         val api = JellyfinClientHolder.api ?: return finishWithError()
         val itemIdString = intent.getStringExtra(EXTRA_ITEM_ID)
         val userIdString = JellyfinClientHolder.currentUserId()
         val itemId = itemIdString?.let { runCatching { UUID.fromString(it) }.getOrNull() } ?: return finishWithError()
-        val userId = userIdString?.let { runCatching { UUID.fromString(it) }.getOrNull() } ?: return finishWithError()
+        val resolvedUserId = userIdString?.let { runCatching { UUID.fromString(it) }.getOrNull() } ?: return finishWithError()
+        userId = resolvedUserId
 
-        val repository = JellyfinRepository(api)
+        val repo = JellyfinRepository(api)
+        repository = repo
         val decisionMaker = PlaybackDecisionMaker(api)
         val startPositionTicks = intent.getLongExtra(EXTRA_START_POSITION_TICKS, 0L)
         titleText.text = intent.getStringExtra(EXTRA_ITEM_NAME)
 
         lifecycleScope.launch {
-            val playbackInfo = runCatching { repository.getPlaybackInfo(userId, itemId) }.getOrNull()
+            // Kicked off alongside the essential playback-info call, not after it, so fetching the
+            // full item (for Play Next) and its intro segment doesn't delay when the video starts.
+            val itemDeferred = async { runCatching { repo.getItem(resolvedUserId, itemId) }.getOrNull() }
+            val introDeferred = async { runCatching { repo.getIntroSegment(itemId) }.getOrNull() }
+
+            val playbackInfo = runCatching { repo.getPlaybackInfo(resolvedUserId, itemId) }.getOrNull()
             val selection = playbackInfo?.let { decisionMaker.decide(itemId, it) }
             if (selection == null) {
                 finishWithError()
                 return@launch
             }
             startPlayback(selection.streamUrl, selection.mode, startPositionTicks)
+
+            introSegment = introDeferred.await()?.takeIf { it.endTicks > it.startTicks }
+            val item = itemDeferred.await()
+            if (item?.type == BaseItemKind.EPISODE) {
+                nextEpisode = runCatching { repo.getNextEpisode(resolvedUserId, item) }.getOrNull()
+                btnNextEpisode.visibility = if (nextEpisode != null) View.VISIBLE else View.GONE
+            }
         }
     }
 
@@ -126,6 +169,10 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
                 btnPlayPause.setImageResource(if (isPlaying) R.drawable.ic_playback_pause else R.drawable.ic_hero_play)
                 btnPlayPause.contentDescription =
                     getString(if (isPlaying) R.string.playback_pause else R.string.playback_play)
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) playNextEpisodeIfAvailable()
             }
         })
 
@@ -152,6 +199,31 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         exoPlayer.playWhenReady = !exoPlayer.playWhenReady
     }
 
+    private fun skipIntro() {
+        val segment = introSegment ?: return
+        player?.seekTo(segment.endTicks / 10_000L)
+        hideSkipIntro()
+        updateProgress()
+    }
+
+    /**
+     * Starts the next episode (if one was found) in a fresh instance of this same screen. Guarded
+     * against firing twice - the manual buttons and the auto-advance-on-end listener could
+     * otherwise both fire for the same transition (e.g. pressing "Play Now" right as playback
+     * reaches its natural end), which would stack two next-episode screens instead of one.
+     */
+    private fun playNextEpisodeIfAvailable() {
+        if (nextEpisodeStarted) return
+        val next = nextEpisode ?: return
+        nextEpisodeStarted = true
+        startActivity(
+            Intent(this, PlaybackActivity::class.java)
+                .putExtra(EXTRA_ITEM_ID, next.id.toString())
+                .putExtra(EXTRA_ITEM_NAME, next.name),
+        )
+        finish()
+    }
+
     private fun updateProgress() {
         val exoPlayer = player ?: return
         val duration = exoPlayer.duration
@@ -166,6 +238,41 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
             val fraction = (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
             progressFill.layoutParams = progressFill.layoutParams.apply { width = (trackWidth * fraction).toInt() }
             progressFill.requestLayout()
+        }
+
+        updateSkipIntroVisibility(position)
+        updateUpNextVisibility(position, duration)
+    }
+
+    private fun updateSkipIntroVisibility(positionMs: Long) {
+        val segment = introSegment ?: return hideSkipIntro()
+        val startMs = segment.startTicks / 10_000L
+        val endMs = segment.endTicks / 10_000L
+        if (positionMs in startMs until endMs) {
+            if (btnSkipIntro.visibility != View.VISIBLE) {
+                btnSkipIntro.visibility = View.VISIBLE
+                btnSkipIntro.requestFocus()
+            }
+        } else {
+            hideSkipIntro()
+        }
+    }
+
+    private fun hideSkipIntro() {
+        btnSkipIntro.visibility = View.GONE
+    }
+
+    private fun updateUpNextVisibility(positionMs: Long, durationMs: Long) {
+        val next = nextEpisode ?: return
+        val remaining = durationMs - positionMs
+        if (remaining in 0..UP_NEXT_THRESHOLD_MS) {
+            if (upNextOverlay.visibility != View.VISIBLE) {
+                upNextTitle.text = getString(R.string.playback_up_next_format, next.name)
+                upNextOverlay.visibility = View.VISIBLE
+                btnUpNextPlay.requestFocus()
+            }
+        } else {
+            upNextOverlay.visibility = View.GONE
         }
     }
 
@@ -227,5 +334,6 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         private const val HIDE_DELAY_MS = 4000L
         private const val PROGRESS_UPDATE_MS = 500L
         private const val SEEK_INCREMENT_MS = 10_000L
+        private const val UP_NEXT_THRESHOLD_MS = 30_000L
     }
 }

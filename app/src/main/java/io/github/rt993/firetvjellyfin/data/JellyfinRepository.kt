@@ -6,6 +6,7 @@ import org.jellyfin.sdk.api.client.extensions.authenticateWithQuickConnect
 import org.jellyfin.sdk.api.client.extensions.imageApi
 import org.jellyfin.sdk.api.client.extensions.itemsApi
 import org.jellyfin.sdk.api.client.extensions.mediaInfoApi
+import org.jellyfin.sdk.api.client.extensions.mediaSegmentsApi
 import org.jellyfin.sdk.api.client.extensions.quickConnectApi
 import org.jellyfin.sdk.api.client.extensions.tvShowsApi
 import org.jellyfin.sdk.api.client.extensions.userApi
@@ -17,6 +18,8 @@ import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
 import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.ItemSortBy
+import org.jellyfin.sdk.model.api.MediaSegmentDto
+import org.jellyfin.sdk.model.api.MediaSegmentType
 import org.jellyfin.sdk.model.api.PlaybackInfoDto
 import org.jellyfin.sdk.model.api.PlaybackInfoResponse
 import org.jellyfin.sdk.model.api.QuickConnectResult
@@ -133,6 +136,45 @@ class JellyfinRepository(private val api: ApiClient) {
             limit = limit,
         )
         return api.itemsApi.getResumeItems(request).content.items.orEmpty()
+    }
+
+    /**
+     * The Intro segment for an item, for the Skip Intro button - null if the item has none, which
+     * is expected unless the server has a plugin (e.g. Intro Skipper) that actually detects and
+     * tags them; this app only reads that data, it doesn't do any detection of its own.
+     */
+    suspend fun getIntroSegment(itemId: UUID): MediaSegmentDto? {
+        val request = api.mediaSegmentsApi.getItemSegments(
+            itemId = itemId,
+            includeSegmentTypes = listOf(MediaSegmentType.INTRO),
+        )
+        return request.content.items.orEmpty().firstOrNull()
+    }
+
+    /**
+     * The episode that should play after [episode] for "Play Next" - the next episode in the same
+     * season, or the first episode of the next season if [episode] was the season's last. Null if
+     * there's no next episode (series finale) or [episode] is missing series/season linkage.
+     */
+    suspend fun getNextEpisode(userId: UUID, episode: BaseItemDto): BaseItemDto? {
+        val seriesId = episode.seriesId ?: return null
+        val seasonId = episode.seasonId ?: return null
+
+        val seasonEpisodes = getEpisodes(userId, seriesId, seasonId).sortedBy { it.indexNumber ?: Int.MAX_VALUE }
+        val currentIndex = seasonEpisodes.indexOfFirst { it.id == episode.id }
+        if (currentIndex != -1 && currentIndex + 1 < seasonEpisodes.size) {
+            return seasonEpisodes[currentIndex + 1]
+        }
+
+        // Last episode of the season - the next one (if any) is the first episode of the season after this one.
+        val seasons = getSeasons(userId, seriesId).sortedBy { it.indexNumber ?: Int.MAX_VALUE }
+        val seasonIndex = seasons.indexOfFirst { it.id == seasonId }
+        if (seasonIndex == -1) return null
+        for (i in seasonIndex + 1 until seasons.size) {
+            val nextSeasonEpisodes = getEpisodes(userId, seriesId, seasons[i].id).sortedBy { it.indexNumber ?: Int.MAX_VALUE }
+            if (nextSeasonEpisodes.isNotEmpty()) return nextSeasonEpisodes.first()
+        }
+        return null
     }
 
     fun buildImageUrl(itemId: UUID, imageType: ImageType = ImageType.PRIMARY, maxWidth: Int = 440): String =
