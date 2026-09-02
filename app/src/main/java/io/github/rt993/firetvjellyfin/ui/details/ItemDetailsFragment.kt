@@ -298,9 +298,27 @@ class ItemDetailsFragment : DetailsSupportFragment() {
     private inner class DescriptionPresenter : AbstractDetailsDescriptionPresenter() {
         override fun onBindDescription(viewHolder: ViewHolder, item: Any) {
             val baseItem = item as BaseItemDto
-            viewHolder.title.text = baseItem.name
-            viewHolder.subtitle.text = buildSubtitle(baseItem)
+            val seriesName = baseItem.seriesName
+            if (baseItem.type == BaseItemKind.EPISODE && seriesName != null) {
+                // This screen is reachable straight from a Continue Watching/episode card
+                // (see MainBrowseFragment.openDetails), where the episode's own title - which
+                // can be an unfamiliar one-liner with no obvious connection to the show - was the
+                // only text on screen; the series' own artwork was here, but nothing said its
+                // name. Lead with the series instead, and identify the specific episode below it.
+                viewHolder.title.text = seriesName
+                viewHolder.subtitle.text = buildEpisodeSubtitle(baseItem)
+            } else {
+                viewHolder.title.text = baseItem.name
+                viewHolder.subtitle.text = buildSubtitle(baseItem)
+            }
             viewHolder.body.text = buildBody(baseItem)
+        }
+
+        private fun buildEpisodeSubtitle(item: BaseItemDto): String {
+            val season = item.parentIndexNumber
+            val episode = item.indexNumber
+            val seasonEpisode = if (season != null && episode != null) "S%dE%d".format(season, episode) else null
+            return listOfNotNull(seasonEpisode, item.name).joinToString("  ·  ")
         }
 
         private fun buildSubtitle(item: BaseItemDto): String {
@@ -314,6 +332,12 @@ class ItemDetailsFragment : DetailsSupportFragment() {
 
         private fun buildBody(item: BaseItemDto): String {
             val sections = mutableListOf<String>()
+            // For an episode, buildSubtitle()'s rating/year/runtime line isn't used as the
+            // subtitle (that slot shows the episode identity instead) - show it here so the
+            // information isn't lost, just relocated.
+            if (item.type == BaseItemKind.EPISODE) {
+                sections += buildSubtitle(item)
+            }
             item.overview?.takeIf { it.isNotBlank() }?.let { sections += it }
             item.genres?.takeIf { it.isNotEmpty() }?.let { sections += it.joinToString(", ") }
             val cast = item.people
