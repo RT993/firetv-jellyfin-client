@@ -43,4 +43,8 @@
     <string name="playback_error">Playback failed.</string>
     <string name="playback_mode_direct">Direct play</string>
     <string name="playback_mode_transcode">Transcoding</string>
+    <string name="playback_play">Play</string>
+    <string name="playback_pause">Pause</string>
+    <string name="playback_rewind">Rewind 10 seconds</string>
+    <string name="playback_forward">Forward 10 seconds</string>
 </resources>

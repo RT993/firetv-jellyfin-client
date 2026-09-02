@@ -86,10 +86,12 @@ dependencies {
     implementation(libs.androidx.leanback)
     implementation(libs.androidx.leanback.preference)
 
-    // Playback
+    // Playback. media3-ui is used only for AspectRatioFrameLayout, wrapping a plain SurfaceView -
+    // the custom playback screen (see PlaybackActivity) doesn't use PlayerView/its built-in
+    // controller UI, just this one letterboxing helper.
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.hls)
-    implementation(libs.media3.ui.leanback)
+    implementation(libs.media3.ui)
     implementation(libs.media3.session)
 
     // Jellyfin server communication. jellyfin-core has built-in Android support (JellyfinOptions
