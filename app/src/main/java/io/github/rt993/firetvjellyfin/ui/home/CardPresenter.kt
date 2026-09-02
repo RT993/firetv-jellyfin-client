@@ -35,6 +35,10 @@ class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
             isFocusableInTouchMode = true
             setMainImageDimensions(parent.context, CARD_WIDTH_DP, CARD_HEIGHT_DP)
             infoAreaBackground = ColorDrawable(Color.TRANSPARENT)
+            // infoAreaBackground only clears the info strip's own background - ImageCardView's
+            // root still paints Leanback's default card-background color underneath it, which can
+            // show through at the edges even with the strip itself transparent.
+            background = ColorDrawable(Color.TRANSPARENT)
             clipRoundedCorners(context)
 
             val focusElevationPx = dpToPx(context, FOCUS_ELEVATION_DP)

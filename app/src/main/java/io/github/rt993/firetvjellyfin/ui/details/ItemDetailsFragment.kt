@@ -55,6 +55,17 @@ class ItemDetailsFragment : DetailsSupportFragment() {
 
         onItemViewClickedListener = EpisodeClickedListener()
 
+        // DetailsSupportFragment's internal RowsSupportFragment, like BrowseSupportFragment's
+        // (see MainBrowseFragment.onCreate), is only created if `adapter` is already a non-empty
+        // ObjectAdapter at onCreateView() time - setting it later, once the network calls below
+        // resolve, doesn't retroactively fix that. The visible symptom is subtle: the real content
+        // renders fine, but the fragment's initial focus/scroll alignment doesn't settle until the
+        // first D-pad press "wakes" it (the row visibly jumps/resizes on that press), so reaching
+        // anything below row 0 - the season rows here - took a second, seemingly pointless press.
+        adapter = ArrayObjectAdapter(ListRowPresenter()).apply {
+            add(ListRow(HeaderItem(LOADING_ROW_ID, ""), ArrayObjectAdapter(ListRowPresenter())))
+        }
+
         val api = JellyfinClientHolder.api
         val itemIdString = requireActivity().intent.getStringExtra(ItemDetailsActivity.EXTRA_ITEM_ID)
         val userIdString = JellyfinClientHolder.currentUserId()
@@ -212,9 +223,12 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         series: BaseItemDto,
         rowsAdapter: ArrayObjectAdapter,
     ) {
+        // The server doesn't guarantee season order in its response - sort by season number so
+        // e.g. Season 3 doesn't end up rendered as the first row just because it came back first.
         val seasons = runCatching { repository.getSeasons(userId, series.id) }
             .onFailure { Log.e(TAG, "getSeasons failed", it) }
             .getOrDefault(emptyList())
+            .sortedBy { it.indexNumber ?: Int.MAX_VALUE }
         Log.i(TAG, "\"${series.name}\": ${seasons.size} season(s)")
         val episodePresenter = EpisodeCardPresenter(repository)
         seasons.forEachIndexed { index, season ->
@@ -286,5 +300,6 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         const val TAG = "ItemDetailsFragment"
         const val ACTION_PLAY = 1L
         const val MAX_CAST_SHOWN = 6
+        const val LOADING_ROW_ID = -1L
     }
 }

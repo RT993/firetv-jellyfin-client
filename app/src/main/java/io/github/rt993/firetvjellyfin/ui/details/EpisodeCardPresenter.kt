@@ -37,6 +37,12 @@ class EpisodeCardPresenter(private val repository: JellyfinRepository) : Present
             isFocusableInTouchMode = true
             setMainImageDimensions(parent.context, CARD_WIDTH_DP, CARD_HEIGHT_DP)
             infoAreaBackground = ColorDrawable(Color.TRANSPARENT)
+            // infoAreaBackground only clears the info strip's own background - ImageCardView's
+            // root still paints Leanback's default card-background color underneath it (and
+            // around the image, wherever clipRoundedCorners doesn't hide it), which read as a
+            // solid box behind the title/runtime text since the strip below a landscape episode
+            // still is proportionally taller than on the portrait poster cards elsewhere.
+            background = ColorDrawable(Color.TRANSPARENT)
             clipRoundedCorners(context)
 
             val focusElevationPx = dpToPx(context, FOCUS_ELEVATION_DP)
