@@ -157,11 +157,13 @@ class ItemDetailsFragment : DetailsSupportFragment() {
     private fun loadBackdrop(repository: JellyfinRepository, item: BaseItemDto) {
         if (!isAdded || item.backdropImageTags.isNullOrEmpty()) return
         val backdropImage = activity?.findViewById<ImageView>(R.id.details_backdrop) ?: return
-        // This is the one image in the app stretched across the *entire* screen - at 1280px wide
-        // that's a real upscale on a 1920px-wide display, and it showed as visible banding in the
-        // smooth, low-detail parts of some backdrops (a wide sky, smoke, gradients). Requesting a
-        // source closer to actual display width keeps that from showing up.
-        val backdropUrl = repository.buildImageUrl(item.id, imageType = ImageType.BACKDROP, maxWidth = 1920)
+        // This is the one image in the app stretched across the *entire* screen, so any upscale
+        // shows as visible banding in smooth, low-detail parts of some backdrops (a wide sky,
+        // smoke, gradients) - a fixed cap (1280, then 1920) both turned out to still be narrower
+        // than some real TV outputs (4K sticks included). Asking for the actual screen width
+        // instead removes the guesswork.
+        val screenWidth = resources.displayMetrics.widthPixels
+        val backdropUrl = repository.buildImageUrl(item.id, imageType = ImageType.BACKDROP, maxWidth = screenWidth)
         Glide.with(this).load(backdropUrl).centerCrop().into(backdropImage)
     }
 
