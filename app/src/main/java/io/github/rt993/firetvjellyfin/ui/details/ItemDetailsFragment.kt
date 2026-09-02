@@ -4,6 +4,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -169,13 +170,25 @@ class ItemDetailsFragment : DetailsSupportFragment() {
 
     /** Builds the overview row (and its Play/Resume action targeting [playTarget]) and returns the adapter it was added to. */
     private fun setupRows(repository: JellyfinRepository, item: BaseItemDto, playTarget: BaseItemDto?): ArrayObjectAdapter {
+        // Leanback's own fullwidth-overview layout (lb_fullwidth_details_overview.xml) reserves a
+        // 160dp blank strip above the panel - by design, so the backdrop shows through unfiltered
+        // there before the panel begins. A flat panel color then starts abruptly right where that
+        // strip ends, which against a backdrop is a hard seam across the full screen width - this
+        // is "the line"/"box border": not a compression artifact, an actual color step in the UI,
+        // which is why bumping the backdrop's resolution twice never touched it. Fading the panel
+        // in with a gradient instead of a flat color removes the step entirely.
+        val panelColor = ContextCompat.getColor(requireContext(), R.color.details_panel_scrim)
+        val panelGradient = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Color.TRANSPARENT, panelColor))
         val detailsPresenter = object : FullWidthDetailsOverviewRowPresenter(DescriptionPresenter()) {
             override fun onBindRowViewHolder(vh: RowPresenter.ViewHolder, item: Any) {
                 super.onBindRowViewHolder(vh, item)
-                // The overview frame carries a fixed elevation for its own drop shadow, which
-                // renders as a visible dark band right at the panel's top edge no matter how
-                // transparent its background color is. A flat glass panel doesn't need a shadow.
-                vh.view.findViewById<View>(androidx.leanback.R.id.details_frame)?.elevation = 0f
+                vh.view.findViewById<View>(androidx.leanback.R.id.details_frame)?.apply {
+                    // The overview frame carries a fixed elevation for its own drop shadow, which
+                    // renders as a visible dark band right at the panel's top edge no matter how
+                    // transparent its background color is. A flat glass panel doesn't need a shadow.
+                    elevation = 0f
+                    background = panelGradient
+                }
             }
         }
         // Leanback's default description/actions panel is fully opaque, which reads as a hard
@@ -184,7 +197,6 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         // so giving it the same translucent color as the frame would stack two translucent layers
         // on top of each other there - visibly darker than the rest of the panel - leave it fully
         // transparent so only the frame's single glass tint shows through everywhere.
-        val panelColor = ContextCompat.getColor(requireContext(), R.color.details_panel_scrim)
         detailsPresenter.backgroundColor = panelColor
         detailsPresenter.actionsBackgroundColor = Color.TRANSPARENT
         // FullWidthDetailsOverviewRowPresenter also layers its own dim overlay - a foreground
