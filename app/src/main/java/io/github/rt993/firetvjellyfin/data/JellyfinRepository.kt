@@ -26,6 +26,7 @@ import org.jellyfin.sdk.model.api.QuickConnectResult
 import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.api.request.GetEpisodesRequest
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
+import org.jellyfin.sdk.model.api.request.GetNextUpRequest
 import org.jellyfin.sdk.model.api.request.GetResumeItemsRequest
 import org.jellyfin.sdk.model.api.request.GetSeasonsRequest
 import io.github.rt993.firetvjellyfin.playback.buildDeviceProfile
@@ -175,6 +176,21 @@ class JellyfinRepository(private val api: ApiClient) {
             if (nextSeasonEpisodes.isNotEmpty()) return nextSeasonEpisodes.first()
         }
         return null
+    }
+
+    /**
+     * The episode Jellyfin itself considers "up next" for this series and user - the one they're
+     * mid-way through if any, otherwise the next unwatched one (starting from S1E1 for a series
+     * nobody's started). Used for the series' own Play/Resume action on the details screen.
+     */
+    suspend fun getNextUpEpisode(userId: UUID, seriesId: UUID): BaseItemDto? {
+        val request = GetNextUpRequest(
+            userId = userId,
+            seriesId = seriesId,
+            enableUserData = true,
+            limit = 1,
+        )
+        return api.tvShowsApi.getNextUp(request).content.items.orEmpty().firstOrNull()
     }
 
     fun buildImageUrl(itemId: UUID, imageType: ImageType = ImageType.PRIMARY, maxWidth: Int = 440): String =

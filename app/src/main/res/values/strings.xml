@@ -37,6 +37,7 @@
 
     <!-- Details -->
     <string name="details_play">Play</string>
+    <string name="details_resume">Resume</string>
     <string name="details_unknown_year">—</string>
 
     <!-- Playback -->

@@ -42,10 +42,11 @@ import org.jellyfin.sdk.model.api.PersonKind
 import java.util.UUID
 
 /**
- * Shows metadata for one item, with a Play action that hands off to [PlaybackActivity] - for a
- * movie, itself; for a series (which has no single video of its own), its first episode. A series
- * also gets one row per season below the overview, each full of episode cards, for picking a
- * specific episode instead.
+ * Shows metadata for one item, with a Play/Resume action that hands off to [PlaybackActivity] -
+ * for a movie, itself; for a series (which has no single video of its own), whichever episode
+ * Jellyfin considers "up next" for this user (see [resolveSeriesPlayTarget]). A series also gets
+ * one row per season below the overview, each full of episode cards, for picking a specific
+ * episode instead.
  */
 class ItemDetailsFragment : DetailsSupportFragment() {
 
@@ -83,12 +84,38 @@ class ItemDetailsFragment : DetailsSupportFragment() {
             // pressed back before it resolved) by the time this resumes, and Glide.with() throws
             // if a load starts against an already-destroyed fragment/activity.
             if (!isAdded) return@launch
-            val rowsAdapter = setupRows(repository, userId, item)
+
+            val playTarget = if (item.type == BaseItemKind.SERIES) {
+                resolveSeriesPlayTarget(repository, userId, item)
+            } else {
+                item
+            }
+            if (!isAdded) return@launch
+
+            val rowsAdapter = setupRows(repository, item, playTarget)
             loadBackdrop(repository, item)
             if (item.type == BaseItemKind.SERIES) {
                 loadSeasonRows(repository, userId, item, rowsAdapter)
             }
         }
+    }
+
+    /**
+     * What a series' own Play/Resume action should start: whatever episode Jellyfin itself
+     * considers "up next" for this user (mid-way through it if they have one in progress,
+     * otherwise the next unwatched one) - falling back to a direct S1E1 lookup only if that
+     * fails, and to nothing at all only for a series with no episodes at all.
+     */
+    private suspend fun resolveSeriesPlayTarget(repository: JellyfinRepository, userId: UUID, series: BaseItemDto): BaseItemDto? {
+        runCatching { repository.getNextUpEpisode(userId, series.id) }.getOrNull()?.let { return it }
+
+        val firstSeason = runCatching { repository.getSeasons(userId, series.id) }
+            .getOrDefault(emptyList())
+            .minByOrNull { it.indexNumber ?: Int.MAX_VALUE }
+            ?: return null
+        return runCatching { repository.getEpisodes(userId, series.id, firstSeason.id) }
+            .getOrDefault(emptyList())
+            .minByOrNull { it.indexNumber ?: Int.MAX_VALUE }
     }
 
     /**
@@ -106,9 +133,8 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         Glide.with(this).load(backdropUrl).centerCrop().into(backdropImage)
     }
 
-    /** Builds the overview row (and its Play action) and returns the adapter it was added to. */
-    private fun setupRows(repository: JellyfinRepository, userId: UUID, item: BaseItemDto): ArrayObjectAdapter {
-        val isSeries = item.type == BaseItemKind.SERIES
+    /** Builds the overview row (and its Play/Resume action targeting [playTarget]) and returns the adapter it was added to. */
+    private fun setupRows(repository: JellyfinRepository, item: BaseItemDto, playTarget: BaseItemDto?): ArrayObjectAdapter {
         val detailsPresenter = object : FullWidthDetailsOverviewRowPresenter(DescriptionPresenter()) {
             override fun onBindRowViewHolder(vh: RowPresenter.ViewHolder, item: Any) {
                 super.onBindRowViewHolder(vh, item)
@@ -118,11 +144,6 @@ class ItemDetailsFragment : DetailsSupportFragment() {
                 vh.view.findViewById<View>(androidx.leanback.R.id.details_frame)?.elevation = 0f
             }
         }
-        // The presenter defaults to STATE_HALF, a collapsed layout that expands to STATE_FULL on
-        // the *first* DOWN press - a press that only resizes the row and never leaves it, before a
-        // second DOWN press is what actually reaches the row below (the season/episode rows here).
-        // Starting already expanded skips that extra step, so DOWN reaches them in a single press.
-        detailsPresenter.initialState = FullWidthDetailsOverviewRowPresenter.STATE_FULL
         // Leanback's default description/actions panel is fully opaque, which reads as a hard
         // slab against the backdrop behind it. Make it translucent (glass-like) instead so the
         // backdrop stays visible through it. The actions background sits nested inside the frame,
@@ -139,32 +160,25 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         // don't want anything about this screen going darker as you navigate), so turn it off.
         detailsPresenter.setSelectEffectEnabled(false)
         detailsPresenter.onActionClickedListener = OnActionClickedListener { action ->
-            if (action.id == ACTION_PLAY) {
-                if (isSeries) {
-                    playFirstEpisode(repository, userId, item)
-                } else {
-                    startActivity(
-                        Intent(requireContext(), PlaybackActivity::class.java)
-                            .putExtra(PlaybackActivity.EXTRA_ITEM_ID, item.id.toString())
-                            .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, item.name)
-                            .putExtra(
-                                PlaybackActivity.EXTRA_START_POSITION_TICKS,
-                                item.userData?.playbackPositionTicks ?: 0L,
-                            ),
-                    )
-                }
+            if (action.id == ACTION_PLAY && playTarget != null) {
+                startActivity(
+                    Intent(requireContext(), PlaybackActivity::class.java)
+                        .putExtra(PlaybackActivity.EXTRA_ITEM_ID, playTarget.id.toString())
+                        .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, playTarget.name)
+                        .putExtra(
+                            PlaybackActivity.EXTRA_START_POSITION_TICKS,
+                            playTarget.userData?.playbackPositionTicks ?: 0L,
+                        ),
+                )
             }
         }
 
         val row = DetailsOverviewRow(item)
-        // Leanback's actions row is a real focusable HorizontalGridView even with zero items in
-        // it - leaving it empty (as this used to do for series, since there's no single video to
-        // play) doesn't hide it, it just sits there as an invisible extra focus stop, so reaching
-        // the season rows below took an extra, seemingly pointless D-pad press. Giving every item
-        // type a real Play action - starting the first episode for a series - fixes that and is a
-        // reasonable "just start watching" shortcut besides.
-        row.actionsAdapter = ArrayObjectAdapter().apply {
-            add(Action(ACTION_PLAY, getString(R.string.details_play)))
+        if (playTarget != null) {
+            val isResume = (playTarget.userData?.playbackPositionTicks ?: 0L) > 0L
+            row.actionsAdapter = ArrayObjectAdapter().apply {
+                add(Action(ACTION_PLAY, getString(if (isResume) R.string.details_resume else R.string.details_play)))
+            }
         }
 
         val imageUrl = repository.buildImageUrl(item.id, maxWidth = 600)
@@ -185,34 +199,6 @@ class ItemDetailsFragment : DetailsSupportFragment() {
         val rowsAdapter = ArrayObjectAdapter(presenterSelector).apply { add(row) }
         adapter = rowsAdapter
         return rowsAdapter
-    }
-
-    /** The series' Play action: starts its very first episode (S1E1), resuming it if already in progress. */
-    private fun playFirstEpisode(repository: JellyfinRepository, userId: UUID, series: BaseItemDto) {
-        lifecycleScope.launch {
-            val firstSeason = runCatching { repository.getSeasons(userId, series.id) }
-                .getOrDefault(emptyList())
-                .minByOrNull { it.indexNumber ?: Int.MAX_VALUE }
-            val firstEpisode = firstSeason?.let { season ->
-                runCatching { repository.getEpisodes(userId, series.id, season.id) }
-                    .getOrDefault(emptyList())
-                    .minByOrNull { it.indexNumber ?: Int.MAX_VALUE }
-            }
-            if (!isAdded) return@launch
-            if (firstEpisode == null) {
-                Toast.makeText(requireContext(), R.string.playback_error, Toast.LENGTH_LONG).show()
-                return@launch
-            }
-            startActivity(
-                Intent(requireContext(), PlaybackActivity::class.java)
-                    .putExtra(PlaybackActivity.EXTRA_ITEM_ID, firstEpisode.id.toString())
-                    .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, firstEpisode.name)
-                    .putExtra(
-                        PlaybackActivity.EXTRA_START_POSITION_TICKS,
-                        firstEpisode.userData?.playbackPositionTicks ?: 0L,
-                    ),
-            )
-        }
     }
 
     /** One row per season, each row full of that season's episode cards. */
