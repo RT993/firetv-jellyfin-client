@@ -118,6 +118,11 @@ class ItemDetailsFragment : DetailsSupportFragment() {
                 vh.view.findViewById<View>(androidx.leanback.R.id.details_frame)?.elevation = 0f
             }
         }
+        // The presenter defaults to STATE_HALF, a collapsed layout that expands to STATE_FULL on
+        // the *first* DOWN press - a press that only resizes the row and never leaves it, before a
+        // second DOWN press is what actually reaches the row below (the season/episode rows here).
+        // Starting already expanded skips that extra step, so DOWN reaches them in a single press.
+        detailsPresenter.initialState = FullWidthDetailsOverviewRowPresenter.STATE_FULL
         // Leanback's default description/actions panel is fully opaque, which reads as a hard
         // slab against the backdrop behind it. Make it translucent (glass-like) instead so the
         // backdrop stays visible through it. The actions background sits nested inside the frame,
