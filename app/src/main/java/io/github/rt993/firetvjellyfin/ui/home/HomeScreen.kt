@@ -269,12 +269,16 @@ private fun NavigationDrawerScope.DrawerItem(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    // NavigationDrawer measures this composable once per DrawerValue to know how wide the
+    // collapsed vs. expanded rail should be - rendering the label unconditionally (previously the
+    // bug here) made both measurements identical, so the drawer never actually collapsed: it sat
+    // permanently at full width, overlaying/blocking the content behind it.
     NavigationDrawerItem(
         selected = selected,
         onClick = onClick,
         leadingContent = { Icon(imageVector = ImageVector.vectorResource(id = icon), contentDescription = if (expanded) null else label) },
     ) {
-        Text(label)
+        if (expanded) Text(label)
     }
 }
 

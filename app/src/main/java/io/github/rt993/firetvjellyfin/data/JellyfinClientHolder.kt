@@ -89,5 +89,5 @@ object JellyfinClientHolder {
 
     // Kept separate from BuildConfig.VERSION_NAME so this file has no Gradle-generated dependency -
     // which means it has to be bumped by hand alongside app/build.gradle.kts's versionName.
-    private const val BuildConfigVersion = "0.2.3"
+    private const val BuildConfigVersion = "0.2.4"
 }
