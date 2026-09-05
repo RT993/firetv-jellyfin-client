@@ -179,17 +179,20 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
             // client was auto-sideloading the (wrongly-defaulted) subtitle at startup. mediaSourceId
             // isn't known before the first call, so this first request exists purely to discover
             // it - only the second call's result is actually used for playback.
-            val discoveryInfo = runCatching { repo.getPlaybackInfo(resolvedUserId, resolvedItemId) }.getOrNull()
+            val discoveryInfo = runCatching { repo.getPlaybackInfo(resolvedUserId, resolvedItemId) }
+                .onFailure { Log.e(TAG, "Discovery getPlaybackInfo failed", it) }
+                .getOrNull()
             val discoveredMediaSourceId = discoveryInfo?.mediaSources?.firstOrNull()?.id
             val playbackInfo = if (discoveredMediaSourceId != null) {
                 runCatching {
                     repo.getPlaybackInfo(resolvedUserId, resolvedItemId, mediaSourceId = discoveredMediaSourceId)
-                }.getOrNull()
+                }.onFailure { Log.e(TAG, "getPlaybackInfo failed", it) }.getOrNull()
             } else {
                 discoveryInfo
             }
             val selection = playbackInfo?.let { decisionMaker.decide(resolvedItemId, it) }
             if (selection == null) {
+                Log.e(TAG, "No playable selection (playbackInfo=${playbackInfo != null})")
                 finishWithError()
                 return@launch
             }
@@ -386,7 +389,7 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         lifecycleScope.launch {
             val playbackInfo = runCatching {
                 repo.getPlaybackInfo(resolvedUserId, resolvedItemId, audioStreamIndex = audioStreamIndex, mediaSourceId = currentMediaSourceId)
-            }.getOrNull()
+            }.onFailure { Log.e(TAG, "getPlaybackInfo failed during audio track switch", it) }.getOrNull()
             val selection = playbackInfo?.let { PlaybackDecisionMaker(resolvedApi).decide(resolvedItemId, it) }
             if (selection == null) {
                 // A failed track switch shouldn't cost the user the whole movie - finishWithError()
