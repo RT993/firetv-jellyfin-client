@@ -1,10 +1,16 @@
 package io.github.rt993.firetvjellyfin.ui.home
 
 import android.content.Intent
+import android.graphics.Typeface
 import android.os.Bundle
-import android.util.Log
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.Space
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -15,42 +21,140 @@ import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.ui.library.LibraryGridActivity
 import io.github.rt993.firetvjellyfin.ui.login.LoginActivity
 import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
-import org.jellyfin.sdk.model.api.CollectionType
+import org.jellyfin.sdk.model.api.BaseItemDto
+import java.util.UUID
 
+private const val ICON_SIZE_DP = 56
+private const val ICON_PADDING_DP = 14
+
+/**
+ * Home screen chrome: a fixed left nav rail (avatar, Search, Home, one icon per library, Settings)
+ * beside [MainBrowseFragment]'s row content - replaces the old top bar entirely.
+ */
 class HomeActivity : FragmentActivity(R.layout.activity_home) {
 
+    private lateinit var sidebar: LinearLayout
+    private lateinit var libraryContainer: LinearLayout
     private lateinit var userMenu: View
     private lateinit var userMenuBackCallback: OnBackPressedCallback
+    private lateinit var navHome: View
+    private lateinit var navSettings: View
+    private lateinit var lastSidebarFocus: View
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // BrowseSupportFragment hosts its row content via a child fragment transaction
-        // (getChildFragmentManager().add/replace internally), which doesn't reliably attach when
-        // the fragment itself is declared via a static <fragment> XML tag - add it programmatically
-        // into a FragmentContainerView instead.
-        if (savedInstanceState == null) {
-            supportFragmentManager.beginTransaction()
-                .replace(R.id.main_browse_fragment, MainBrowseFragment())
-                .commit()
+        sidebar = findViewById(R.id.sidebar)
+        userMenu = findViewById(R.id.user_menu)
+
+        // BrowseSupportFragment hosts its row content via a child fragment transaction, which
+        // doesn't reliably attach when the fragment itself is declared via a static <fragment> XML
+        // tag - add it programmatically into a FragmentContainerView instead. Hang onto the freshly
+        // created instance directly (rather than looking it up again right after commit()) since
+        // the transaction hasn't necessarily executed yet at that point.
+        val fragment = if (savedInstanceState == null) {
+            MainBrowseFragment().also {
+                supportFragmentManager.beginTransaction().replace(R.id.main_browse_fragment, it).commit()
+            }
+        } else {
+            browseFragment()
         }
 
-        val userTrigger = findViewById<TextView>(R.id.topbar_username)
-        userTrigger.text = JellyfinClientHolder.currentUsername().orEmpty()
-        userMenu = findViewById(R.id.user_menu)
-        userTrigger.setOnClickListener { toggleUserMenu() }
-        findViewById<View>(R.id.user_menu_info).setOnClickListener { showAccountInfo() }
-        findViewById<View>(R.id.user_menu_logout).setOnClickListener { logOut() }
+        buildSidebar(fragment)
 
         userMenuBackCallback = object : OnBackPressedCallback(false) {
             override fun handleOnBackPressed() = closeUserMenu()
         }
         onBackPressedDispatcher.addCallback(this, userMenuBackCallback)
-
-        setUpNavItem(R.id.nav_home, null)
-        setUpNavItem(R.id.nav_movies, CollectionType.MOVIES)
-        setUpNavItem(R.id.nav_shows, CollectionType.TVSHOWS)
+        findViewById<View>(R.id.user_menu_info).setOnClickListener { showAccountInfo() }
+        findViewById<View>(R.id.user_menu_logout).setOnClickListener { logOut() }
     }
+
+    private fun buildSidebar(fragment: MainBrowseFragment?) {
+        sidebar.addView(buildAvatar())
+        sidebar.addView(gap(32))
+
+        sidebar.addView(
+            sidebarIcon(R.drawable.ic_nav_search, getString(R.string.nav_search)) {
+                Toast.makeText(this, R.string.nav_search_unavailable, Toast.LENGTH_SHORT).show()
+            },
+        )
+        sidebar.addView(gap(8))
+
+        navHome = sidebarIcon(R.drawable.ic_nav_home, getString(R.string.nav_home)) {
+            browseFragment()?.showHome()
+        }
+        sidebar.addView(navHome)
+        sidebar.addView(gap(8))
+
+        libraryContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        sidebar.addView(libraryContainer)
+
+        sidebar.addView(Space(this).apply { layoutParams = LinearLayout.LayoutParams(0, 0, 1f) })
+
+        navSettings = sidebarIcon(R.drawable.ic_nav_settings, getString(R.string.nav_settings)) { toggleUserMenu() }
+        sidebar.addView(navSettings)
+
+        lastSidebarFocus = navHome
+        fragment?.onLibrariesLoaded = { views -> populateLibraryIcons(views) }
+    }
+
+    private fun populateLibraryIcons(views: List<BaseItemDto>) {
+        libraryContainer.removeAllViews()
+        views.forEach { view ->
+            libraryContainer.addView(gap(8))
+            libraryContainer.addView(
+                sidebarIcon(R.drawable.ic_nav_library, view.name.orEmpty()) {
+                    openLibraryGrid(view.id, view.name.orEmpty())
+                },
+            )
+        }
+    }
+
+    private fun buildAvatar(): View {
+        val size = dpToPx(ICON_SIZE_DP)
+        val container = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(size, size)
+            background = ContextCompat.getDrawable(this@HomeActivity, R.drawable.bg_avatar_circle)
+        }
+        val initial = (JellyfinClientHolder.currentUsername()?.firstOrNull()?.uppercaseChar() ?: '?').toString()
+        container.addView(
+            TextView(this).apply {
+                layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER)
+                text = initial
+                textSize = 20f
+                setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.text_primary))
+                setTypeface(typeface, Typeface.BOLD)
+            },
+        )
+        return container
+    }
+
+    private fun sidebarIcon(iconRes: Int, description: String, onClick: () -> Unit): View {
+        val size = dpToPx(ICON_SIZE_DP)
+        val padding = dpToPx(ICON_PADDING_DP)
+        return ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(size, size)
+            setImageResource(iconRes)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(padding, padding, padding, padding)
+            background = ContextCompat.getDrawable(this@HomeActivity, R.drawable.nav_item_bg)
+            isFocusable = true
+            contentDescription = description
+            setOnClickListener { onClick() }
+            setOnFocusChangeListener { view, hasFocus -> if (hasFocus) lastSidebarFocus = view }
+        }
+    }
+
+    private fun gap(dp: Int): View =
+        Space(this).apply { layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dpToPx(dp)) }
+
+    private fun dpToPx(dp: Int): Int =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp.toFloat(), resources.displayMetrics).toInt()
 
     private fun toggleUserMenu() {
         if (userMenu.visibility == View.VISIBLE) closeUserMenu() else openUserMenu()
@@ -65,7 +169,7 @@ class HomeActivity : FragmentActivity(R.layout.activity_home) {
     private fun closeUserMenu() {
         userMenu.visibility = View.GONE
         userMenuBackCallback.isEnabled = false
-        findViewById<View>(R.id.topbar_username).requestFocus()
+        navSettings.requestFocus()
     }
 
     private fun showAccountInfo() {
@@ -90,73 +194,40 @@ class HomeActivity : FragmentActivity(R.layout.activity_home) {
     private fun browseFragment(): MainBrowseFragment? =
         supportFragmentManager.findFragmentById(R.id.main_browse_fragment) as? MainBrowseFragment
 
+    private fun openLibraryGrid(libraryId: UUID, title: String) {
+        startActivity(
+            Intent(this, LibraryGridActivity::class.java)
+                .putExtra(LibraryGridActivity.EXTRA_LIBRARY_ID, libraryId.toString())
+                .putExtra(LibraryGridActivity.EXTRA_TITLE, title),
+        )
+    }
+
     /**
-     * Leanback's BrowseSupportFragment/BrowseFrameLayout keeps D-pad focus contained within its
-     * own row content and swallows DPAD_UP itself (returns true / consumes it) even when there's
-     * nowhere left for it to move focus to, rather than letting it bubble back up unconsumed - so
-     * catching it in onKeyDown() (which only fires for events nothing else consumed) never fired.
-     * dispatchKeyEvent() runs before the view hierarchy gets a chance to swallow anything, so
-     * intercept it there instead - but only when actually on the top row and not already in the
-     * top bar, so DPAD_UP still moves between rows normally everywhere else.
+     * Leanback's BrowseSupportFragment/BrowseFrameLayout keeps D-pad focus contained within its own
+     * row content and swallows an arrow key itself (consumes it, returns true) even when there's
+     * nowhere left for it to move focus to - so a plain onKeyDown() override (which only fires for
+     * events nothing else consumed) never sees DPAD_LEFT at the leftmost card of a row. Peek at
+     * what default focus search *would* do before the row content gets a chance to swallow the
+     * event: if it can't find anything further left (the leftmost-column case), redirect to the
+     * sidebar ourselves; otherwise let the event through so normal left/right scrolling within a
+     * row keeps working exactly as before.
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.keyCode == KeyEvent.KEYCODE_DPAD_UP && event.action == KeyEvent.ACTION_DOWN && userMenu.visibility != View.VISIBLE) {
-            val inTopBar = isFocusInTopBar()
-            val fragment = browseFragment()
-            val atTop = fragment?.isAtTopRow()
-            Log.d(TAG, "DPAD_UP: inTopBar=$inTopBar fragment=$fragment atTopRow=$atTop currentFocus=$currentFocus")
-            if (!inTopBar && atTop == true) {
-                findViewById<View>(R.id.nav_home).requestFocus()
-                Log.d(TAG, "DPAD_UP: redirected to nav_home, now focused=${findViewById<View>(R.id.nav_home).isFocused}")
+        if (event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN && userMenu.visibility != View.VISIBLE) {
+            if (!isFocusInSidebar() && currentFocus?.focusSearch(View.FOCUS_LEFT) == null) {
+                lastSidebarFocus.requestFocus()
                 return true
             }
         }
         return super.dispatchKeyEvent(event)
     }
 
-    private fun isFocusInTopBar(): Boolean {
-        val topBar = findViewById<View>(R.id.top_bar)
+    private fun isFocusInSidebar(): Boolean {
         var view = currentFocus
         while (view != null) {
-            if (view === topBar) return true
+            if (view === sidebar) return true
             view = view.parent as? View
         }
         return false
-    }
-
-    private companion object {
-        const val TAG = "HomeActivity"
-    }
-
-    private fun setUpNavItem(viewId: Int, target: CollectionType?) {
-        val view = findViewById<TextView>(viewId)
-        view.setOnClickListener {
-            if (target == null) {
-                Log.d(TAG, "nav item ${resources.getResourceEntryName(viewId)} clicked -> showLibrary(null)")
-                browseFragment()?.showLibrary(null)
-            } else {
-                openLibraryGrid(target, view.text.toString())
-            }
-        }
-        view.setOnFocusChangeListener { _, hasFocus ->
-            view.setTextColor(
-                ContextCompat.getColor(this, if (hasFocus) R.color.text_primary else R.color.text_secondary),
-            )
-        }
-    }
-
-    /** Movies/TV Shows nav tabs open a dedicated poster grid instead of just filtering the Home rows. */
-    private fun openLibraryGrid(target: CollectionType, title: String) {
-        val libraryId = browseFragment()?.libraryIdFor(target)
-        if (libraryId == null) {
-            Log.e(TAG, "openLibraryGrid: no library id resolved yet for $target")
-            Toast.makeText(this, R.string.home_error, Toast.LENGTH_SHORT).show()
-            return
-        }
-        startActivity(
-            Intent(this, LibraryGridActivity::class.java)
-                .putExtra(LibraryGridActivity.EXTRA_LIBRARY_ID, libraryId.toString())
-                .putExtra(LibraryGridActivity.EXTRA_TITLE, title),
-        )
     }
 }

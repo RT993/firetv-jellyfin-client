@@ -2,6 +2,8 @@ package io.github.rt993.firetvjellyfin.ui.home
 
 import android.content.Context
 import android.graphics.Outline
+import android.os.Handler
+import android.os.Looper
 import android.util.AttributeSet
 import android.view.KeyEvent
 import android.view.LayoutInflater
@@ -25,6 +27,7 @@ import org.jellyfin.sdk.model.api.ImageType
 
 private const val BACKDROP_CROSSFADE_MS = 350
 private const val CARD_CORNER_RADIUS_DP = 24
+private const val AUTO_ADVANCE_MS = 8000L
 
 /**
  * One big item at a time (title/description/backdrop/Play), paged with D-pad left/right - not
@@ -51,6 +54,9 @@ class HeroBannerView @JvmOverloads constructor(
     private var repository: JellyfinRepository? = null
     private var onPlayClicked: ((BaseItemDto) -> Unit)? = null
     private var onInfoClicked: ((BaseItemDto) -> Unit)? = null
+
+    private val autoAdvanceHandler = Handler(Looper.getMainLooper())
+    private val autoAdvanceRunnable = Runnable { page(1) }
 
     init {
         LayoutInflater.from(context).inflate(R.layout.view_hero_banner, this, true)
@@ -100,18 +106,32 @@ class HeroBannerView @JvmOverloads constructor(
         currentIndex = 0
         rebuildDots()
         showCurrent(crossfade = false)
+        scheduleAutoAdvance()
     }
 
     fun unbind() {
         repository = null
         onPlayClicked = null
         onInfoClicked = null
+        autoAdvanceHandler.removeCallbacks(autoAdvanceRunnable)
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        autoAdvanceHandler.removeCallbacks(autoAdvanceRunnable)
+    }
+
+    /** Cinematic "Top Shelf" behavior: cycles through [items] on its own, same as D-pad paging. */
+    private fun scheduleAutoAdvance() {
+        autoAdvanceHandler.removeCallbacks(autoAdvanceRunnable)
+        if (items.size > 1) autoAdvanceHandler.postDelayed(autoAdvanceRunnable, AUTO_ADVANCE_MS)
     }
 
     private fun page(delta: Int) {
         if (items.size <= 1) return
         currentIndex = (currentIndex + delta + items.size) % items.size
         showCurrent(crossfade = true)
+        scheduleAutoAdvance()
     }
 
     private inline fun withCurrentItem(action: (BaseItemDto) -> Unit) {

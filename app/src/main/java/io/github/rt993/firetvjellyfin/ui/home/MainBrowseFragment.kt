@@ -29,12 +29,12 @@ import io.github.rt993.firetvjellyfin.ui.details.ItemDetailsActivity
 import io.github.rt993.firetvjellyfin.ui.playback.PlaybackActivity
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.api.BaseItemDto
-import org.jellyfin.sdk.model.api.CollectionType
 import java.util.UUID
 
 /**
- * Home screen: the Recently Added hero and a Continue Watching row by default; a per-library row
- * of that library's items when filtered from the top nav bar (see [showLibrary]).
+ * Home screen: a Top Shelf hero banner, a Continue Watching row, then one row per library - see
+ * [showHome]. [onLibrariesLoaded] lets [HomeActivity] build its sidebar's per-library icons once
+ * the server responds.
  */
 class MainBrowseFragment : BrowseSupportFragment() {
 
@@ -43,12 +43,10 @@ class MainBrowseFragment : BrowseSupportFragment() {
     }
     private val rowsAdapter = ArrayObjectAdapter(presenterSelector)
     private lateinit var backgroundManager: BackgroundManager
-    private val loadedRows = mutableListOf<LoadedRow>()
-    private val libraryIds = mutableMapOf<CollectionType, UUID>()
+    private val loadedRows = mutableListOf<ListRow>()
     private var recentlyAddedRow: HeroRow? = null
     private var continueWatchingRow: ListRow? = null
-
-    private data class LoadedRow(val collectionType: CollectionType?, val row: ListRow)
+    var onLibrariesLoaded: ((List<BaseItemDto>) -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,7 +70,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // No Leanback title/breadcrumb - HomeActivity's own top bar (logo, nav, username) replaces it.
+        // No Leanback title/breadcrumb - HomeActivity's sidebar replaces the nav chrome entirely.
         setHeadersState(HEADERS_DISABLED)
         setHeadersTransitionOnBackEnabled(false)
         onItemViewClickedListener = ItemClickedListener()
@@ -115,13 +113,11 @@ class MainBrowseFragment : BrowseSupportFragment() {
                     if (views.isEmpty()) {
                         Toast.makeText(requireContext(), "Server returned 0 libraries for this user", Toast.LENGTH_LONG).show()
                     }
-                    views.forEach { view ->
-                        view.collectionType?.let { libraryIds[it] = view.id }
-                        loadRow(repo, cardPresenter, userId, view)
-                    }
+                    views.forEach { view -> loadRow(repo, cardPresenter, userId, view) }
                     loadRecentlyAdded(repo, userId)
                     loadContinueWatching(repo, userId)
-                    showLibrary(null) // all rows - also clears the placeholder row seeded in onCreate()
+                    showHome() // also clears the placeholder row seeded in onCreate()
+                    onLibrariesLoaded?.invoke(views)
                 }
                 .onFailure {
                     Log.e(TAG, "getUserViews failed", it)
@@ -148,8 +144,8 @@ class MainBrowseFragment : BrowseSupportFragment() {
 
         val rowAdapter = ArrayObjectAdapter(cardPresenter).apply { addAll(0, items) }
         val header = HeaderItem(loadedRows.size.toLong(), view.name.orEmpty())
-        Log.i(TAG, "adding row for \"${view.name}\" with collectionType=${view.collectionType}")
-        loadedRows += LoadedRow(view.collectionType, ListRow(header, rowAdapter))
+        Log.i(TAG, "adding row for \"${view.name}\"")
+        loadedRows += ListRow(header, rowAdapter)
     }
 
     /** Home-only: first row shown, a big paginated banner of newly added movies and series. */
@@ -177,31 +173,13 @@ class MainBrowseFragment : BrowseSupportFragment() {
         continueWatchingRow = ListRow(header, rowAdapter)
     }
 
-    /**
-     * Shows only the row for [type] (a Movies/TV Shows nav filter - no longer reachable from the
-     * top nav bar, which now opens [io.github.rt993.firetvjellyfin.ui.library.LibraryGridActivity]
-     * instead, but kept for whatever else might want a single-library view), or the full Home
-     * view if null: Recently Added hero, Continue Watching, then one poster row per library -
-     * matching the reference design's Home screen instead of requiring a nav tap to see any
-     * library content at all.
-     */
-    fun showLibrary(type: CollectionType?) {
-        Log.i(TAG, "showLibrary(type=$type), loadedRows=${loadedRows.map { it.collectionType }}")
+    /** The Top Shelf hero, Continue Watching, then one poster row per library. */
+    fun showHome() {
         rowsAdapter.clear()
-        if (type == null) {
-            recentlyAddedRow?.let { rowsAdapter.add(it) }
-            continueWatchingRow?.let { rowsAdapter.add(it) }
-            loadedRows.forEach { rowsAdapter.add(it.row) }
-        } else {
-            loadedRows.filter { it.collectionType == type }.forEach { rowsAdapter.add(it.row) }
-        }
+        recentlyAddedRow?.let { rowsAdapter.add(it) }
+        continueWatchingRow?.let { rowsAdapter.add(it) }
+        loadedRows.forEach { rowsAdapter.add(it) }
     }
-
-    /** True when the topmost row is selected, i.e. pressing up has nowhere left to go. */
-    fun isAtTopRow(): Boolean = selectedPosition <= 0
-
-    /** The library id backing a Movies/TV Shows nav tab, once [loadLibraries] has resolved. */
-    fun libraryIdFor(type: CollectionType): UUID? = libraryIds[type]
 
     private fun openDetails(item: BaseItemDto) {
         startActivity(

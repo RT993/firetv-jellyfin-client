@@ -3,7 +3,7 @@
     <string name="app_name">TreeHouse</string>
 
     <!-- Splash -->
-    <string name="splash_version">Version 0.1.12</string>
+    <string name="splash_version">Version 0.1.13</string>
 
     <!-- Login -->
     <string name="login_step_welcome_subtitle">Let\'s get connected</string>
@@ -24,8 +24,9 @@
     <string name="home_error">Could not load libraries from the server.</string>
     <string name="app_logo">TreeHouse</string>
     <string name="nav_home">Home</string>
-    <string name="nav_movies">Movies</string>
-    <string name="nav_shows">TV Shows</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_settings">Settings</string>
+    <string name="nav_search_unavailable">Search is coming soon</string>
     <string name="hero_ends_at_format">Ends at %1$s</string>
     <string name="home_continue_watching">Pick up where you left off</string>
     <string name="continue_watching_episode_format">S%1$d E%2$d</string>

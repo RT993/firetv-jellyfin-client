@@ -1,12 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Height reserved for the top bar (logo/nav/username). -->
-    <dimen name="home_topbar_height">104dp</dimen>
-    <!-- Where the row content starts, below the top bar. Less than home_topbar_height itself -
-         the row's own top padding (lb_browse_item_vertical_spacing) adds further gap on top of
-         this, and the top bar's bottom padding already fades out via its gradient, so this can
-         overlap into that fade without the cards colliding with the nav row above. -->
-    <dimen name="home_content_margin">64dp</dimen>
+    <!-- Fixed-width left nav rail (avatar, search, home, per-library icons, settings). -->
+    <dimen name="sidebar_width">96dp</dimen>
 
     <!-- Overrides Leanback's own defaults (8dp/8dp) - too tight, reads as cluttered with cards
          this size. Also gives the focus-scale pop room to grow without clipping into neighbors.
