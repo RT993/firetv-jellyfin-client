@@ -5,7 +5,5 @@
     <color name="card_default">#202832</color>
     <color name="text_primary">#FFFFFF</color>
     <color name="text_secondary">#B0B8C0</color>
-    <color name="backdrop_scrim">#CC101418</color>
-    <color name="details_panel_scrim">#33101418</color>
     <color name="login_error">#FF8080</color>
 </resources>

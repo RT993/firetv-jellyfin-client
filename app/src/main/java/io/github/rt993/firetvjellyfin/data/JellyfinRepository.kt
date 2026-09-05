@@ -10,6 +10,7 @@ import org.jellyfin.sdk.api.client.extensions.mediaSegmentsApi
 import org.jellyfin.sdk.api.client.extensions.quickConnectApi
 import org.jellyfin.sdk.api.client.extensions.tvShowsApi
 import org.jellyfin.sdk.api.client.extensions.userApi
+import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.api.client.extensions.userViewsApi
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.AuthenticationResult
@@ -73,18 +74,29 @@ class JellyfinRepository(private val api: ApiClient) {
 
     /**
      * A single item with the fields the details screen needs. Jellyfin's /Items endpoint omits
-     * overview, genres, and cast by default (to keep list responses small) unless explicitly
-     * requested via `fields` - without this, the details screen would silently get an item with
-     * a name and not much else.
+     * overview, genres, cast, and media stream info by default (to keep list responses small)
+     * unless explicitly requested via `fields` - without this, the details screen would silently
+     * get an item with a name and not much else. MEDIA_STREAMS is what the technical badges
+     * (resolution, Dolby Vision/HDR, Dolby Atmos/surround) are read from.
      */
     suspend fun getItem(userId: UUID, itemId: UUID): BaseItemDto? {
         val request = GetItemsRequest(
             userId = userId,
             ids = listOf(itemId),
-            fields = listOf(ItemFields.OVERVIEW, ItemFields.GENRES, ItemFields.PEOPLE),
+            fields = listOf(ItemFields.OVERVIEW, ItemFields.GENRES, ItemFields.PEOPLE, ItemFields.MEDIA_STREAMS),
             enableUserData = true,
         )
         return api.itemsApi.getItems(request).content.items.orEmpty().firstOrNull()
+    }
+
+    /** Toggles the Watchlist-equivalent "favorite" flag Jellyfin itself tracks per user/item. */
+    suspend fun setFavorite(userId: UUID, itemId: UUID, isFavorite: Boolean): Boolean {
+        val response = if (isFavorite) {
+            api.userLibraryApi.markFavoriteItem(itemId = itemId, userId = userId)
+        } else {
+            api.userLibraryApi.unmarkFavoriteItem(itemId = itemId, userId = userId)
+        }
+        return response.content.isFavorite
     }
 
     /** The seasons of a series, in order. */

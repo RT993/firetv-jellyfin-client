@@ -1,6 +1,5 @@
 package io.github.rt993.firetvjellyfin.ui.home
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,7 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -41,12 +39,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.Border
 import androidx.tv.material3.Button
-import androidx.tv.material3.Card
-import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.DrawerValue
-import androidx.tv.material3.Glow
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.NavigationDrawer
@@ -58,6 +52,7 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
+import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseBackground
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseSurface
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextPrimary
@@ -71,9 +66,6 @@ import org.jellyfin.sdk.model.api.ImageType
 
 private const val POSTER_ASPECT_RATIO = 2f / 3f
 private const val SPOTLIGHT_ASPECT_RATIO = 16f / 9f
-private const val CARD_CORNER_DP = 12
-private const val FOCUSED_SCALE = 1.12f
-private const val FOCUSED_GLOW_DP = 16
 
 private data class HomeUiState(
     val isLoading: Boolean = true,
@@ -387,27 +379,5 @@ private fun SpotlightCard(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun FocusableCard(
-    modifier: Modifier,
-    onFocused: () -> Unit,
-    onClick: () -> Unit,
-    content: @Composable () -> Unit,
-) {
-    val shape = RoundedCornerShape(CARD_CORNER_DP.dp)
-    Card(
-        onClick = onClick,
-        modifier = modifier.onFocusChanged { if (it.isFocused) onFocused() },
-        shape = CardDefaults.shape(shape = shape, focusedShape = shape),
-        scale = CardDefaults.scale(focusedScale = FOCUSED_SCALE),
-        border = CardDefaults.border(
-            focusedBorder = Border(border = BorderStroke(2.dp, Color.White), shape = shape),
-        ),
-        glow = CardDefaults.glow(focusedGlow = Glow(elevationColor = Color.White, elevation = FOCUSED_GLOW_DP.dp)),
-    ) {
-        content()
     }
 }

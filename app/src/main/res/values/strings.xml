@@ -3,7 +3,7 @@
     <string name="app_name">TreeHouse</string>
 
     <!-- Splash -->
-    <string name="splash_version">Version 0.2.0</string>
+    <string name="splash_version">Version 0.2.1</string>
 
     <!-- Login -->
     <string name="login_step_welcome_subtitle">Let\'s get connected</string>
@@ -39,6 +39,9 @@
     <string name="details_play">Play</string>
     <string name="details_resume">Resume</string>
     <string name="details_unknown_year">—</string>
+    <string name="details_watchlist">Watchlist</string>
+    <string name="details_watchlisted">In Watchlist</string>
+    <string name="details_starring_format">Starring: %1$s</string>
 
     <!-- Playback -->
     <string name="playback_error">Playback failed.</string>
