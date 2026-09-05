@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -17,8 +18,8 @@ android {
         // device (Fire OS 7.7.1.5 / Android 9, API 28).
         minSdk = 23
         targetSdk = 36
-        versionCode = 15
-        versionName = "0.1.13"
+        versionCode = 16
+        versionName = "0.2.0"
 
         // Vector drawable gradients (aapt:attr fillColor) render natively from API 24; the
         // support library backports them down to minSdk 23.
@@ -65,6 +66,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        compose = true
     }
 
     packaging {
@@ -104,4 +106,16 @@ dependencies {
 
     // Poster/backdrop image loading for leanback card and details views
     implementation(libs.glide)
+
+    // Compose for TV (Home screen - see ui/home) - TvLazyRow/Column, NavigationDrawer, Card focus
+    // handling. Other screens (Library grid, Details, Playback) stay on Leanback/Views for now.
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.tv.foundation)
+    implementation(libs.androidx.tv.material)
+    implementation(libs.glide.compose)
 }

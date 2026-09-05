@@ -56,8 +56,8 @@ class ItemDetailsFragment : DetailsSupportFragment() {
 
         onItemViewClickedListener = EpisodeClickedListener()
 
-        // DetailsSupportFragment's internal RowsSupportFragment, like BrowseSupportFragment's
-        // (see MainBrowseFragment.onCreate), is only created if `adapter` is already a non-empty
+        // DetailsSupportFragment's internal RowsSupportFragment, like BrowseSupportFragment's,
+        // is only created if `adapter` is already a non-empty
         // ObjectAdapter at onCreateView() time - setting it later, once the network calls below
         // resolve, doesn't retroactively fix that. Worth keeping regardless, but this alone turned
         // out NOT to be the cause of the double-press-to-reach-episodes bug - see
@@ -300,8 +300,8 @@ class ItemDetailsFragment : DetailsSupportFragment() {
             val baseItem = item as BaseItemDto
             val seriesName = baseItem.seriesName
             if (baseItem.type == BaseItemKind.EPISODE && seriesName != null) {
-                // This screen is reachable straight from a Continue Watching/episode card
-                // (see MainBrowseFragment.openDetails), where the episode's own title - which
+                // This screen is reachable straight from a Continue Watching/episode card, where
+                // the episode's own title - which
                 // can be an unfamiliar one-liner with no obvious connection to the show - was the
                 // only text on screen; the series' own artwork was here, but nothing said its
                 // name. Lead with the series instead, and identify the specific episode below it.

@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Fixed-width left nav rail (avatar, search, home, per-library icons, settings). -->
-    <dimen name="sidebar_width">96dp</dimen>
-
     <!-- Overrides Leanback's own defaults (8dp/8dp) - too tight, reads as cluttered with cards
          this size. Also gives the focus-scale pop room to grow without clipping into neighbors.
          Deliberately overriding a Leanback-private resource, not an unused/dead one - lint can't
