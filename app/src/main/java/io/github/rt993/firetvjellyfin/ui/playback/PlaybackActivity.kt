@@ -20,7 +20,9 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
@@ -29,6 +31,8 @@ import io.github.rt993.firetvjellyfin.playback.PlaybackDecisionMaker
 import io.github.rt993.firetvjellyfin.playback.PlaybackMode
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import org.jellyfin.sdk.api.client.ApiClient
+import org.jellyfin.sdk.api.client.util.AuthorizationHeaderBuilder
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.MediaSegmentDto
@@ -143,7 +147,7 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
                 finishWithError()
                 return@launch
             }
-            startPlayback(selection.streamUrl, selection.mode, startPositionTicks)
+            startPlayback(api, selection.streamUrl, selection.mode, startPositionTicks)
 
             introSegment = introDeferred.await()?.takeIf { it.endTicks > it.startTicks }
             val item = itemDeferred.await()
@@ -154,12 +158,31 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         }
     }
 
-    private fun startPlayback(streamUrl: String, mode: PlaybackMode, startPositionTicks: Long) {
+    private fun startPlayback(api: ApiClient, streamUrl: String, mode: PlaybackMode, startPositionTicks: Long) {
         subtitleText.text = getString(
             if (mode == PlaybackMode.DIRECT_PLAY) R.string.playback_mode_direct else R.string.playback_mode_transcode,
         )
 
-        val exoPlayer = ExoPlayer.Builder(this).build().also { player = it }
+        // A direct-play URL is one request, and the query-string access token
+        // (PlaybackDecisionMaker.withAccessToken) covers that fine. An HLS transcode is a *chain*
+        // of requests instead - master playlist, then the sub-playlist it references, then each
+        // segment - and there's no guarantee Jellyfin carries that query param into every URL it
+        // generates along the way (it doesn't: this is exactly what was producing the 401s on
+        // transcoded playback while direct play always worked). Attaching the same Authorization
+        // header the SDK itself sends on every one of its own requests, as a default header on
+        // ExoPlayer's HTTP data source, covers every request in the chain instead of just the first.
+        val authHeader = AuthorizationHeaderBuilder.buildHeader(
+            api.clientInfo.name,
+            api.clientInfo.version,
+            api.deviceInfo.id,
+            api.deviceInfo.name,
+            api.accessToken,
+        )
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+            .setDefaultRequestProperties(mapOf("Authorization" to authHeader))
+        val mediaSourceFactory = DefaultMediaSourceFactory(this).setDataSourceFactory(httpDataSourceFactory)
+
+        val exoPlayer = ExoPlayer.Builder(this).setMediaSourceFactory(mediaSourceFactory).build().also { player = it }
         exoPlayer.setVideoSurfaceView(playerSurface)
         exoPlayer.addListener(object : Player.Listener {
             override fun onVideoSizeChanged(videoSize: VideoSize) {
