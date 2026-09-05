@@ -4,6 +4,7 @@ import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.videosApi
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.MediaSourceInfo
+import org.jellyfin.sdk.model.api.MediaStream
 import org.jellyfin.sdk.model.api.PlaybackInfoResponse
 
 /** How a media source ended up being played. Surfaced in the UI so this is never a silent choice. */
@@ -13,7 +14,22 @@ data class PlaybackSelection(
     val mode: PlaybackMode,
     val streamUrl: String,
     val mediaSourceId: String,
+    /** Every audio/video/subtitle track on this media source - what PlaybackActivity's track pickers are built from. */
+    val mediaStreams: List<MediaStream>,
+    val defaultAudioStreamIndex: Int?,
+    val defaultSubtitleStreamIndex: Int?,
 )
+
+/**
+ * Jellyfin sometimes hands back a bare path (subtitle delivery URLs, transcoding URLs) that needs
+ * the server's own base URL prefixed before it's directly fetchable outside the SDK's own client.
+ */
+fun resolveJellyfinUrl(api: ApiClient, relativeOrAbsoluteUrl: String): String =
+    if (relativeOrAbsoluteUrl.startsWith("http", ignoreCase = true)) {
+        relativeOrAbsoluteUrl
+    } else {
+        api.baseUrl.orEmpty().trimEnd('/') + "/" + relativeOrAbsoluteUrl.trimStart('/')
+    }
 
 /**
  * The single, isolated place where this app decides direct-play vs. transcode.
@@ -52,17 +68,26 @@ class PlaybackDecisionMaker(private val api: ApiClient) {
             deviceId = api.deviceInfo.id,
             playSessionId = playSessionId,
         )
-        return PlaybackSelection(PlaybackMode.DIRECT_PLAY, withAccessToken(url), mediaSourceId)
+        return PlaybackSelection(
+            PlaybackMode.DIRECT_PLAY,
+            withAccessToken(url),
+            mediaSourceId,
+            source.mediaStreams.orEmpty(),
+            source.defaultAudioStreamIndex,
+            source.defaultSubtitleStreamIndex,
+        )
     }
 
     private fun transcode(source: MediaSourceInfo, mediaSourceId: String): PlaybackSelection? {
         val relativeOrAbsoluteUrl = source.transcodingUrl ?: return null
-        val absoluteUrl = if (relativeOrAbsoluteUrl.startsWith("http", ignoreCase = true)) {
-            relativeOrAbsoluteUrl
-        } else {
-            (api.baseUrl.orEmpty().trimEnd('/')) + "/" + relativeOrAbsoluteUrl.trimStart('/')
-        }
-        return PlaybackSelection(PlaybackMode.TRANSCODE, withAccessToken(absoluteUrl), mediaSourceId)
+        return PlaybackSelection(
+            PlaybackMode.TRANSCODE,
+            withAccessToken(resolveJellyfinUrl(api, relativeOrAbsoluteUrl)),
+            mediaSourceId,
+            source.mediaStreams.orEmpty(),
+            source.defaultAudioStreamIndex,
+            source.defaultSubtitleStreamIndex,
+        )
     }
 
     /**

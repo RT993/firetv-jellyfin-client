@@ -10,6 +10,8 @@ import org.jellyfin.sdk.model.api.MediaStreamProtocol
 import org.jellyfin.sdk.model.api.ProfileCondition
 import org.jellyfin.sdk.model.api.ProfileConditionType
 import org.jellyfin.sdk.model.api.ProfileConditionValue
+import org.jellyfin.sdk.model.api.SubtitleDeliveryMethod
+import org.jellyfin.sdk.model.api.SubtitleProfile
 import org.jellyfin.sdk.model.api.TranscodingProfile
 
 /**
@@ -80,7 +82,15 @@ fun buildDeviceProfile(): DeviceProfile = DeviceProfile(
             applyConditions = emptyList(),
         ),
     ),
-    subtitleProfiles = emptyList(),
+    // Declaring these is what makes Jellyfin hand back a ready-to-fetch external VTT URL
+    // (MediaStream.deliveryUrl, deliveryMethod == EXTERNAL) for text-based subtitle formats
+    // instead of defaulting to burning them into the video or leaving them embedded and
+    // unusable - without any subtitleProfiles at all, the server has no idea this client can
+    // sideload subtitles on its own. Image-based formats (PGS/VobSub) aren't listed - ExoPlayer
+    // can't render bitmap subtitles, and burning them in would mean a transcode restart.
+    subtitleProfiles = listOf("srt", "subrip", "ass", "ssa", "vtt").map { format ->
+        SubtitleProfile(format = format, method = SubtitleDeliveryMethod.EXTERNAL)
+    },
 )
 
 /** Maximum bitrate (bits/sec) this app will ever request for direct play or transcode streams. */

@@ -1,5 +1,6 @@
 package io.github.rt993.firetvjellyfin.ui.playback
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
@@ -13,11 +14,15 @@ import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.OptIn
+import androidx.core.net.toUri
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -29,6 +34,8 @@ import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.playback.PlaybackDecisionMaker
 import io.github.rt993.firetvjellyfin.playback.PlaybackMode
+import io.github.rt993.firetvjellyfin.playback.PlaybackSelection
+import io.github.rt993.firetvjellyfin.playback.resolveJellyfinUrl
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.api.client.ApiClient
@@ -36,6 +43,8 @@ import org.jellyfin.sdk.api.client.util.AuthorizationHeaderBuilder
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.MediaSegmentDto
+import org.jellyfin.sdk.model.api.MediaStream
+import org.jellyfin.sdk.model.api.MediaStreamType
 import java.util.Locale
 import java.util.UUID
 
@@ -58,11 +67,22 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
     private var player: ExoPlayer? = null
     private val uiHandler = Handler(Looper.getMainLooper())
 
+    private var api: ApiClient? = null
     private var repository: JellyfinRepository? = null
+    private var itemId: UUID? = null
     private var userId: UUID? = null
     private var introSegment: MediaSegmentDto? = null
     private var nextEpisode: BaseItemDto? = null
     private var nextEpisodeStarted = false
+
+    // The active selection's own state - re-populated by applySelection() whenever playback
+    // (re)starts, including the audio-track-triggered restarts described on selectAudioTrack().
+    private var currentMode: PlaybackMode = PlaybackMode.DIRECT_PLAY
+    private var currentStreamUrl: String = ""
+    private var currentMediaSourceId: String? = null
+    private var mediaStreams: List<MediaStream> = emptyList()
+    private var currentAudioStreamIndex: Int? = null
+    private var currentSubtitleStreamIndex: Int? = null
 
     private lateinit var aspectContainer: AspectRatioFrameLayout
     private lateinit var playerSurface: SurfaceView
@@ -77,6 +97,8 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
     private lateinit var btnPlayPause: ImageButton
     private lateinit var btnForward: ImageButton
     private lateinit var btnNextEpisode: ImageButton
+    private lateinit var btnAudioTrack: ImageButton
+    private lateinit var btnSubtitleTrack: ImageButton
     private lateinit var btnSkipIntro: View
     private lateinit var upNextOverlay: View
     private lateinit var upNextTitle: TextView
@@ -110,6 +132,8 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         btnPlayPause = findViewById(R.id.btn_play_pause)
         btnForward = findViewById(R.id.btn_forward)
         btnNextEpisode = findViewById(R.id.btn_next_episode)
+        btnAudioTrack = findViewById(R.id.btn_audio_track)
+        btnSubtitleTrack = findViewById(R.id.btn_subtitle_track)
         btnSkipIntro = findViewById(R.id.btn_skip_intro)
         upNextOverlay = findViewById(R.id.up_next_overlay)
         upNextTitle = findViewById(R.id.up_next_title)
@@ -119,35 +143,43 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         btnForward.setOnClickListener { seekBy(SEEK_INCREMENT_MS) }
         btnPlayPause.setOnClickListener { togglePlayPause() }
         btnNextEpisode.setOnClickListener { playNextEpisodeIfAvailable() }
+        btnAudioTrack.setOnClickListener { showAudioTrackPicker() }
+        btnSubtitleTrack.setOnClickListener { showSubtitleTrackPicker() }
         btnUpNextPlay.setOnClickListener { playNextEpisodeIfAvailable() }
         btnSkipIntro.setOnClickListener { skipIntro() }
 
-        val api = JellyfinClientHolder.api ?: return finishWithError()
+        val resolvedApi = JellyfinClientHolder.api ?: return finishWithError()
+        api = resolvedApi
         val itemIdString = intent.getStringExtra(EXTRA_ITEM_ID)
         val userIdString = JellyfinClientHolder.currentUserId()
-        val itemId = itemIdString?.let { runCatching { UUID.fromString(it) }.getOrNull() } ?: return finishWithError()
+        val resolvedItemId = itemIdString?.let { runCatching { UUID.fromString(it) }.getOrNull() } ?: return finishWithError()
         val resolvedUserId = userIdString?.let { runCatching { UUID.fromString(it) }.getOrNull() } ?: return finishWithError()
+        itemId = resolvedItemId
         userId = resolvedUserId
 
-        val repo = JellyfinRepository(api)
+        val repo = JellyfinRepository(resolvedApi)
         repository = repo
-        val decisionMaker = PlaybackDecisionMaker(api)
+        val decisionMaker = PlaybackDecisionMaker(resolvedApi)
         val startPositionTicks = intent.getLongExtra(EXTRA_START_POSITION_TICKS, 0L)
         titleText.text = intent.getStringExtra(EXTRA_ITEM_NAME)
 
         lifecycleScope.launch {
             // Kicked off alongside the essential playback-info call, not after it, so fetching the
             // full item (for Play Next) and its intro segment doesn't delay when the video starts.
-            val itemDeferred = async { runCatching { repo.getItem(resolvedUserId, itemId) }.getOrNull() }
-            val introDeferred = async { runCatching { repo.getIntroSegment(itemId) }.getOrNull() }
+            val itemDeferred = async { runCatching { repo.getItem(resolvedUserId, resolvedItemId) }.getOrNull() }
+            val introDeferred = async { runCatching { repo.getIntroSegment(resolvedItemId) }.getOrNull() }
 
-            val playbackInfo = runCatching { repo.getPlaybackInfo(resolvedUserId, itemId) }.getOrNull()
-            val selection = playbackInfo?.let { decisionMaker.decide(itemId, it) }
+            val playbackInfo = runCatching { repo.getPlaybackInfo(resolvedUserId, resolvedItemId) }.getOrNull()
+            val selection = playbackInfo?.let { decisionMaker.decide(resolvedItemId, it) }
             if (selection == null) {
                 finishWithError()
                 return@launch
             }
-            startPlayback(api, selection.streamUrl, selection.mode, startPositionTicks)
+            applySelection(selection)
+            currentAudioStreamIndex = selection.defaultAudioStreamIndex
+            currentSubtitleStreamIndex = selection.defaultSubtitleStreamIndex
+            startPlayback(resolvedApi, startPositionTicks)
+            setupTrackButtons()
 
             introSegment = introDeferred.await()?.takeIf { it.endTicks > it.startTicks }
             val item = itemDeferred.await()
@@ -158,9 +190,25 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         }
     }
 
-    private fun startPlayback(api: ApiClient, streamUrl: String, mode: PlaybackMode, startPositionTicks: Long) {
+    /** Captures a decision's mode/URL/track metadata - called on initial load and on every audio-triggered restart. */
+    private fun applySelection(selection: PlaybackSelection) {
+        currentMode = selection.mode
+        currentStreamUrl = selection.streamUrl
+        currentMediaSourceId = selection.mediaSourceId
+        mediaStreams = selection.mediaStreams
+    }
+
+    private fun setupTrackButtons() {
+        val audioTrackCount = mediaStreams.count { it.type == MediaStreamType.AUDIO }
+        btnAudioTrack.visibility = if (audioTrackCount > 1) View.VISIBLE else View.GONE
+        // Image-based subtitle formats (PGS/VobSub) aren't offered - see DeviceProfileFactory for why.
+        val hasTextSubtitles = mediaStreams.any { it.type == MediaStreamType.SUBTITLE && it.isTextSubtitleStream }
+        btnSubtitleTrack.visibility = if (hasTextSubtitles) View.VISIBLE else View.GONE
+    }
+
+    private fun startPlayback(api: ApiClient, startPositionTicks: Long) {
         subtitleText.text = getString(
-            if (mode == PlaybackMode.DIRECT_PLAY) R.string.playback_mode_direct else R.string.playback_mode_transcode,
+            if (currentMode == PlaybackMode.DIRECT_PLAY) R.string.playback_mode_direct else R.string.playback_mode_transcode,
         )
 
         // A direct-play URL is one request, and the query-string access token
@@ -170,7 +218,8 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         // generates along the way (it doesn't: this is exactly what was producing the 401s on
         // transcoded playback while direct play always worked). Attaching the same Authorization
         // header the SDK itself sends on every one of its own requests, as a default header on
-        // ExoPlayer's HTTP data source, covers every request in the chain instead of just the first.
+        // ExoPlayer's HTTP data source, covers every request in the chain instead of just the first
+        // - sideloaded subtitle fetches included, since they share this same data source factory.
         val authHeader = AuthorizationHeaderBuilder.buildHeader(
             api.clientInfo.name,
             api.clientInfo.version,
@@ -207,20 +256,128 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
             // (e.g. IO errors reaching the transcode URL) versus something ExoPlayer itself
             // couldn't decode.
             override fun onPlayerError(error: PlaybackException) {
-                Log.e(TAG, "Playback error (mode=$mode): ${error.errorCodeName}", error)
+                Log.e(TAG, "Playback error (mode=$currentMode): ${error.errorCodeName}", error)
                 finishWithError()
             }
         })
 
-        exoPlayer.setMediaItem(MediaItem.fromUri(streamUrl))
         // Ticks are Jellyfin's own 100-ns unit; ExoPlayer wants milliseconds - 10,000 ticks/ms.
-        if (startPositionTicks > 0) exoPlayer.seekTo(startPositionTicks / 10_000L)
-        exoPlayer.prepare()
+        val startPositionMs = if (startPositionTicks > 0) startPositionTicks / 10_000L else 0L
+        setMediaItemAndPrepare(startPositionMs)
         exoPlayer.playWhenReady = true
 
         uiHandler.post(progressRunnable)
         showControls()
         btnPlayPause.requestFocus()
+    }
+
+    /**
+     * (Re)builds the [MediaItem] from [currentStreamUrl] plus whatever text subtitle is currently
+     * selected, and re-prepares at [startPositionMs]. Used both for the initial start and for a
+     * subtitle-only switch (selectSubtitleTrack) - a subtitle sideload attaches at MediaItem
+     * creation time in ExoPlayer, there's no "just swap this one track" API, but re-preparing the
+     * existing player instance (rather than tearing it down) is still cheap and needs no server
+     * round trip, unlike switching audio mid-transcode (see selectAudioTrack).
+     */
+    private fun setMediaItemAndPrepare(startPositionMs: Long) {
+        val exoPlayer = player ?: return
+        val itemBuilder = MediaItem.Builder().setUri(currentStreamUrl)
+        subtitleConfigurationFor(currentSubtitleStreamIndex)?.let { itemBuilder.setSubtitleConfigurations(listOf(it)) }
+        exoPlayer.setMediaItem(itemBuilder.build(), startPositionMs)
+        exoPlayer.prepare()
+    }
+
+    /** Null if [index] is null, isn't a subtitle stream, or has no external delivery URL (see DeviceProfileFactory). */
+    private fun subtitleConfigurationFor(index: Int?): MediaItem.SubtitleConfiguration? {
+        val resolvedApi = api ?: return null
+        val stream = index?.let { i -> mediaStreams.firstOrNull { it.type == MediaStreamType.SUBTITLE && it.index == i } }
+        val deliveryUrl = stream?.deliveryUrl ?: return null
+        return MediaItem.SubtitleConfiguration.Builder(resolveJellyfinUrl(resolvedApi, deliveryUrl).toUri())
+            .setMimeType(MimeTypes.TEXT_VTT)
+            .setLanguage(stream.language)
+            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+            .build()
+    }
+
+    private fun trackLabel(stream: MediaStream): String =
+        stream.displayTitle
+            ?: listOfNotNull(stream.language, stream.codec).joinToString(" · ").takeIf { it.isNotBlank() }
+            ?: "Track ${stream.index}"
+
+    private fun showAudioTrackPicker() {
+        val audioStreams = mediaStreams.filter { it.type == MediaStreamType.AUDIO }.sortedBy { it.index }
+        if (audioStreams.size < 2) return
+        val checkedIndex = audioStreams.indexOfFirst { it.index == currentAudioStreamIndex }.coerceAtLeast(0)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.playback_audio_track)
+            .setSingleChoiceItems(audioStreams.map { trackLabel(it) }.toTypedArray(), checkedIndex) { dialog, which ->
+                dialog.dismiss()
+                selectAudioTrack(audioStreams[which])
+            }
+            .show()
+    }
+
+    private fun showSubtitleTrackPicker() {
+        val subtitleStreams = mediaStreams.filter { it.type == MediaStreamType.SUBTITLE && it.isTextSubtitleStream }.sortedBy { it.index }
+        val labels = (listOf(getString(R.string.playback_subtitles_off)) + subtitleStreams.map { trackLabel(it) }).toTypedArray()
+        val checkedIndex = subtitleStreams.indexOfFirst { it.index == currentSubtitleStreamIndex }.let { if (it == -1) 0 else it + 1 }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.playback_subtitle_track)
+            .setSingleChoiceItems(labels, checkedIndex) { dialog, which ->
+                dialog.dismiss()
+                selectSubtitleTrack(if (which == 0) null else subtitleStreams[which - 1])
+            }
+            .show()
+    }
+
+    private fun selectSubtitleTrack(stream: MediaStream?) {
+        val exoPlayer = player ?: return
+        currentSubtitleStreamIndex = stream?.index
+        setMediaItemAndPrepare(exoPlayer.currentPosition)
+    }
+
+    /**
+     * Direct play sends the whole file through, so every audio track ExoPlayer parsed out of the
+     * container is already available locally - a plain track-selection override switches it with
+     * no server involvement. A transcode, though, only ever contains the one audio track Jellyfin
+     * was told to encode; the other tracks were never sent to the client at all, so switching
+     * means asking the server for a new stream with the chosen index, which needs a restart.
+     */
+    private fun selectAudioTrack(stream: MediaStream) {
+        val exoPlayer = player ?: return
+        if (currentMode == PlaybackMode.TRANSCODE) {
+            restartWithAudioTrack(stream.index)
+            return
+        }
+        val audioStreamsInOrder = mediaStreams.filter { it.type == MediaStreamType.AUDIO }.sortedBy { it.index }
+        val position = audioStreamsInOrder.indexOf(stream)
+        val group = exoPlayer.currentTracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }.getOrNull(position)?.mediaTrackGroup ?: return
+        exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+            .setOverrideForType(TrackSelectionOverride(group, 0))
+            .build()
+        currentAudioStreamIndex = stream.index
+    }
+
+    private fun restartWithAudioTrack(audioStreamIndex: Int) {
+        val resolvedApi = api ?: return
+        val repo = repository ?: return
+        val resolvedItemId = itemId ?: return
+        val resolvedUserId = userId ?: return
+        val exoPlayer = player ?: return
+        val resumePositionMs = exoPlayer.currentPosition
+        lifecycleScope.launch {
+            val playbackInfo = runCatching {
+                repo.getPlaybackInfo(resolvedUserId, resolvedItemId, audioStreamIndex = audioStreamIndex, mediaSourceId = currentMediaSourceId)
+            }.getOrNull()
+            val selection = playbackInfo?.let { PlaybackDecisionMaker(resolvedApi).decide(resolvedItemId, it) }
+            if (selection == null) {
+                finishWithError()
+                return@launch
+            }
+            applySelection(selection)
+            currentAudioStreamIndex = audioStreamIndex
+            setMediaItemAndPrepare(resumePositionMs)
+        }
     }
 
     private fun seekBy(deltaMs: Long) {

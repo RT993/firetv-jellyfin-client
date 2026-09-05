@@ -153,6 +153,32 @@
                 android:visibility="gone"
                 tools:visibility="visible" />
 
+            <ImageButton
+                android:id="@+id/btn_audio_track"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_marginStart="20dp"
+                android:background="@drawable/hero_icon_button_bg"
+                android:padding="15dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_playback_audio"
+                android:contentDescription="@string/playback_audio_track"
+                android:visibility="gone"
+                tools:visibility="visible" />
+
+            <ImageButton
+                android:id="@+id/btn_subtitle_track"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_marginStart="20dp"
+                android:background="@drawable/hero_icon_button_bg"
+                android:padding="15dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_playback_subtitles"
+                android:contentDescription="@string/playback_subtitle_track"
+                android:visibility="gone"
+                tools:visibility="visible" />
+
         </LinearLayout>
 
     </LinearLayout>

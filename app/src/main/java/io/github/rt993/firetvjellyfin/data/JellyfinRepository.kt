@@ -200,12 +200,28 @@ class JellyfinRepository(private val api: ApiClient) {
      * Asks the server which of an item's media sources can be direct-played on this device and
      * which need transcoding, based on the capabilities declared in [buildDeviceProfile].
      * See [io.github.rt993.firetvjellyfin.playback.PlaybackDecisionMaker] for how the result is used.
+     *
+     * [audioStreamIndex] only matters for a transcode: the output only ever carries the one audio
+     * track the server was told to encode, so switching tracks mid-transcode means re-requesting
+     * playback info with a different index here (see PlaybackActivity.selectAudioTrack) - it's
+     * ignored for direct play, where every track in the file reaches the client either way and
+     * ExoPlayer switches locally. [mediaSourceId] pins a re-request to the same media source
+     * instead of letting the server pick again from scratch.
      */
-    suspend fun getPlaybackInfo(userId: UUID, itemId: UUID): PlaybackInfoResponse {
+    suspend fun getPlaybackInfo(
+        userId: UUID,
+        itemId: UUID,
+        audioStreamIndex: Int? = null,
+        subtitleStreamIndex: Int? = null,
+        mediaSourceId: String? = null,
+    ): PlaybackInfoResponse {
         val request = PlaybackInfoDto(
             userId = userId,
             deviceProfile = buildDeviceProfile(),
             autoOpenLiveStream = true,
+            audioStreamIndex = audioStreamIndex,
+            subtitleStreamIndex = subtitleStreamIndex,
+            mediaSourceId = mediaSourceId,
         )
         return api.mediaInfoApi.getPostedPlaybackInfo(itemId = itemId, data = request).content
     }
