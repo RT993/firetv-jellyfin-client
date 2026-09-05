@@ -66,8 +66,15 @@ fun buildDeviceProfile(): DeviceProfile = DeviceProfile(
     ),
     containerProfiles = emptyList(),
     codecProfiles = listOf(
-        // Cap H.264 to a level most Fire TV Stick decoders handle comfortably at high
-        // resolutions; the server will transcode instead of direct playing above this.
+        // Caps the H.264 target this device will accept - both for deciding whether a source
+        // needs transcoding at all, AND (this is the part that was missing) for constraining the
+        // actual transcode output when one happens: Jellyfin builds its ffmpeg scale filter from
+        // these same conditions for whatever codec it's encoding to. Without the width/height
+        // caps, a level-5.1 condition alone doesn't stop a 4K source from being "transcoded" at
+        // its native 3840x1610 - level 5.1 permits resolutions far above 1080p at 24fps, which is
+        // exactly what a real transcode logged: full source resolution, just re-encoded, handing
+        // the device's decoder just as much work as before instead of the lighter 1080p stream
+        // this profile is supposed to guarantee.
         CodecProfile(
             type = CodecType.VIDEO,
             codec = "h264",
@@ -76,6 +83,18 @@ fun buildDeviceProfile(): DeviceProfile = DeviceProfile(
                     condition = ProfileConditionType.LESS_THAN_EQUAL,
                     property = ProfileConditionValue.VIDEO_LEVEL,
                     value = "51",
+                    isRequired = false,
+                ),
+                ProfileCondition(
+                    condition = ProfileConditionType.LESS_THAN_EQUAL,
+                    property = ProfileConditionValue.WIDTH,
+                    value = "1920",
+                    isRequired = false,
+                ),
+                ProfileCondition(
+                    condition = ProfileConditionType.LESS_THAN_EQUAL,
+                    property = ProfileConditionValue.HEIGHT,
+                    value = "1080",
                     isRequired = false,
                 ),
             ),

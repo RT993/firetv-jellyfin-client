@@ -207,12 +207,20 @@ class JellyfinRepository(private val api: ApiClient) {
      * ignored for direct play, where every track in the file reaches the client either way and
      * ExoPlayer switches locally. [mediaSourceId] pins a re-request to the same media source
      * instead of letting the server pick again from scratch.
+     *
+     * [subtitleStreamIndex] defaults to -1 (Jellyfin's own "no subtitle" convention), not null -
+     * leaving it unset makes the server fall back to the file's own default subtitle track, and
+     * for an image-based one (PGS/VobSub, common on Blu-ray rips and often flagged default) that
+     * means silently burning it into the video during any transcode, whether anyone asked for
+     * subtitles or not. This client never needs the server to do that: every subtitle PlaybackActivity
+     * shows is sideloaded client-side from MediaStream.deliveryUrl, so the server should never be
+     * asked to touch subtitles at all.
      */
     suspend fun getPlaybackInfo(
         userId: UUID,
         itemId: UUID,
         audioStreamIndex: Int? = null,
-        subtitleStreamIndex: Int? = null,
+        subtitleStreamIndex: Int? = -1,
         mediaSourceId: String? = null,
     ): PlaybackInfoResponse {
         val request = PlaybackInfoDto(

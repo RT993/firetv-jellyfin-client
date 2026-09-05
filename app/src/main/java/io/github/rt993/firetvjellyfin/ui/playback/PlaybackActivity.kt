@@ -371,7 +371,11 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
             }.getOrNull()
             val selection = playbackInfo?.let { PlaybackDecisionMaker(resolvedApi).decide(resolvedItemId, it) }
             if (selection == null) {
-                finishWithError()
+                // A failed track switch shouldn't cost the user the whole movie - finishWithError()
+                // (used for a failed *initial* load, where there's nothing to lose) would exit
+                // playback entirely over what might just be a transient network hiccup. The
+                // current stream is untouched, so leave it playing and only report the failure.
+                Toast.makeText(this@PlaybackActivity, R.string.playback_error, Toast.LENGTH_SHORT).show()
                 return@launch
             }
             applySelection(selection)
