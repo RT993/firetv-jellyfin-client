@@ -1,7 +1,6 @@
 package io.github.rt993.firetvjellyfin.ui.home
 
 import android.util.Log
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -80,6 +79,11 @@ private const val SPOTLIGHT_ASPECT_RATIO = 16f / 9f
 private val SIDEBAR_WIDTH_COLLAPSED = 64.dp
 private val SIDEBAR_WIDTH_EXPANDED = 220.dp
 
+// A safe-zone margin so the backdrop's top edge doesn't land flush against the physical top of
+// the screen - many TVs overscan (crop) a few percent off every edge, which was cutting off the
+// top of the hero image entirely.
+private val HERO_TOP_SAFE_MARGIN = 32.dp
+
 private const val TAG = "HomeScreen"
 
 private data class HomeUiState(
@@ -95,12 +99,12 @@ private data class HomeUiState(
  * Ground-up rewrite in Jetpack Compose for TV, replacing the Leanback [androidx.leanback.app
  * .BrowseSupportFragment]-based Home screen entirely. A Dynamic Billboard (cinematic backdrop)
  * sits behind a hero carousel of trending movies/shows - pageable with D-pad left/right on its
- * Play button, see [HeroInfo] - a Continue Watching row, and one poster row per library. The
+ * Play button, see [HeroInfo] - one poster row per library, then a Continue Watching row last. The
  * backdrop also crossfades to whichever card currently has focus further down. [HomeSidebar] is a
  * plain hand-built nav rail (not androidx.tv.material3's NavigationDrawer/ModalNavigationDrawer -
  * both turned out to have real, hard-to-verify quirks around measuring collapsed-vs-expanded width
- * that cost two rounds of bugs): transparent and icon-only until D-pad focus actually lands on it,
- * then it fades in a background and labels.
+ * that cost two rounds of bugs): no background of its own, icon-only until D-pad focus actually
+ * lands on it, then it expands to show labels.
  */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
@@ -110,7 +114,6 @@ fun HomeScreen(
     onOpenDetails: (BaseItemDto) -> Unit,
     onPlay: (BaseItemDto) -> Unit,
     onOpenLibrary: (BaseItemDto) -> Unit,
-    onSearch: () -> Unit,
     onShowAccountInfo: () -> Unit,
     onLogout: () -> Unit,
 ) {
@@ -163,14 +166,13 @@ fun HomeScreen(
         Row(Modifier.fillMaxSize().background(TreeHouseBackground)) {
             HomeSidebar(
                 libraries = state.libraries,
-                onSearch = onSearch,
                 onLibrary = onOpenLibrary,
                 onSettings = { showAccountMenu = true },
                 modifier = Modifier.fillMaxHeight(),
             )
 
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                HeroBackdrop(item = spotlight, repository = repository)
+                HeroBackdrop(item = spotlight, repository = repository, modifier = Modifier.padding(top = HERO_TOP_SAFE_MARGIN))
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -179,7 +181,7 @@ fun HomeScreen(
                 ) {
                     item {
                         Column {
-                            Spacer(Modifier.height(280.dp))
+                            Spacer(Modifier.height(280.dp + HERO_TOP_SAFE_MARGIN))
                             HeroInfo(
                                 item = spotlight,
                                 pageCount = state.trending.size,
@@ -189,16 +191,14 @@ fun HomeScreen(
                                 onPageRight = { pageHero(1) },
                                 onPlay = { spotlight?.let(onPlay) },
                             )
-                            // Extra breathing room below the hero specifically - it was reading as
-                            // fused to the Continue Watching row right under it.
-                            Spacer(Modifier.height(10.dp))
                         }
                     }
-                    if (state.continueWatching.isNotEmpty()) {
-                        item {
-                            MediaRow(title = stringResource(R.string.home_continue_watching)) {
-                                items(state.continueWatching, key = { it.id }) { mediaItem ->
-                                    SpotlightCard(
+                    items(state.libraries, key = { it.id }) { library ->
+                        val libraryItems = state.libraryItems[library.id].orEmpty()
+                        if (libraryItems.isNotEmpty()) {
+                            MediaRow(title = library.name.orEmpty()) {
+                                items(libraryItems, key = { it.id }) { mediaItem ->
+                                    PosterCard(
                                         item = mediaItem,
                                         repository = repository,
                                         onFocused = { spotlight = mediaItem },
@@ -208,12 +208,11 @@ fun HomeScreen(
                             }
                         }
                     }
-                    items(state.libraries, key = { it.id }) { library ->
-                        val libraryItems = state.libraryItems[library.id].orEmpty()
-                        if (libraryItems.isNotEmpty()) {
-                            MediaRow(title = library.name.orEmpty()) {
-                                items(libraryItems, key = { it.id }) { mediaItem ->
-                                    PosterCard(
+                    if (state.continueWatching.isNotEmpty()) {
+                        item {
+                            MediaRow(title = stringResource(R.string.home_continue_watching)) {
+                                items(state.continueWatching, key = { it.id }) { mediaItem ->
+                                    SpotlightCard(
                                         item = mediaItem,
                                         repository = repository,
                                         onFocused = { spotlight = mediaItem },
@@ -260,33 +259,30 @@ private fun BoxScope.AccountMenu(onInfo: () -> Unit, onLogout: () -> Unit) {
 }
 
 /**
- * A plain, hand-built nav rail - transparent and icon-only at rest, fading in a background panel
- * and labels once D-pad focus actually lands somewhere inside it ([focusGroup] + [onFocusChanged]
- * on the container reports focus for the whole group, not just one item), rather than relying on
- * a Leanback/tv-material component to manage that transition itself.
+ * A plain, hand-built nav rail - icon-only at rest, expanding to show labels once D-pad focus
+ * actually lands somewhere inside it ([focusGroup] + [onFocusChanged] on the container reports
+ * focus for the whole group, not just one item), rather than relying on a Leanback/tv-material
+ * component to manage that transition itself. No background of its own - it floats directly over
+ * whatever content is behind it.
  */
 @Composable
 private fun HomeSidebar(
     libraries: List<BaseItemDto>,
-    onSearch: () -> Unit,
     onLibrary: (BaseItemDto) -> Unit,
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var hasFocus by remember { mutableStateOf(false) }
     val width by animateDpAsState(if (hasFocus) SIDEBAR_WIDTH_EXPANDED else SIDEBAR_WIDTH_COLLAPSED, label = "sidebarWidth")
-    val background by animateColorAsState(if (hasFocus) TreeHouseSurface else Color.Transparent, label = "sidebarBackground")
 
     Column(
         modifier = modifier
             .width(width)
-            .background(background)
             .onFocusChanged { hasFocus = it.hasFocus }
             .focusGroup()
             .padding(vertical = 24.dp, horizontal = 12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        SidebarItem(R.drawable.ic_nav_search, stringResource(R.string.nav_search), hasFocus, onClick = onSearch)
         SidebarItem(R.drawable.ic_nav_home, stringResource(R.string.nav_home), hasFocus, onClick = {})
         libraries.forEach { library ->
             SidebarItem(R.drawable.ic_nav_library, library.name.orEmpty(), hasFocus, onClick = { onLibrary(library) })
@@ -324,8 +320,8 @@ private fun SidebarItem(icon: Int, label: String, showLabel: Boolean, onClick: (
 
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
-private fun HeroBackdrop(item: BaseItemDto?, repository: JellyfinRepository) {
-    Box(Modifier.fillMaxWidth().fillMaxHeight(0.62f)) {
+private fun HeroBackdrop(item: BaseItemDto?, repository: JellyfinRepository, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth().fillMaxHeight(0.62f)) {
         if (item != null) {
             GlideImage(
                 model = repository.buildImageUrl(item.id, imageType = ImageType.BACKDROP, maxWidth = 1280),

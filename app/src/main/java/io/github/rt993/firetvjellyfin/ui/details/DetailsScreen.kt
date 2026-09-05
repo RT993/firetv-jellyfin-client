@@ -142,26 +142,23 @@ fun DetailsScreen(
             DetailsBackdrop(item = currentItem, repository = repository)
 
             Column(Modifier.fillMaxSize()) {
-                Row(Modifier.fillMaxWidth().weight(1f)) {
-                    DetailsInfoPanel(
-                        item = currentItem,
-                        repository = repository,
-                        ambientColor = ambientColor,
-                        playTarget = playTarget,
-                        isFavorite = isFavorite,
-                        onPlay = { playTarget?.let(onPlay) },
-                        onToggleFavorite = {
-                            val newValue = !isFavorite
-                            isFavorite = newValue
-                            scope.launch {
-                                runCatching { repository.setFavorite(userId, itemId, newValue) }
-                                    .onFailure { Log.e(TAG, "setFavorite failed", it) }
-                            }
-                        },
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                    )
-                    Spacer(Modifier.weight(1f))
-                }
+                DetailsInfoPanel(
+                    item = currentItem,
+                    repository = repository,
+                    ambientColor = ambientColor,
+                    playTarget = playTarget,
+                    isFavorite = isFavorite,
+                    onPlay = { playTarget?.let(onPlay) },
+                    onToggleFavorite = {
+                        val newValue = !isFavorite
+                        isFavorite = newValue
+                        scope.launch {
+                            runCatching { repository.setFavorite(userId, itemId, newValue) }
+                                .onFailure { Log.e(TAG, "setFavorite failed", it) }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                )
 
                 if (currentItem.type == BaseItemKind.SERIES && seasons.isNotEmpty()) {
                     SeasonsAndEpisodes(
@@ -255,13 +252,19 @@ private fun DetailsInfoPanel(
             )
         }
         Spacer(Modifier.width(28.dp))
+        // A capped max width, not weight(1f) - the latter stretched this column across whatever
+        // was left of the row's full width (previously squeezed narrow by a sibling Spacer that
+        // split the screen in half, then widened to the full remaining width once that Spacer was
+        // removed) - either way, every Text inside ends up as wide as this Modifier says, and an
+        // unconstrained weight(1f) here doesn't reserve room for the backdrop art on the right
+        // (too wide) or wraps almost every word onto its own line (too narrow, "vertical" text).
         DetailsMetadata(
             item = item,
             playTarget = playTarget,
             isFavorite = isFavorite,
             onPlay = onPlay,
             onToggleFavorite = onToggleFavorite,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.widthIn(max = 560.dp),
         )
     }
 }

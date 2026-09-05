@@ -46,7 +46,6 @@ class HomeActivity : ComponentActivity() {
                 onOpenDetails = ::openDetails,
                 onPlay = ::openPlaybackOrDetails,
                 onOpenLibrary = ::openLibraryGrid,
-                onSearch = { Toast.makeText(this, R.string.nav_search_unavailable, Toast.LENGTH_SHORT).show() },
                 onShowAccountInfo = ::showAccountInfo,
                 onLogout = ::logOut,
             )
