@@ -50,7 +50,7 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.DrawerValue
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.NavigationDrawer
+import androidx.tv.material3.ModalNavigationDrawer
 import androidx.tv.material3.NavigationDrawerItem
 import androidx.tv.material3.NavigationDrawerScope
 import androidx.tv.material3.Text
@@ -88,9 +88,9 @@ private data class HomeUiState(
  * .BrowseSupportFragment]-based Home screen entirely. A Dynamic Billboard (cinematic backdrop)
  * sits behind a hero carousel of trending movies/shows - pageable with D-pad left/right on its
  * Play button, see [HeroInfo] - a Continue Watching row, and one poster row per library. The
- * backdrop also crossfades to whichever card currently has focus further down. A collapsible left
- * [NavigationDrawer] handles navigation - see the design notes this was built from for the full
- * reference.
+ * backdrop also crossfades to whichever card currently has focus further down. A [ModalNavigationDrawer]
+ * handles navigation - hidden entirely until focus moves into it, then overlays the content instead
+ * of reserving persistent screen space - see the design notes this was built from for the full reference.
  */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
@@ -142,7 +142,10 @@ fun HomeScreen(
     var showAccountMenu by remember { mutableStateOf(false) }
 
     TreeHouseTheme {
-        NavigationDrawer(
+        // Modal (overlay), not the persistent icon-rail variant - the sidebar should stay fully
+        // out of the way while browsing content and only appear once focus actually moves into
+        // it (D-pad left past the leftmost card, or Back), the way Disney+'s does.
+        ModalNavigationDrawer(
             drawerContent = { drawerValue ->
                 HomeSidebar(
                     expanded = drawerValue == DrawerValue.Open,
@@ -174,6 +177,9 @@ fun HomeScreen(
                                 onPageRight = { pageHero(1) },
                                 onPlay = { spotlight?.let(onPlay) },
                             )
+                            // Extra breathing room below the hero specifically - it was reading as
+                            // fused to the Continue Watching row right under it.
+                            Spacer(Modifier.height(10.dp))
                         }
                     }
                     if (state.continueWatching.isNotEmpty()) {

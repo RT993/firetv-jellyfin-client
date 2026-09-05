@@ -18,8 +18,8 @@ android {
         // device (Fire OS 7.7.1.5 / Android 9, API 28).
         minSdk = 23
         targetSdk = 36
-        versionCode = 18
-        versionName = "0.2.2"
+        versionCode = 19
+        versionName = "0.2.3"
 
         // Vector drawable gradients (aapt:attr fillColor) render natively from API 24; the
         // support library backports them down to minSdk 23.
@@ -107,8 +107,8 @@ dependencies {
     // Poster/backdrop image loading for leanback card and details views
     implementation(libs.glide)
 
-    // Compose for TV (Home screen - see ui/home) - TvLazyRow/Column, NavigationDrawer, Card focus
-    // handling. Other screens (Library grid, Details, Playback) stay on Leanback/Views for now.
+    // Compose for TV (Home and Details screens) - LazyRow/Column, NavigationDrawer, Card focus
+    // handling. Library grid and Playback stay on Leanback/Views for now.
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
@@ -118,4 +118,7 @@ dependencies {
     implementation(libs.androidx.tv.foundation)
     implementation(libs.androidx.tv.material)
     implementation(libs.glide.compose)
+
+    // Extracts a dominant/vibrant color from a poster for the Details screen's ambient glow.
+    implementation(libs.androidx.palette.ktx)
 }

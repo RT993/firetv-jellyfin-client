@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
@@ -27,10 +28,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,6 +47,7 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
+import io.github.rt993.firetvjellyfin.ui.theme.AmbientGlow
 import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseAccent
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseBackground
@@ -51,6 +55,7 @@ import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseSurface
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextPrimary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextSecondary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTheme
+import io.github.rt993.firetvjellyfin.ui.theme.ambientColorFor
 import io.github.rt993.firetvjellyfin.util.formatRuntimeTicks
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.UUID
@@ -64,14 +69,15 @@ import org.jellyfin.sdk.model.api.VideoRangeType
 
 private const val EPISODE_CARD_WIDTH_DP = 220
 private const val EPISODE_ASPECT_RATIO = 16f / 9f
+private const val POSTER_ASPECT_RATIO = 2f / 3f
 private const val MAX_CAST_SHOWN = 6
 
 /**
  * Split-layout details screen, replacing the old Leanback [androidx.leanback.app
  * .DetailsSupportFragment]/[FullWidthDetailsOverviewRowPresenter] one entirely: full-bleed
- * backdrop on the right, title/metadata/technical badges/actions on the left, and - for a series -
- * an inline row of seasons that swaps the episode row below it, instead of a separate season pick
- * screen.
+ * backdrop on the right, a poster with a per-title [AmbientGlow] plus metadata/technical
+ * badges/actions on the left (the "trakt.tv show page" look), and - for a series - an inline row
+ * of seasons that swaps the episode row below it, instead of a separate season pick screen.
  */
 @Composable
 fun DetailsScreen(
@@ -84,7 +90,9 @@ fun DetailsScreen(
     var playTarget by remember { mutableStateOf<BaseItemDto?>(null) }
     var seasons by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     var isFavorite by remember { mutableStateOf(false) }
+    var ambientColor by remember { mutableStateOf<Color?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     LaunchedEffect(itemId) {
         val loaded = runCatching { repository.getItem(userId, itemId) }.getOrNull() ?: return@LaunchedEffect
@@ -100,6 +108,10 @@ fun DetailsScreen(
                 .getOrDefault(emptyList())
                 .sortedBy { it.indexNumber ?: Int.MAX_VALUE }
         }
+        // The "trakt.tv show page" ambient glow behind the poster - one extraction per screen
+        // open, not per focus/frame, so it's cheap enough even on the low-end Fire Stick hardware
+        // this app targets.
+        ambientColor = ambientColorFor(context, repository.buildImageUrl(loaded.id, maxWidth = 200))
     }
 
     val currentItem = item ?: return
@@ -112,6 +124,8 @@ fun DetailsScreen(
                 Row(Modifier.fillMaxWidth().weight(1f)) {
                     DetailsInfoPanel(
                         item = currentItem,
+                        repository = repository,
+                        ambientColor = ambientColor,
                         playTarget = playTarget,
                         isFavorite = isFavorite,
                         onPlay = { playTarget?.let(onPlay) },
@@ -187,8 +201,44 @@ private fun DetailsBackdrop(item: BaseItemDto, repository: JellyfinRepository) {
     }
 }
 
+@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 private fun DetailsInfoPanel(
+    item: BaseItemDto,
+    repository: JellyfinRepository,
+    ambientColor: Color?,
+    playTarget: BaseItemDto?,
+    isFavorite: Boolean,
+    onPlay: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier.padding(start = 48.dp, top = 64.dp, end = 24.dp)) {
+        AmbientGlow(color = ambientColor, modifier = Modifier.size(width = 320.dp, height = 420.dp)) {
+            GlideImage(
+                model = repository.buildImageUrl(item.id, maxWidth = 400),
+                contentDescription = null,
+                modifier = Modifier
+                    .width(200.dp)
+                    .aspectRatio(POSTER_ASPECT_RATIO)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentScale = ContentScale.Crop,
+            )
+        }
+        Spacer(Modifier.width(28.dp))
+        DetailsMetadata(
+            item = item,
+            playTarget = playTarget,
+            isFavorite = isFavorite,
+            onPlay = onPlay,
+            onToggleFavorite = onToggleFavorite,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun DetailsMetadata(
     item: BaseItemDto,
     playTarget: BaseItemDto?,
     isFavorite: Boolean,
@@ -196,7 +246,7 @@ private fun DetailsInfoPanel(
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.padding(start = 48.dp, top = 64.dp, end = 24.dp)) {
+    Column(modifier) {
         Text(item.name.orEmpty(), style = MaterialTheme.typography.headlineLarge, color = TreeHouseTextPrimary)
         Spacer(Modifier.height(12.dp))
         Text(buildMetaLine(item), color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodyMedium)
