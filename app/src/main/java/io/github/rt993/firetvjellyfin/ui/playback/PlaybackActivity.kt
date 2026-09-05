@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.KeyEvent
 import android.view.SurfaceView
 import android.view.View
@@ -15,6 +16,7 @@ import androidx.annotation.OptIn
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
@@ -174,6 +176,17 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) playNextEpisodeIfAvailable()
             }
+
+            // Without this, a failed stream (a stalled/broken transcode session, a bad segment, a
+            // network drop) just goes quiet - ExoPlayer stops, nothing plays, and there is no
+            // other signal that anything went wrong at all. Logging errorCodeName here is what
+            // tells you whether a given "it doesn't play" is a source/network problem
+            // (e.g. IO errors reaching the transcode URL) versus something ExoPlayer itself
+            // couldn't decode.
+            override fun onPlayerError(error: PlaybackException) {
+                Log.e(TAG, "Playback error (mode=$mode): ${error.errorCodeName}", error)
+                finishWithError()
+            }
         })
 
         exoPlayer.setMediaItem(MediaItem.fromUri(streamUrl))
@@ -331,6 +344,7 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         /** Where to start playback from, in Jellyfin's 100-ns ticks - 0 (the default) starts from the beginning. */
         const val EXTRA_START_POSITION_TICKS = "extra_start_position_ticks"
 
+        private const val TAG = "PlaybackActivity"
         private const val HIDE_DELAY_MS = 4000L
         private const val PROGRESS_UPDATE_MS = 500L
         private const val SEEK_INCREMENT_MS = 10_000L
