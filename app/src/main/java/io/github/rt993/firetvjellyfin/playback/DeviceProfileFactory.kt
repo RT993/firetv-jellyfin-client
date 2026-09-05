@@ -100,6 +100,35 @@ fun buildDeviceProfile(): DeviceProfile = DeviceProfile(
             ),
             applyConditions = emptyList(),
         ),
+        // Same width/height reasoning as the h264 profile above, but this is the one that
+        // actually matters most: this device's real decoder is OMX.MTK.VIDEO.DECODER.HEVC, and a
+        // logged ExoPlayer DecoderInitializationException (IllegalArgumentException at
+        // MediaCodec.native_configure) confirmed it flatly can't init for a 3840x2160 HEVC stream
+        // - MediaCodec's own capability check already flagged it NO_EXCEEDS_CAPABILITIES before
+        // that. Without a width/height cap here, DirectPlayProfile above declares hevc playable
+        // with no resolution limit at all, so Jellyfin hands back a direct-play URL for a 4K HEVC
+        // source this hardware can't decode, and playback fails immediately with no server-side
+        // transcode ever considered. Capping it here forces Jellyfin to route anything above
+        // 1080p through a transcode instead, the same way the h264 profile already does.
+        CodecProfile(
+            type = CodecType.VIDEO,
+            codec = "hevc",
+            conditions = listOf(
+                ProfileCondition(
+                    condition = ProfileConditionType.LESS_THAN_EQUAL,
+                    property = ProfileConditionValue.WIDTH,
+                    value = "1920",
+                    isRequired = false,
+                ),
+                ProfileCondition(
+                    condition = ProfileConditionType.LESS_THAN_EQUAL,
+                    property = ProfileConditionValue.HEIGHT,
+                    value = "1080",
+                    isRequired = false,
+                ),
+            ),
+            applyConditions = emptyList(),
+        ),
     ),
     // Declaring these is what makes Jellyfin hand back a ready-to-fetch external VTT URL
     // (MediaStream.deliveryUrl, deliveryMethod == EXTERNAL) for text-based subtitle formats
