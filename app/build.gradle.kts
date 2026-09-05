@@ -17,8 +17,8 @@ android {
         // device (Fire OS 7.7.1.5 / Android 9, API 28).
         minSdk = 23
         targetSdk = 36
-        versionCode = 12
-        versionName = "0.1.10"
+        versionCode = 13
+        versionName = "0.1.11"
 
         // Vector drawable gradients (aapt:attr fillColor) render natively from API 24; the
         // support library backports them down to minSdk 23.
