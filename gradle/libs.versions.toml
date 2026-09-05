@@ -15,7 +15,6 @@ glide = "4.16.0"
 glideCompose = "1.0.0-beta01"
 paletteKtx = "1.0.0"
 composeBom = "2024.09.00"
-tvFoundation = "1.0.0-alpha12"
 tvMaterial = "1.0.0"
 
 [libraries]
@@ -42,7 +41,6 @@ androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
-androidx-tv-foundation = { group = "androidx.tv", name = "tv-foundation", version.ref = "tvFoundation" }
 androidx-tv-material = { group = "androidx.tv", name = "tv-material", version.ref = "tvMaterial" }
 
 [plugins]

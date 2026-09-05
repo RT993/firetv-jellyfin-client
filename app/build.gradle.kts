@@ -18,8 +18,8 @@ android {
         // device (Fire OS 7.7.1.5 / Android 9, API 28).
         minSdk = 23
         targetSdk = 36
-        versionCode = 20
-        versionName = "0.2.4"
+        versionCode = 21
+        versionName = "0.2.5"
 
         // Vector drawable gradients (aapt:attr fillColor) render natively from API 24; the
         // support library backports them down to minSdk 23.
@@ -84,9 +84,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
 
-    // Android TV D-pad navigation / browse UI
+    // Android TV D-pad navigation / browse UI (Library grid screen - Home and Details are Compose)
     implementation(libs.androidx.leanback)
-    implementation(libs.androidx.leanback.preference)
 
     // Playback. media3-ui is used only for AspectRatioFrameLayout, wrapping a plain SurfaceView -
     // the custom playback screen (see PlaybackActivity) doesn't use PlayerView/its built-in
@@ -107,15 +106,16 @@ dependencies {
     // Poster/backdrop image loading for leanback card and details views
     implementation(libs.glide)
 
-    // Compose for TV (Home and Details screens) - LazyRow/Column, NavigationDrawer, Card focus
-    // handling. Library grid and Playback stay on Leanback/Views for now.
+    // Compose for TV (Home and Details screens) - plain compose-foundation LazyRow/Column (not
+    // androidx.tv:tv-foundation's - that artifact turned out to contain no usable TvLazyRow/Column
+    // at this version, see HomeScreen.kt) plus tv-material's Card/Button/Text for focus-aware
+    // styling. Library grid and Playback stay on Leanback/Views for now.
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.ui.tooling.preview)
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.tv.foundation)
     implementation(libs.androidx.tv.material)
     implementation(libs.glide.compose)
 

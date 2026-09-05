@@ -1,6 +1,12 @@
 package io.github.rt993.firetvjellyfin.ui.home
 
+import android.util.Log
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -31,8 +37,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -47,14 +55,9 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
-import androidx.tv.material3.DrawerValue
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.ModalNavigationDrawer
-import androidx.tv.material3.NavigationDrawerItem
-import androidx.tv.material3.NavigationDrawerScope
 import androidx.tv.material3.Text
-import androidx.tv.material3.rememberDrawerState
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import io.github.rt993.firetvjellyfin.R
@@ -74,9 +77,14 @@ import org.jellyfin.sdk.model.api.ImageType
 
 private const val POSTER_ASPECT_RATIO = 2f / 3f
 private const val SPOTLIGHT_ASPECT_RATIO = 16f / 9f
+private val SIDEBAR_WIDTH_COLLAPSED = 64.dp
+private val SIDEBAR_WIDTH_EXPANDED = 220.dp
+
+private const val TAG = "HomeScreen"
 
 private data class HomeUiState(
     val isLoading: Boolean = true,
+    val error: String? = null,
     val continueWatching: List<BaseItemDto> = emptyList(),
     val libraries: List<BaseItemDto> = emptyList(),
     val libraryItems: Map<UUID, List<BaseItemDto>> = emptyMap(),
@@ -88,9 +96,11 @@ private data class HomeUiState(
  * .BrowseSupportFragment]-based Home screen entirely. A Dynamic Billboard (cinematic backdrop)
  * sits behind a hero carousel of trending movies/shows - pageable with D-pad left/right on its
  * Play button, see [HeroInfo] - a Continue Watching row, and one poster row per library. The
- * backdrop also crossfades to whichever card currently has focus further down. A [ModalNavigationDrawer]
- * handles navigation - hidden entirely until focus moves into it, then overlays the content instead
- * of reserving persistent screen space - see the design notes this was built from for the full reference.
+ * backdrop also crossfades to whichever card currently has focus further down. [HomeSidebar] is a
+ * plain hand-built nav rail (not androidx.tv.material3's NavigationDrawer/ModalNavigationDrawer -
+ * both turned out to have real, hard-to-verify quirks around measuring collapsed-vs-expanded width
+ * that cost two rounds of bugs): transparent and icon-only until D-pad focus actually lands on it,
+ * then it fades in a background and labels.
  */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
@@ -106,14 +116,23 @@ fun HomeScreen(
 ) {
     var state by remember { mutableStateOf(HomeUiState()) }
     LaunchedEffect(userId) {
-        val libraries = runCatching { repository.getUserViews(userId) }.getOrDefault(emptyList())
-        val trending = runCatching { repository.getRecentlyAdded(userId) }.getOrDefault(emptyList())
-        val continueWatching = runCatching { repository.getResumeItems(userId) }.getOrDefault(emptyList())
+        val librariesResult = runCatching { repository.getUserViews(userId) }
+            .onFailure { Log.e(TAG, "getUserViews failed", it) }
+        val libraries = librariesResult.getOrDefault(emptyList())
+        val trending = runCatching { repository.getRecentlyAdded(userId) }
+            .onFailure { Log.e(TAG, "getRecentlyAdded failed", it) }
+            .getOrDefault(emptyList())
+        val continueWatching = runCatching { repository.getResumeItems(userId) }
+            .onFailure { Log.e(TAG, "getResumeItems failed", it) }
+            .getOrDefault(emptyList())
         val libraryItems = libraries.associate { library ->
-            library.id to runCatching { repository.getItems(userId, library.id) }.getOrDefault(emptyList())
+            library.id to runCatching { repository.getItems(userId, library.id) }
+                .onFailure { Log.e(TAG, "getItems failed for library ${library.name}", it) }
+                .getOrDefault(emptyList())
         }
         state = HomeUiState(
             isLoading = false,
+            error = librariesResult.exceptionOrNull()?.let { "${it.javaClass.simpleName}: ${it.message}" },
             continueWatching = continueWatching,
             libraries = libraries,
             libraryItems = libraryItems,
@@ -138,26 +157,19 @@ fun HomeScreen(
         if (!state.isLoading) runCatching { heroFocusRequester.requestFocus() }
     }
 
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
     var showAccountMenu by remember { mutableStateOf(false) }
 
     TreeHouseTheme {
-        // Modal (overlay), not the persistent icon-rail variant - the sidebar should stay fully
-        // out of the way while browsing content and only appear once focus actually moves into
-        // it (D-pad left past the leftmost card, or Back), the way Disney+'s does.
-        ModalNavigationDrawer(
-            drawerContent = { drawerValue ->
-                HomeSidebar(
-                    expanded = drawerValue == DrawerValue.Open,
-                    libraries = state.libraries,
-                    onSearch = onSearch,
-                    onLibrary = onOpenLibrary,
-                    onSettings = { showAccountMenu = true },
-                )
-            },
-            drawerState = drawerState,
-        ) {
-            Box(Modifier.fillMaxSize().background(TreeHouseBackground)) {
+        Row(Modifier.fillMaxSize().background(TreeHouseBackground)) {
+            HomeSidebar(
+                libraries = state.libraries,
+                onSearch = onSearch,
+                onLibrary = onOpenLibrary,
+                onSettings = { showAccountMenu = true },
+                modifier = Modifier.fillMaxHeight(),
+            )
+
+            Box(Modifier.weight(1f).fillMaxHeight()) {
                 HeroBackdrop(item = spotlight, repository = repository)
 
                 LazyColumn(
@@ -219,6 +231,14 @@ fun HomeScreen(
                         onLogout = onLogout,
                     )
                 }
+
+                state.error?.let { error ->
+                    Text(
+                        "${stringResource(R.string.home_error)}\n$error",
+                        color = TreeHouseTextSecondary,
+                        modifier = Modifier.align(Alignment.Center).padding(48.dp),
+                    )
+                }
             }
         }
     }
@@ -239,46 +259,66 @@ private fun BoxScope.AccountMenu(onInfo: () -> Unit, onLogout: () -> Unit) {
     }
 }
 
+/**
+ * A plain, hand-built nav rail - transparent and icon-only at rest, fading in a background panel
+ * and labels once D-pad focus actually lands somewhere inside it ([focusGroup] + [onFocusChanged]
+ * on the container reports focus for the whole group, not just one item), rather than relying on
+ * a Leanback/tv-material component to manage that transition itself.
+ */
 @Composable
-private fun NavigationDrawerScope.HomeSidebar(
-    expanded: Boolean,
+private fun HomeSidebar(
     libraries: List<BaseItemDto>,
     onSearch: () -> Unit,
     onLibrary: (BaseItemDto) -> Unit,
     onSettings: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    var hasFocus by remember { mutableStateOf(false) }
+    val width by animateDpAsState(if (hasFocus) SIDEBAR_WIDTH_EXPANDED else SIDEBAR_WIDTH_COLLAPSED, label = "sidebarWidth")
+    val background by animateColorAsState(if (hasFocus) TreeHouseSurface else Color.Transparent, label = "sidebarBackground")
+
     Column(
-        modifier = Modifier.fillMaxHeight().padding(vertical = 24.dp, horizontal = 12.dp),
+        modifier = modifier
+            .width(width)
+            .background(background)
+            .onFocusChanged { hasFocus = it.hasFocus }
+            .focusGroup()
+            .padding(vertical = 24.dp, horizontal = 12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        DrawerItem(R.drawable.ic_nav_search, stringResource(R.string.nav_search), expanded, selected = false, onClick = onSearch)
-        DrawerItem(R.drawable.ic_nav_home, stringResource(R.string.nav_home), expanded, selected = true, onClick = {})
+        SidebarItem(R.drawable.ic_nav_search, stringResource(R.string.nav_search), hasFocus, onClick = onSearch)
+        SidebarItem(R.drawable.ic_nav_home, stringResource(R.string.nav_home), hasFocus, onClick = {})
         libraries.forEach { library ->
-            DrawerItem(R.drawable.ic_nav_library, library.name.orEmpty(), expanded, selected = false, onClick = { onLibrary(library) })
+            SidebarItem(R.drawable.ic_nav_library, library.name.orEmpty(), hasFocus, onClick = { onLibrary(library) })
         }
         Spacer(Modifier.weight(1f))
-        DrawerItem(R.drawable.ic_nav_settings, stringResource(R.string.nav_settings), expanded, selected = false, onClick = onSettings)
+        SidebarItem(R.drawable.ic_nav_settings, stringResource(R.string.nav_settings), hasFocus, onClick = onSettings)
     }
 }
 
 @Composable
-private fun NavigationDrawerScope.DrawerItem(
-    icon: Int,
-    label: String,
-    expanded: Boolean,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    // NavigationDrawer measures this composable once per DrawerValue to know how wide the
-    // collapsed vs. expanded rail should be - rendering the label unconditionally (previously the
-    // bug here) made both measurements identical, so the drawer never actually collapsed: it sat
-    // permanently at full width, overlaying/blocking the content behind it.
-    NavigationDrawerItem(
-        selected = selected,
-        onClick = onClick,
-        leadingContent = { Icon(imageVector = ImageVector.vectorResource(id = icon), contentDescription = if (expanded) null else label) },
+private fun SidebarItem(icon: Int, label: String, showLabel: Boolean, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isFocused) TreeHouseAccent.copy(alpha = 0.3f) else Color.Transparent)
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (expanded) Text(label)
+        Icon(
+            imageVector = ImageVector.vectorResource(id = icon),
+            contentDescription = if (showLabel) null else label,
+            tint = TreeHouseTextPrimary,
+        )
+        if (showLabel) {
+            Spacer(Modifier.width(12.dp))
+            Text(label, color = TreeHouseTextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
@@ -427,7 +467,14 @@ private fun PosterCard(
     }
 }
 
-/** 16:9 landscape thumbnail with a watch-progress bar - the Continue Watching row's card shape. */
+/**
+ * 16:9 landscape thumbnail with a watch-progress bar - the Continue Watching row's card shape.
+ * Backdrops/episode stills rarely carry a readable title baked into the art the way a movie
+ * poster does, so - unlike [PosterCard] - this one needs its own title/subtitle underneath, or a
+ * resumed episode is just an unlabeled still frame. For an episode, the subtitle leads with its
+ * season/episode number since the episode's own title is often an unfamiliar one-liner with no
+ * obvious connection to the show.
+ */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 private fun SpotlightCard(
@@ -443,23 +490,37 @@ private fun SpotlightCard(
     val totalTicks = item.runTimeTicks ?: 0L
     val percent = if (totalTicks > 0) (positionTicks.toFloat() / totalTicks).coerceIn(0f, 1f) else 0f
 
-    FocusableCard(modifier = modifier.width(280.dp), onFocused = onFocused, onClick = onClick) {
-        Box {
-            GlideImage(
-                model = repository.buildImageUrl(item.id, imageType = imageType, maxWidth = 560),
-                contentDescription = item.name,
-                modifier = Modifier.fillMaxWidth().aspectRatio(SPOTLIGHT_ASPECT_RATIO),
-                contentScale = ContentScale.Crop,
-            )
-            if (percent > 0f) {
-                Box(Modifier.fillMaxWidth().height(4.dp).background(Color.Black.copy(alpha = 0.4f)))
-                Box(
-                    Modifier
-                        .fillMaxWidth(percent)
-                        .height(4.dp)
-                        .background(MaterialTheme.colorScheme.primary),
+    val title = if (isEpisode) item.seriesName ?: item.name else item.name
+    val season = item.parentIndexNumber
+    val episodeNumber = item.indexNumber
+    val subtitle = when {
+        !isEpisode -> item.productionYear?.toString().orEmpty()
+        season != null && episodeNumber != null -> stringResource(R.string.continue_watching_episode_format, season, episodeNumber)
+        else -> item.name.orEmpty()
+    }
+
+    Column(modifier = modifier.width(280.dp)) {
+        FocusableCard(onFocused = onFocused, onClick = onClick) {
+            Box {
+                GlideImage(
+                    model = repository.buildImageUrl(item.id, imageType = imageType, maxWidth = 560),
+                    contentDescription = item.name,
+                    modifier = Modifier.fillMaxWidth().aspectRatio(SPOTLIGHT_ASPECT_RATIO),
+                    contentScale = ContentScale.Crop,
                 )
+                if (percent > 0f) {
+                    Box(Modifier.fillMaxWidth().height(4.dp).background(Color.Black.copy(alpha = 0.4f)))
+                    Box(
+                        Modifier
+                            .fillMaxWidth(percent)
+                            .height(4.dp)
+                            .background(MaterialTheme.colorScheme.primary),
+                    )
+                }
             }
         }
+        Spacer(Modifier.height(6.dp))
+        Text(title.orEmpty(), color = TreeHouseTextPrimary, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(subtitle, color = TreeHouseTextSecondary, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

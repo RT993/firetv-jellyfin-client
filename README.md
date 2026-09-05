@@ -1,15 +1,14 @@
 # TreeHouse
 
-**Version 0.1.3** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.2.5** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
-A lightweight, native Jellyfin client for Android TV, built specifically to run well on old,
-low-spec Amazon Fire TV Stick hardware (1-1.5GB RAM, weak quad-core CPUs). Jellyfin's own official
-Android TV app (and most third-party ones) are built on Compose for TV or otherwise carry more
-overhead than that hardware wants; TreeHouse instead uses Leanback + Media3 - about as light as a
-modern Android TV app gets - and a hand-rolled, Apple-TV-inspired playback UI instead of Leanback's
-stock transport controls, in exchange for staying firmly in "one dev's spare time" scope rather
-than chasing feature parity with a general-purpose client.
+A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
+Fire TV Stick hardware (1-1.5GB RAM, weak quad-core CPUs). Home and Details are Jetpack Compose for
+TV (`androidx.tv.material3`); the Movies/TV Shows library grid and playback screen are still plain
+Leanback + a hand-rolled, Apple-TV-inspired transport UI - Leanback stays where its boxier defaults
+don't matter (a dense poster grid) and where Compose for TV would have added weight for no visual
+benefit, on hardware where that weight is a real cost, not just a style preference.
 
 ## Screenshots
 
@@ -48,15 +47,17 @@ If you'd rather install from a machine on the same network via ADB, see
 
 - **Server login**: server address entry, username/password, or Quick Connect (approve from
   another already-signed-in Jellyfin app/web page).
-- **Home**: one row per library (Movies, TV Shows, etc.), plus **Movies**/**TV Shows** filters in
-  the top nav bar that narrow the view to a single library's rows.
-- **Details screen**: poster, title, rating/year/runtime, cast, and a translucent "glass" info
-  panel over the item's own backdrop image (loaded full-bleed via `centerCrop`, not Leanback's
-  built-in background controller - see [`ItemDetailsFragment.loadBackdrop`](app/src/main/java/io/github/rt993/firetvjellyfin/ui/details/ItemDetailsFragment.kt)
-  for why).
-- **TV series get per-episode playback**: instead of one "Play" button for the whole series, the
-  details screen lists one row per season, each full of that season's episodes as landscape
-  thumbnail cards - picking one plays that specific episode.
+- **Home**: a D-pad-pageable hero carousel of trending movies/shows with a crossfading cinematic
+  backdrop, a "Pick up where you left off" row, and one poster row per library. A left nav rail
+  (Search, Home, one icon per library, Settings) stays out of the way - transparent and icon-only -
+  until D-pad focus actually lands on it, then it fades in a background and labels.
+- **Details screen**: a split layout - full-bleed backdrop on the right, gradient-masked into a
+  poster/title/metadata panel on the left. Technical badges (4K/1080p, Dolby Vision/HDR10/HLG,
+  Dolby Atmos/surround) read from the file's actual media streams, a Watchlist toggle backed by
+  Jellyfin's own per-user favorite flag, and a soft per-title ambient color glow behind the poster
+  (extracted from the poster art via `androidx.palette`).
+- **TV series get an inline season picker**: a row of seasons on the details screen swaps the
+  episode row below it on the same screen - no separate season-pick screen.
 - **Playback**: direct-play when the server says the file's compatible with this device, HLS
   transcode fallback otherwise (see [below](#the-direct-play-vs-transcode-decision)). A custom,
   minimal transport UI (not Leanback's stock boxy controls) over a raw `SurfaceView` - play/pause,
@@ -69,10 +70,22 @@ If you'd rather install from a machine on the same network via ADB, see
 
 ## Tech stack
 
-- **Language/UI**: Kotlin + [androidx.leanback](https://developer.android.com/reference/androidx/leanback/package-summary)
-  (`BrowseSupportFragment`, `GuidedStepSupportFragment`, `DetailsSupportFragment`) for D-pad-first
-  navigation on TV. Leanback is a thin, TV-optimized widget layer - much less overhead on old
-  hardware than Compose for TV or a cross-platform framework.
+This app is a deliberate hybrid, not a single-framework build - each screen uses whichever of the
+two UI toolkits below fits it better, not the same one everywhere:
+
+- **Home and Details**: Jetpack Compose for TV (`androidx.tv:tv-material`) - `Card`/`Button`/`Text`
+  for D-pad-aware focus styling (scale, glow, border on focus), plain `compose-foundation`
+  `LazyRow`/`LazyColumn` for the scrolling rows (`androidx.tv:tv-foundation` was tried first, but
+  at the pinned version it contains no usable `TvLazyRow`/`TvLazyColumn` at all - see the comment
+  in `app/build.gradle.kts`). The left nav rail is hand-built from plain Compose Foundation
+  primitives (`Modifier.focusGroup`/`onFocusChanged`, `animateDpAsState`), not
+  `NavigationDrawer`/`ModalNavigationDrawer` - both had real, hard-to-verify quirks around
+  measuring collapsed-vs-expanded width that cost two rounds of bugs before being replaced.
+- **Library grid and Playback**: Kotlin + [androidx.leanback](https://developer.android.com/reference/androidx/leanback/package-summary)
+  (`VerticalGridSupportFragment`) for the dense Movies/TV Shows poster grid - a plain grid has no
+  real design surface for Compose's focus-styling advantages to matter, so it stays on Leanback's
+  lighter widget layer. Playback is a hand-rolled screen (see below), not a Leanback or Compose
+  transport UI.
 - **Playback**: [Media3/ExoPlayer](https://developer.android.com/media/media3) driving a raw
   `SurfaceView` directly (`ExoPlayer.setVideoSurfaceView`), not Leanback's
   `VideoSupportFragment`/`PlaybackTransportControlGlue` stack - that gets Leanback's stock,
@@ -81,12 +94,13 @@ If you'd rather install from a machine on the same network via ADB, see
   manually from `Player.Listener.onVideoSizeChanged` since a plain `SurfaceView` doesn't do that
   on its own.
 - **Server API**: the official [jellyfin-sdk-kotlin](https://github.com/jellyfin/jellyfin-sdk-kotlin)
-  (`org.jellyfin.sdk:jellyfin-core` + `jellyfin-platform-android`) for auth, library browsing,
-  media info, and playback URL construction. No hand-rolled REST calls.
-- **Images**: Glide, for poster/backdrop loading into Leanback's `ImageCardView`. This one
-  dependency isn't in a stock Leanback+Media3+SDK list but is close to unavoidable for a usable
-  browse screen - it's mature, TV-tested (it's what Google's own Leanback samples use), and has a
-  well-tuned disk/memory cache that matters more, not less, on constrained hardware.
+  (`org.jellyfin.sdk:jellyfin-core`) for auth, library browsing, media info, and playback URL
+  construction. No hand-rolled REST calls.
+- **Images**: Glide - `com.github.bumptech.glide:glide` into Leanback's `ImageCardView` on the
+  Leanback screens, `com.github.bumptech.glide:compose`'s `GlideImage` on the Compose ones. One
+  loader, one disk/memory cache, across both toolkits.
+- **`androidx.palette`**: extracts a dominant/vibrant color from a poster for the Details screen's
+  ambient glow.
 - **Coroutines** (`kotlinx-coroutines-android`) for async server calls, **kotlinx-serialization**
   because jellyfin-sdk-kotlin's models use it.
 
@@ -104,12 +118,16 @@ app/src/main/java/io/github/rt993/firetvjellyfin/
 │   └── PlaybackDecisionMaker.kt    The direct-play-vs-transcode decision point (see below)
 └── ui/
     ├── splash/   SplashActivity: launcher activity, plays the intro then routes to Home/Login
-    ├── login/    Server address -> username/password or Quick Connect (GuidedStepSupportFragment flow)
-    ├── home/     BrowseSupportFragment (MainBrowseFragment): hero banner, one row per library,
-    │             poster cards (CardPresenter) and a "Continue Watching" row
-    ├── details/  DetailsSupportFragment (ItemDetailsFragment): item metadata, series
-    │             Play/Resume (resolved via Jellyfin's own "next up" logic), one row of episode
-    │             cards (EpisodeCardPresenter) per season for a series
+    ├── login/    Server address -> username/password or Quick Connect (a hand-built step flow,
+    │             not GuidedStepSupportFragment)
+    ├── home/     HomeScreen (Compose): hero carousel, "Pick up where you left off" row, one poster
+    │             row per library, a hand-built left nav rail - see ui/theme/ for shared pieces
+    ├── library/  LibraryGridActivity/Fragment: VerticalGridSupportFragment (Leanback) - the
+    │             Movies/TV Shows poster grid reached from a Home sidebar item
+    ├── details/  DetailsScreen (Compose): split layout, technical badges, ambient poster glow,
+    │             inline season/episode picker for a series
+    ├── theme/    Shared Compose pieces: TreeHouseTheme (colors), TvCard (the focus scale/glow/
+    │             border treatment used by every card), AmbientColor/AmbientGlow (Details' poster glow)
     └── playback/ PlaybackActivity: Media3 ExoPlayer over a raw SurfaceView with a custom
                   transport UI, Skip Intro, and Play Next (see Features above)
 ```
@@ -201,6 +219,11 @@ Downloader link above points at, and it can also be triggered manually from the 
 ## Known gaps / next steps
 
 - No automated tests yet.
+- The Compose-for-TV screens add real APK weight (Compose runtime + tv-material +
+  glide-compose + palette, on top of Leanback/Media3) - this is genuinely a two-toolkit app now,
+  not a single lightweight one, in exchange for the design work Compose enabled on Home/Details.
+  Worth revisiting if Library grid/Playback ever move to Compose too (drop Leanback) or if the
+  weight becomes a real problem on the target hardware.
 - `DeviceProfileFactory`'s codec list is generic, not queried from the actual device's
   `MediaCodecList` - see the direct-play/transcode section above.
 - Login persists the access token in plain `SharedPreferences` (see `CredentialStore.kt`); move to

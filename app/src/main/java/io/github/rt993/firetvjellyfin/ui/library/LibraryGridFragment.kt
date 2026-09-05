@@ -36,10 +36,11 @@ class LibraryGridFragment : VerticalGridSupportFragment() {
         setGridPresenter(gridPresenter)
         onItemViewClickedListener = ItemClickedListener()
 
-        // Leanback's own TitleView would otherwise show the library name here in its default,
-        // unstyled way (redundant anyway - HomeActivity's own nav bar already shows it as the
-        // selected tab), which read as an unwanted "Movies" label floating over the grid.
-        showTitle(false)
+        // Home's sidebar has no "currently selected library" indicator of its own (unlike the old
+        // top nav bar this screen's title was once considered redundant with - see git history),
+        // so without this title there was nothing on screen at all saying which library you're
+        // looking at.
+        title = requireActivity().intent.getStringExtra(LibraryGridActivity.EXTRA_TITLE)
 
         val api = JellyfinClientHolder.api
         val libraryIdString = requireActivity().intent.getStringExtra(LibraryGridActivity.EXTRA_LIBRARY_ID)

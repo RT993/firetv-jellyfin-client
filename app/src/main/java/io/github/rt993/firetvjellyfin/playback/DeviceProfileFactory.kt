@@ -140,6 +140,3 @@ fun buildDeviceProfile(): DeviceProfile = DeviceProfile(
         SubtitleProfile(format = format, method = SubtitleDeliveryMethod.EXTERNAL)
     },
 )
-
-/** Maximum bitrate (bits/sec) this app will ever request for direct play or transcode streams. */
-const val MAX_STREAMING_BITRATE = 120_000_000

@@ -1,5 +1,6 @@
 package io.github.rt993.firetvjellyfin.ui.details
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -67,6 +69,7 @@ import org.jellyfin.sdk.model.api.MediaStreamType
 import org.jellyfin.sdk.model.api.PersonKind
 import org.jellyfin.sdk.model.api.VideoRangeType
 
+private const val TAG = "DetailsScreen"
 private const val EPISODE_CARD_WIDTH_DP = 220
 private const val EPISODE_ASPECT_RATIO = 16f / 9f
 private const val POSTER_ASPECT_RATIO = 2f / 3f
@@ -87,6 +90,7 @@ fun DetailsScreen(
     onPlay: (BaseItemDto) -> Unit,
 ) {
     var item by remember { mutableStateOf<BaseItemDto?>(null) }
+    var loadError by remember { mutableStateOf<String?>(null) }
     var playTarget by remember { mutableStateOf<BaseItemDto?>(null) }
     var seasons by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     var isFavorite by remember { mutableStateOf(false) }
@@ -95,7 +99,13 @@ fun DetailsScreen(
     val context = LocalContext.current
 
     LaunchedEffect(itemId) {
-        val loaded = runCatching { repository.getItem(userId, itemId) }.getOrNull() ?: return@LaunchedEffect
+        val loaded = runCatching { repository.getItem(userId, itemId) }
+            .onFailure { Log.e(TAG, "getItem failed", it) }
+            .getOrNull()
+        if (loaded == null) {
+            loadError = "Could not load this item's details."
+            return@LaunchedEffect
+        }
         item = loaded
         isFavorite = loaded.userData?.isFavorite ?: false
         playTarget = if (loaded.type == BaseItemKind.SERIES) {
@@ -105,6 +115,7 @@ fun DetailsScreen(
         }
         if (loaded.type == BaseItemKind.SERIES) {
             seasons = runCatching { repository.getSeasons(userId, loaded.id) }
+                .onFailure { Log.e(TAG, "getSeasons failed", it) }
                 .getOrDefault(emptyList())
                 .sortedBy { it.indexNumber ?: Int.MAX_VALUE }
         }
@@ -114,7 +125,17 @@ fun DetailsScreen(
         ambientColor = ambientColorFor(context, repository.buildImageUrl(loaded.id, maxWidth = 200))
     }
 
-    val currentItem = item ?: return
+    val currentItem = item
+    if (currentItem == null) {
+        TreeHouseTheme {
+            Box(Modifier.fillMaxSize().background(TreeHouseBackground)) {
+                loadError?.let {
+                    Text(it, color = TreeHouseTextSecondary, modifier = Modifier.align(Alignment.Center).padding(48.dp))
+                }
+            }
+        }
+        return
+    }
 
     TreeHouseTheme {
         Box(Modifier.fillMaxSize().background(TreeHouseBackground)) {
@@ -132,7 +153,10 @@ fun DetailsScreen(
                         onToggleFavorite = {
                             val newValue = !isFavorite
                             isFavorite = newValue
-                            scope.launch { runCatching { repository.setFavorite(userId, itemId, newValue) } }
+                            scope.launch {
+                                runCatching { repository.setFavorite(userId, itemId, newValue) }
+                                    .onFailure { Log.e(TAG, "setFavorite failed", it) }
+                            }
                         },
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
@@ -159,13 +183,18 @@ fun DetailsScreen(
  * "up next" for this user, falling back to a direct S1E1 lookup only if that fails.
  */
 private suspend fun resolveSeriesPlayTarget(repository: JellyfinRepository, userId: UUID, series: BaseItemDto): BaseItemDto? {
-    runCatching { repository.getNextUpEpisode(userId, series.id) }.getOrNull()?.let { return it }
+    runCatching { repository.getNextUpEpisode(userId, series.id) }
+        .onFailure { Log.e(TAG, "getNextUpEpisode failed", it) }
+        .getOrNull()
+        ?.let { return it }
 
     val firstSeason = runCatching { repository.getSeasons(userId, series.id) }
+        .onFailure { Log.e(TAG, "getSeasons failed", it) }
         .getOrDefault(emptyList())
         .minByOrNull { it.indexNumber ?: Int.MAX_VALUE }
         ?: return null
     return runCatching { repository.getEpisodes(userId, series.id, firstSeason.id) }
+        .onFailure { Log.e(TAG, "getEpisodes failed", it) }
         .getOrDefault(emptyList())
         .minByOrNull { it.indexNumber ?: Int.MAX_VALUE }
 }
@@ -388,7 +417,9 @@ private fun SeasonsAndEpisodes(
     LaunchedEffect(selectedSeason?.id) {
         val season = selectedSeason
         episodes = if (season != null) {
-            runCatching { repository.getEpisodes(userId, series.id, season.id) }.getOrDefault(emptyList())
+            runCatching { repository.getEpisodes(userId, series.id, season.id) }
+                .onFailure { Log.e(TAG, "getEpisodes failed for season ${season.name}", it) }
+                .getOrDefault(emptyList())
         } else {
             emptyList()
         }

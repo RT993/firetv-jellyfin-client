@@ -245,7 +245,4 @@ class JellyfinRepository(private val api: ApiClient) {
         )
         return api.mediaInfoApi.getPostedPlaybackInfo(itemId = itemId, data = request).content
     }
-
-    val deviceId: String
-        get() = api.deviceInfo.id
 }
