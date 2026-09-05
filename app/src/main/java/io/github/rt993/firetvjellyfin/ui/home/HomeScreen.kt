@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -13,13 +14,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,6 +36,11 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
@@ -53,6 +60,7 @@ import com.bumptech.glide.integration.compose.GlideImage
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
+import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseAccent
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseBackground
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseSurface
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextPrimary
@@ -77,10 +85,12 @@ private data class HomeUiState(
 
 /**
  * Ground-up rewrite in Jetpack Compose for TV, replacing the Leanback [androidx.leanback.app
- * .BrowseSupportFragment]-based Home screen entirely. A Dynamic Billboard (cinematic backdrop
- * crossfading to whichever card currently has focus) sits behind a Continue Watching row and one
- * poster row per library, with a collapsible left [NavigationDrawer] for navigation - see the
- * design notes this was built from for the full reference.
+ * .BrowseSupportFragment]-based Home screen entirely. A Dynamic Billboard (cinematic backdrop)
+ * sits behind a hero carousel of trending movies/shows - pageable with D-pad left/right on its
+ * Play button, see [HeroInfo] - a Continue Watching row, and one poster row per library. The
+ * backdrop also crossfades to whichever card currently has focus further down. A collapsible left
+ * [NavigationDrawer] handles navigation - see the design notes this was built from for the full
+ * reference.
  */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
@@ -111,14 +121,21 @@ fun HomeScreen(
         )
     }
 
+    var heroIndex by remember { mutableStateOf(0) }
     var spotlight by remember { mutableStateOf<BaseItemDto?>(null) }
-    LaunchedEffect(state.continueWatching, state.trending) {
-        if (spotlight == null) spotlight = state.continueWatching.firstOrNull() ?: state.trending.firstOrNull()
+    LaunchedEffect(state.trending, state.continueWatching) {
+        if (spotlight == null) spotlight = state.trending.getOrNull(heroIndex) ?: state.continueWatching.firstOrNull()
+    }
+    fun pageHero(delta: Int) {
+        val trending = state.trending
+        if (trending.isEmpty()) return
+        heroIndex = (heroIndex + delta + trending.size) % trending.size
+        spotlight = trending[heroIndex]
     }
 
-    val firstCardFocusRequester = remember { FocusRequester() }
+    val heroFocusRequester = remember { FocusRequester() }
     LaunchedEffect(state.isLoading) {
-        if (!state.isLoading) runCatching { firstCardFocusRequester.requestFocus() }
+        if (!state.isLoading) runCatching { heroFocusRequester.requestFocus() }
     }
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -148,17 +165,24 @@ fun HomeScreen(
                     item {
                         Column {
                             Spacer(Modifier.height(280.dp))
-                            SpotlightInfo(item = spotlight, onPlay = onPlay)
+                            HeroInfo(
+                                item = spotlight,
+                                pageCount = state.trending.size,
+                                currentIndex = heroIndex,
+                                focusRequester = heroFocusRequester,
+                                onPageLeft = { pageHero(-1) },
+                                onPageRight = { pageHero(1) },
+                                onPlay = { spotlight?.let(onPlay) },
+                            )
                         }
                     }
                     if (state.continueWatching.isNotEmpty()) {
                         item {
                             MediaRow(title = stringResource(R.string.home_continue_watching)) {
-                                itemsIndexed(state.continueWatching) { index, mediaItem ->
+                                items(state.continueWatching, key = { it.id }) { mediaItem ->
                                     SpotlightCard(
                                         item = mediaItem,
                                         repository = repository,
-                                        modifier = if (index == 0) Modifier.focusRequester(firstCardFocusRequester) else Modifier,
                                         onFocused = { spotlight = mediaItem },
                                         onClick = { onOpenDetails(mediaItem) },
                                     )
@@ -272,8 +296,22 @@ private fun HeroBackdrop(item: BaseItemDto?, repository: JellyfinRepository) {
     }
 }
 
+/**
+ * The "Top Shelf" hero: title/meta/overview for whichever [item] is current, plus a Play button
+ * that doubles as the paging control - D-pad left/right on it cycles [onPageLeft]/[onPageRight]
+ * through the trending movies/shows instead of moving focus elsewhere, mirroring how a real remote
+ * scrolls a featured-content carousel. Down still moves focus into the rows below normally.
+ */
 @Composable
-private fun SpotlightInfo(item: BaseItemDto?, onPlay: (BaseItemDto) -> Unit) {
+private fun HeroInfo(
+    item: BaseItemDto?,
+    pageCount: Int,
+    currentIndex: Int,
+    focusRequester: FocusRequester,
+    onPageLeft: () -> Unit,
+    onPageRight: () -> Unit,
+    onPlay: () -> Unit,
+) {
     if (item == null) return
     Column(Modifier.padding(start = 48.dp, end = 48.dp)) {
         Text(item.name.orEmpty(), style = MaterialTheme.typography.headlineLarge, color = TreeHouseTextPrimary)
@@ -291,10 +329,44 @@ private fun SpotlightInfo(item: BaseItemDto?, onPlay: (BaseItemDto) -> Unit) {
             )
         }
         Spacer(Modifier.height(16.dp))
-        Button(onClick = { onPlay(item) }) {
-            Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_hero_play), contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.playback_play))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(
+                onClick = onPlay,
+                modifier = Modifier
+                    .focusRequester(focusRequester)
+                    .onKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                        when (event.key) {
+                            Key.DirectionLeft -> { onPageLeft(); true }
+                            Key.DirectionRight -> { onPageRight(); true }
+                            else -> false
+                        }
+                    },
+            ) {
+                Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_hero_play), contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.playback_play))
+            }
+            if (pageCount > 1) {
+                Spacer(Modifier.width(20.dp))
+                HeroDots(count = pageCount, currentIndex = currentIndex)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeroDots(count: Int, currentIndex: Int) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        repeat(count) { i ->
+            Box(
+                Modifier
+                    .size(8.dp)
+                    .background(
+                        color = if (i == currentIndex) TreeHouseAccent else TreeHouseTextSecondary.copy(alpha = 0.4f),
+                        shape = CircleShape,
+                    ),
+            )
         }
     }
 }
