@@ -3,8 +3,10 @@ package io.github.rt993.firetvjellyfin.data
 import android.content.Context
 import org.jellyfin.sdk.Jellyfin
 import org.jellyfin.sdk.api.client.ApiClient
+import org.jellyfin.sdk.api.client.HttpClientOptions
 import org.jellyfin.sdk.createJellyfin
 import org.jellyfin.sdk.model.ClientInfo
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * Process-wide holder for the Jellyfin SDK instance and the current [ApiClient].
@@ -41,7 +43,17 @@ object JellyfinClientHolder {
     /** Connect (or reconnect) to a server, discarding any previous session's access token. */
     fun connect(serverUrl: String): ApiClient {
         val normalizedUrl = normalizeServerUrl(serverUrl)
-        val client = jellyfin.createApi(baseUrl = normalizedUrl)
+        // The SDK's own default request/socket timeout is 30s. GetPostedPlaybackInfo can take
+        // much longer than that on its own: Jellyfin extracts every embedded text subtitle track
+        // into its own .srt file synchronously, as part of building that one response, so it can
+        // hand back a deliveryUrl for each - a movie with two dozen+ subtitle tracks (dubs/SDH
+        // variants are common on 4K rips) on a slow disk can take well past 30s before the server
+        // replies, which the SDK surfaces as a plain TimeoutException indistinguishable from the
+        // server being unreachable, and PlaybackActivity was giving up on it accordingly.
+        val client = jellyfin.createApi(
+            baseUrl = normalizedUrl,
+            httpClientOptions = HttpClientOptions(requestTimeout = 2.minutes, socketTimeout = 2.minutes),
+        )
         api = client
         credentialStore.serverUrl = normalizedUrl
         return client
@@ -77,5 +89,5 @@ object JellyfinClientHolder {
 
     // Kept separate from BuildConfig.VERSION_NAME so this file has no Gradle-generated dependency -
     // which means it has to be bumped by hand alongside app/build.gradle.kts's versionName.
-    private const val BuildConfigVersion = "0.1.3"
+    private const val BuildConfigVersion = "0.1.4"
 }
