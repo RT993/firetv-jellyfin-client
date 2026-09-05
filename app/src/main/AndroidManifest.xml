@@ -53,6 +53,11 @@
             android:theme="@style/Theme.FireTvJellyfin" />
 
         <activity
+            android:name=".ui.library.LibraryGridActivity"
+            android:exported="false"
+            android:theme="@style/Theme.FireTvJellyfin" />
+
+        <activity
             android:name=".ui.playback.PlaybackActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|uiMode"

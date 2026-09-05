@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
+import io.github.rt993.firetvjellyfin.ui.library.LibraryGridActivity
 import io.github.rt993.firetvjellyfin.ui.login.LoginActivity
 import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
 import org.jellyfin.sdk.model.api.CollectionType
@@ -130,13 +131,32 @@ class HomeActivity : FragmentActivity(R.layout.activity_home) {
     private fun setUpNavItem(viewId: Int, target: CollectionType?) {
         val view = findViewById<TextView>(viewId)
         view.setOnClickListener {
-            Log.d(TAG, "nav item ${resources.getResourceEntryName(viewId)} clicked -> showLibrary($target)")
-            browseFragment()?.showLibrary(target)
+            if (target == null) {
+                Log.d(TAG, "nav item ${resources.getResourceEntryName(viewId)} clicked -> showLibrary(null)")
+                browseFragment()?.showLibrary(null)
+            } else {
+                openLibraryGrid(target, view.text.toString())
+            }
         }
         view.setOnFocusChangeListener { _, hasFocus ->
             view.setTextColor(
                 ContextCompat.getColor(this, if (hasFocus) R.color.text_primary else R.color.text_secondary),
             )
         }
+    }
+
+    /** Movies/TV Shows nav tabs open a dedicated poster grid instead of just filtering the Home rows. */
+    private fun openLibraryGrid(target: CollectionType, title: String) {
+        val libraryId = browseFragment()?.libraryIdFor(target)
+        if (libraryId == null) {
+            Log.e(TAG, "openLibraryGrid: no library id resolved yet for $target")
+            Toast.makeText(this, R.string.home_error, Toast.LENGTH_SHORT).show()
+            return
+        }
+        startActivity(
+            Intent(this, LibraryGridActivity::class.java)
+                .putExtra(LibraryGridActivity.EXTRA_LIBRARY_ID, libraryId.toString())
+                .putExtra(LibraryGridActivity.EXTRA_TITLE, title),
+        )
     }
 }

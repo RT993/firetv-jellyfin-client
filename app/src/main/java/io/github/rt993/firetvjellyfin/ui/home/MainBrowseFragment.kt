@@ -44,6 +44,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
     private val rowsAdapter = ArrayObjectAdapter(presenterSelector)
     private lateinit var backgroundManager: BackgroundManager
     private val loadedRows = mutableListOf<LoadedRow>()
+    private val libraryIds = mutableMapOf<CollectionType, UUID>()
     private var recentlyAddedRow: HeroRow? = null
     private var continueWatchingRow: ListRow? = null
 
@@ -111,7 +112,10 @@ class MainBrowseFragment : BrowseSupportFragment() {
                     if (views.isEmpty()) {
                         Toast.makeText(requireContext(), "Server returned 0 libraries for this user", Toast.LENGTH_LONG).show()
                     }
-                    views.forEach { view -> loadRow(repo, cardPresenter, userId, view) }
+                    views.forEach { view ->
+                        view.collectionType?.let { libraryIds[it] = view.id }
+                        loadRow(repo, cardPresenter, userId, view)
+                    }
                     loadRecentlyAdded(repo, userId)
                     loadContinueWatching(repo, userId)
                     showLibrary(null) // all rows - also clears the placeholder row seeded in onCreate()
@@ -189,6 +193,9 @@ class MainBrowseFragment : BrowseSupportFragment() {
 
     /** True when the topmost row is selected, i.e. pressing up has nowhere left to go. */
     fun isAtTopRow(): Boolean = selectedPosition <= 0
+
+    /** The library id backing a Movies/TV Shows nav tab, once [loadLibraries] has resolved. */
+    fun libraryIdFor(type: CollectionType): UUID? = libraryIds[type]
 
     private fun openDetails(item: BaseItemDto) {
         startActivity(
