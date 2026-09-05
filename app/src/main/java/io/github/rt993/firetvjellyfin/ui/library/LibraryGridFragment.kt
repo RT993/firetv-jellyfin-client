@@ -70,11 +70,18 @@ class LibraryGridFragment : VerticalGridSupportFragment() {
     }
 
     private inner class ItemClickedListener : OnItemViewClickedListener {
+        // VerticalGridPresenter always calls this with rowViewHolder/row as null - a plain grid
+        // has no row concept the way a ListRow does - unlike every other OnItemViewClickedListener
+        // in this app (all attached to actual ListRows, where both are always non-null). Kotlin's
+        // null-check intrinsics for non-null-declared params don't know that and crashed on every
+        // single click here (visible in logcat as a NullPointerException on "parameter
+        // rowViewHolder"), which killed the app process and dropped back to whatever Activity
+        // Android happened to resume next - not an actual "send to home" navigation at all.
         override fun onItemClicked(
             itemViewHolder: Presenter.ViewHolder,
             item: Any,
-            rowViewHolder: RowPresenter.ViewHolder,
-            row: Row,
+            rowViewHolder: RowPresenter.ViewHolder?,
+            row: Row?,
         ) {
             (item as? BaseItemDto)?.let(::openDetails)
         }
