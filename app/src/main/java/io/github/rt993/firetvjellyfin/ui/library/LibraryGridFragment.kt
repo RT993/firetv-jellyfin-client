@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.details.ItemDetailsActivity
+import io.github.rt993.firetvjellyfin.ui.home.CardPresenter
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.api.BaseItemDto
 import java.util.UUID
@@ -22,9 +23,8 @@ import java.util.UUID
 /**
  * A full poster grid for one library - the Apple-TV-style "Movies"/"TV Shows" tab destination,
  * replacing the single horizontal shelf that nav tap used to just scroll to on the Home screen.
- * Uses [LibraryCardPresenter] (bigger, more cinematic posters than Home's shelves) - its own
- * focus scale/elevation animation is the only per-item highlight here, so the grid's own zoom is
- * explicitly turned off to avoid stacking both.
+ * Reuses [CardPresenter] as-is: its own focus scale/elevation animation is the only per-item
+ * highlight here, so the grid's own zoom is explicitly turned off to avoid stacking both.
  */
 class LibraryGridFragment : VerticalGridSupportFragment() {
 
@@ -58,7 +58,7 @@ class LibraryGridFragment : VerticalGridSupportFragment() {
                 .getOrDefault(emptyList())
             Log.i(TAG, "library $libraryId: ${items.size} item(s)")
             if (!isAdded) return@launch
-            adapter = ArrayObjectAdapter(LibraryCardPresenter(repository)).apply { addAll(0, items) }
+            adapter = ArrayObjectAdapter(CardPresenter(repository)).apply { addAll(0, items) }
         }
     }
 
@@ -89,7 +89,7 @@ class LibraryGridFragment : VerticalGridSupportFragment() {
 
     private companion object {
         const val TAG = "LibraryGridFragment"
-        const val GRID_COLUMNS = 5
+        const val GRID_COLUMNS = 6
         // No pagination yet - fine for a personal library, but a library past this size will be
         // truncated. Worth revisiting with real paging if that turns out to matter.
         const val GRID_ITEM_LIMIT = 500

@@ -1,19 +1,15 @@
-package io.github.rt993.firetvjellyfin.ui.library
+package io.github.rt993.firetvjellyfin.ui.home
 
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.drawable.ColorDrawable
 import android.util.TypedValue
-import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
-import android.widget.FrameLayout
-import android.widget.ImageView
-import androidx.core.content.ContextCompat
 import androidx.leanback.widget.ImageCardView
 import androidx.leanback.widget.Presenter
 import com.bumptech.glide.Glide
@@ -29,19 +25,14 @@ private const val FOCUS_ELEVATION_DP = 18
 private const val FOCUS_IN_ANIM_MS = 220L
 private const val FOCUS_OUT_ANIM_MS = 150L
 private const val FOCUS_OVERSHOOT_TENSION = 2.5f
-private const val PLAY_BADGE_SIZE_DP = 40
-private const val PLAY_BADGE_MARGIN_DP = 10
-private const val PLAY_BADGE_ICON_PADDING_DP = 10
 
 /**
- * A bigger, more "cinematic" poster card for [LibraryGridFragment] than the compact ones used in
- * Home's shelves ([io.github.rt993.firetvjellyfin.ui.home.CardPresenter]) - deliberately a
- * separate presenter rather than a resize of that one, so the Home rows aren't affected. Adds a
- * decorative play badge in the corner (tapping the card still opens Details, same as everywhere
- * else in the app - this is a visual cue, not a second click target, since a D-pad has no way to
- * aim at a sub-region of a focused card the way a touchscreen tap can).
+ * A bigger, more cinematic poster card than [CardPresenter] - used for the per-library rows shown
+ * on the Home screen itself (see [MainBrowseFragment.loadRow]), matching the larger poster art in
+ * the Apple TV reference. [CardPresenter] stays as-is (unchanged size) for the Movies/TV Shows
+ * grid screen, which is a different, denser browsing context.
  */
-class LibraryCardPresenter(private val repository: JellyfinRepository) : Presenter() {
+class PosterCardPresenter(private val repository: JellyfinRepository) : Presenter() {
 
     override fun onCreateViewHolder(parent: ViewGroup): ViewHolder {
         val cardView = ImageCardView(parent.context).apply {
@@ -62,8 +53,6 @@ class LibraryCardPresenter(private val repository: JellyfinRepository) : Present
                     .setInterpolator(if (hasFocus) OvershootInterpolator(FOCUS_OVERSHOOT_TENSION) else DecelerateInterpolator())
                     .start()
             }
-
-            addView(buildPlayBadge(context))
         }
         return ViewHolder(cardView)
     }
@@ -91,25 +80,6 @@ class LibraryCardPresenter(private val repository: JellyfinRepository) : Present
             cardView.mainImageView?.let { Glide.with(cardView.context).clear(it) }
         }
         cardView.mainImage = null
-    }
-
-    /** A small translucent circle with a play glyph, pinned to the poster's bottom-start corner. */
-    private fun buildPlayBadge(context: Context): View {
-        val sizePx = dpToPx(context, PLAY_BADGE_SIZE_DP).toInt()
-        val marginPx = dpToPx(context, PLAY_BADGE_MARGIN_DP).toInt()
-        val iconPaddingPx = dpToPx(context, PLAY_BADGE_ICON_PADDING_DP).toInt()
-        return ImageView(context).apply {
-            isFocusable = false
-            isClickable = false
-            background = ContextCompat.getDrawable(context, R.drawable.play_badge_bg)
-            setImageDrawable(ContextCompat.getDrawable(context, R.drawable.ic_hero_play))
-            setPadding(iconPaddingPx, iconPaddingPx, iconPaddingPx, iconPaddingPx)
-            layoutParams = FrameLayout.LayoutParams(sizePx, sizePx).apply {
-                gravity = Gravity.BOTTOM or Gravity.START
-                leftMargin = marginPx
-                bottomMargin = marginPx
-            }
-        }
     }
 
     private fun ImageCardView.setMainImageDimensions(context: Context, widthDp: Int, heightDp: Int) {

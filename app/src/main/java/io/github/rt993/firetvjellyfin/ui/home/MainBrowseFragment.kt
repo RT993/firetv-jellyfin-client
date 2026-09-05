@@ -95,7 +95,10 @@ class MainBrowseFragment : BrowseSupportFragment() {
             return
         }
         val repo = JellyfinRepository(api)
-        val cardPresenter = CardPresenter(repo)
+        // The bigger, more cinematic card style - these rows render directly on Home now, not
+        // tucked behind a nav filter, so they get the same treatment as the reference design's
+        // "You might like" row. The Movies/TV Shows grid screen keeps the smaller CardPresenter.
+        val cardPresenter = PosterCardPresenter(repo)
         presenterSelector.addClassPresenter(
             HeroRow::class.java,
             HeroRowPresenter(
@@ -133,7 +136,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
 
     private suspend fun loadRow(
         repo: JellyfinRepository,
-        cardPresenter: CardPresenter,
+        cardPresenter: PosterCardPresenter,
         userId: UUID,
         view: BaseItemDto,
     ) {
@@ -175,10 +178,12 @@ class MainBrowseFragment : BrowseSupportFragment() {
     }
 
     /**
-     * Shows only the row for [type] (a Movies/TV Shows nav filter), or the Home view - the
-     * Recently Added hero plus Continue Watching, with no full per-library browsing - if null.
-     * The per-library rows themselves are still loaded regardless (see [loadRow]), just not shown
-     * here; they only ever appear behind a nav filter. Used by the top nav bar.
+     * Shows only the row for [type] (a Movies/TV Shows nav filter - no longer reachable from the
+     * top nav bar, which now opens [io.github.rt993.firetvjellyfin.ui.library.LibraryGridActivity]
+     * instead, but kept for whatever else might want a single-library view), or the full Home
+     * view if null: Recently Added hero, Continue Watching, then one poster row per library -
+     * matching the reference design's Home screen instead of requiring a nav tap to see any
+     * library content at all.
      */
     fun showLibrary(type: CollectionType?) {
         Log.i(TAG, "showLibrary(type=$type), loadedRows=${loadedRows.map { it.collectionType }}")
@@ -186,6 +191,7 @@ class MainBrowseFragment : BrowseSupportFragment() {
         if (type == null) {
             recentlyAddedRow?.let { rowsAdapter.add(it) }
             continueWatchingRow?.let { rowsAdapter.add(it) }
+            loadedRows.forEach { rowsAdapter.add(it.row) }
         } else {
             loadedRows.filter { it.collectionType == type }.forEach { rowsAdapter.add(it.row) }
         }
