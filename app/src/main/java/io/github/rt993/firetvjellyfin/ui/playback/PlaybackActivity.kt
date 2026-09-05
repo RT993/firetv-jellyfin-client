@@ -169,7 +169,25 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
             val itemDeferred = async { runCatching { repo.getItem(resolvedUserId, resolvedItemId) }.getOrNull() }
             val introDeferred = async { runCatching { repo.getIntroSegment(resolvedItemId) }.getOrNull() }
 
-            val playbackInfo = runCatching { repo.getPlaybackInfo(resolvedUserId, resolvedItemId) }.getOrNull()
+            // The server only applies our audioStreamIndex/subtitleStreamIndex overrides when
+            // mediaSourceId names an actual media source of the item (see JellyfinRepository.
+            // getPlaybackInfo) - without it the equality check it does internally never matches,
+            // so subtitleStreamIndex=-1 is silently ignored and the file's own default subtitle
+            // track is used instead. That's both why PGS burn-in kept happening despite that fix,
+            // and why a file with many subtitle tracks could hang for minutes: Jellyfin extracts
+            // every embedded subtitle in one pass the first time *any* of them is fetched, and our
+            // client was auto-sideloading the (wrongly-defaulted) subtitle at startup. mediaSourceId
+            // isn't known before the first call, so this first request exists purely to discover
+            // it - only the second call's result is actually used for playback.
+            val discoveryInfo = runCatching { repo.getPlaybackInfo(resolvedUserId, resolvedItemId) }.getOrNull()
+            val discoveredMediaSourceId = discoveryInfo?.mediaSources?.firstOrNull()?.id
+            val playbackInfo = if (discoveredMediaSourceId != null) {
+                runCatching {
+                    repo.getPlaybackInfo(resolvedUserId, resolvedItemId, mediaSourceId = discoveredMediaSourceId)
+                }.getOrNull()
+            } else {
+                discoveryInfo
+            }
             val selection = playbackInfo?.let { decisionMaker.decide(resolvedItemId, it) }
             if (selection == null) {
                 finishWithError()
