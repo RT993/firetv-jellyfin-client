@@ -148,12 +148,14 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         btnUpNextPlay.setOnClickListener { playNextEpisodeIfAvailable() }
         btnSkipIntro.setOnClickListener { skipIntro() }
 
-        val resolvedApi = JellyfinClientHolder.api ?: return finishWithError()
+        val resolvedApi = JellyfinClientHolder.api ?: return finishWithError("no ApiClient (session lost?)")
         api = resolvedApi
         val itemIdString = intent.getStringExtra(EXTRA_ITEM_ID)
         val userIdString = JellyfinClientHolder.currentUserId()
-        val resolvedItemId = itemIdString?.let { runCatching { UUID.fromString(it) }.getOrNull() } ?: return finishWithError()
-        val resolvedUserId = userIdString?.let { runCatching { UUID.fromString(it) }.getOrNull() } ?: return finishWithError()
+        val resolvedItemId = itemIdString?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+            ?: return finishWithError("bad/missing item id: $itemIdString")
+        val resolvedUserId = userIdString?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+            ?: return finishWithError("bad/missing user id: $userIdString")
         itemId = resolvedItemId
         userId = resolvedUserId
 
@@ -192,8 +194,7 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
             }
             val selection = playbackInfo?.let { decisionMaker.decide(resolvedItemId, it) }
             if (selection == null) {
-                Log.e(TAG, "No playable selection (playbackInfo=${playbackInfo != null})")
-                finishWithError()
+                finishWithError("no playable selection (playbackInfo=${playbackInfo != null})")
                 return@launch
             }
             applySelection(selection)
@@ -278,7 +279,7 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
             // couldn't decode.
             override fun onPlayerError(error: PlaybackException) {
                 Log.e(TAG, "Playback error (mode=$currentMode): ${error.errorCodeName}", error)
-                finishWithError()
+                finishWithError("player error: ${error.errorCodeName}")
             }
         })
 
@@ -530,7 +531,14 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         return super.dispatchKeyEvent(event)
     }
 
-    private fun finishWithError() {
+    /**
+     * [reason] is always logged - every call site used to finish silently with no record at all of
+     * *why* playback ended, which made a real on-device failure impossible to diagnose after the
+     * fact (logcat's ring buffer and dropbox both turned out to have already lost it by the time
+     * anyone went looking - see CrashLogger for the same lesson applied to uncaught exceptions).
+     */
+    private fun finishWithError(reason: String) {
+        Log.e(TAG, "finishWithError: $reason")
         Toast.makeText(this, R.string.playback_error, Toast.LENGTH_LONG).show()
         finish()
     }
