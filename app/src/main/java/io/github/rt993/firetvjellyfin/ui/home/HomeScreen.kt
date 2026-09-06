@@ -9,6 +9,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -37,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -88,6 +90,9 @@ private val HERO_TOP_SAFE_MARGIN = 32.dp
 // bleed full-bleed into the sidebar/edge - reads as a distinct "card" rather than a raw background.
 private val HERO_HORIZONTAL_MARGIN = 48.dp
 private val HERO_CORNER_RADIUS = 20.dp
+
+// Gap between the bottom of the boxed hero and the first row of content below it.
+private val HERO_BOTTOM_GAP = 30.dp
 
 private const val TAG = "HomeScreen"
 
@@ -175,21 +180,34 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxHeight(),
             )
 
-            Box(Modifier.weight(1f).fillMaxHeight()) {
+            BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
+                // The reserved space below (the placeholder Spacer) has to match this exactly, or
+                // the backdrop and the scrolling content below it disagree about how tall the
+                // backdrop actually is on this screen - which was letting Movies-row content
+                // scroll up underneath/behind the (fixed-height) backdrop box.
+                val heroHeight = maxHeight * 0.62f
+
                 HeroBackdrop(
                     item = heroItem,
                     repository = repository,
-                    modifier = Modifier.padding(top = HERO_TOP_SAFE_MARGIN, start = HERO_HORIZONTAL_MARGIN, end = HERO_HORIZONTAL_MARGIN),
+                    modifier = Modifier
+                        .padding(top = HERO_TOP_SAFE_MARGIN, start = HERO_HORIZONTAL_MARGIN, end = HERO_HORIZONTAL_MARGIN)
+                        .height(heroHeight),
                 )
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 48.dp),
-                    verticalArrangement = Arrangement.spacedBy(32.dp),
+                    verticalArrangement = Arrangement.spacedBy(HERO_BOTTOM_GAP),
                 ) {
                     item {
-                        Column {
-                            Spacer(Modifier.height(280.dp + HERO_TOP_SAFE_MARGIN))
+                        // Fixed to the backdrop's own computed height (not the intrinsic height of
+                        // its children) so this block always ends exactly where the backdrop image
+                        // ends, regardless of how many lines the overview text wraps to - the
+                        // Movies row below is then a clean HERO_BOTTOM_GAP away from the real edge
+                        // of the box, never scrolling up underneath it.
+                        Column(Modifier.height(heroHeight + HERO_TOP_SAFE_MARGIN).clipToBounds()) {
+                            Spacer(Modifier.height(280.dp))
                             HeroInfo(
                                 item = heroItem,
                                 pageCount = state.trending.size,
