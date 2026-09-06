@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -39,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -177,6 +179,12 @@ fun HomeScreen(
     // recomposition of this screen (e.g. every D-pad hero page), causing real, visible input lag.
     val heroHeight = LocalConfiguration.current.screenHeightDp.dp * 0.62f
 
+    // A FocusRequester on the sidebar's own focus group, not one specific item inside it: Compose
+    // remembers whichever child was last focused within a focus group, so requesting focus on the
+    // group itself re-enters at that item (Home the first time, whatever the user last landed on
+    // after that) instead of always snapping back to a fixed spot.
+    val sidebarFocusRequester = remember { FocusRequester() }
+
     TreeHouseTheme {
         Row(Modifier.fillMaxSize().background(TreeHouseBackground)) {
             HomeSidebar(
@@ -184,50 +192,56 @@ fun HomeScreen(
                 onLibrary = onOpenLibrary,
                 onSettings = { showAccountMenu = true },
                 modifier = Modifier.fillMaxHeight(),
+                focusRequester = sidebarFocusRequester,
             )
 
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                HeroBackdrop(
-                    item = heroItem,
-                    repository = repository,
-                    modifier = Modifier
-                        .padding(top = HERO_TOP_SAFE_MARGIN, start = HERO_HORIZONTAL_MARGIN, end = HERO_HORIZONTAL_MARGIN)
-                        .height(heroHeight),
-                )
-
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 48.dp),
                     verticalArrangement = Arrangement.spacedBy(HERO_BOTTOM_GAP),
                 ) {
                     item {
-                        // Fixed to the backdrop's own computed height (not the intrinsic height of
-                        // its children) so this block always ends exactly where the backdrop image
-                        // ends, regardless of how many lines the overview text wraps to - the
-                        // Movies row below is then a clean HERO_BOTTOM_GAP away from the real edge
-                        // of the box, never scrolling up underneath it.
-                        Column(Modifier.height(heroHeight + HERO_TOP_SAFE_MARGIN).clipToBounds()) {
-                            Spacer(Modifier.height(280.dp))
-                            HeroInfo(
+                        // The backdrop now scrolls away as a normal part of the list instead of
+                        // sitting fixed behind it - it used to be drawn as a static sibling of this
+                        // LazyColumn, which meant it never actually left the screen: scrolling down
+                        // to Shows just moved the row content over it, and the backdrop kept
+                        // bleeding through every gap between cards. Bundling it into one item here
+                        // also means Compose can discard/recycle it like any other row once it's
+                        // scrolled well past, instead of redrawing that big image/gradient/rounded
+                        // clip on every single scroll frame regardless of position.
+                        Box(Modifier.fillMaxWidth().height(heroHeight + HERO_TOP_SAFE_MARGIN).clipToBounds()) {
+                            HeroBackdrop(
                                 item = heroItem,
-                                pageCount = state.trending.size,
-                                currentIndex = heroIndex,
-                                focusRequester = heroFocusRequester,
-                                onPageLeft = { pageHero(-1) },
-                                onPageRight = { pageHero(1) },
-                                onPlay = { heroItem?.let(onPlay) },
+                                repository = repository,
+                                modifier = Modifier
+                                    .padding(top = HERO_TOP_SAFE_MARGIN, start = HERO_HORIZONTAL_MARGIN, end = HERO_HORIZONTAL_MARGIN)
+                                    .fillMaxSize(),
                             )
+                            Column(Modifier.fillMaxSize()) {
+                                Spacer(Modifier.height(280.dp))
+                                HeroInfo(
+                                    item = heroItem,
+                                    pageCount = state.trending.size,
+                                    currentIndex = heroIndex,
+                                    focusRequester = heroFocusRequester,
+                                    onPageLeft = { pageHero(-1) },
+                                    onPageRight = { pageHero(1) },
+                                    onPlay = { heroItem?.let(onPlay) },
+                                )
+                            }
                         }
                     }
                     items(state.libraries, key = { it.id }) { library ->
                         val libraryItems = state.libraryItems[library.id].orEmpty()
                         if (libraryItems.isNotEmpty()) {
                             MediaRow(title = library.name.orEmpty()) {
-                                items(libraryItems, key = { it.id }) { mediaItem ->
+                                itemsIndexed(libraryItems, key = { _, item -> item.id }) { index, mediaItem ->
                                     PosterCard(
                                         item = mediaItem,
                                         repository = repository,
                                         onClick = { onOpenDetails(mediaItem) },
+                                        modifier = if (index == 0) leftEdgeModifier(sidebarFocusRequester) else Modifier,
                                     )
                                 }
                             }
@@ -236,11 +250,12 @@ fun HomeScreen(
                     if (state.continueWatching.isNotEmpty()) {
                         item {
                             MediaRow(title = stringResource(R.string.home_continue_watching)) {
-                                items(state.continueWatching, key = { it.id }) { mediaItem ->
+                                itemsIndexed(state.continueWatching, key = { _, item -> item.id }) { index, mediaItem ->
                                     SpotlightCard(
                                         item = mediaItem,
                                         repository = repository,
                                         onClick = { onOpenDetails(mediaItem) },
+                                        modifier = if (index == 0) leftEdgeModifier(sidebarFocusRequester) else Modifier,
                                     )
                                 }
                             }
@@ -294,6 +309,7 @@ private fun HomeSidebar(
     libraries: List<BaseItemDto>,
     onLibrary: (BaseItemDto) -> Unit,
     onSettings: () -> Unit,
+    focusRequester: FocusRequester,
     modifier: Modifier = Modifier,
 ) {
     var hasFocus by remember { mutableStateOf(false) }
@@ -302,6 +318,7 @@ private fun HomeSidebar(
     Column(
         modifier = modifier
             .width(width)
+            .focusRequester(focusRequester)
             .onFocusChanged { hasFocus = it.hasFocus }
             .focusGroup()
             .padding(vertical = 24.dp, horizontal = 12.dp),
@@ -444,6 +461,16 @@ private fun HeroDots(count: Int, currentIndex: Int) {
     }
 }
 
+/**
+ * Overrides D-pad Left from a row's first card to always re-enter the sidebar, instead of relying
+ * on Compose's default geometry-based focus search - which picked the hero's Play button instead
+ * of the sidebar from the very first row (Movies), since that button was still nearby in the
+ * layout tree and won out on the distance heuristic, while it happened to resolve correctly one
+ * row further down (Shows) purely by coincidence of vertical alignment.
+ */
+private fun leftEdgeModifier(sidebarFocusRequester: FocusRequester): Modifier =
+    Modifier.focusProperties { left = sidebarFocusRequester }
+
 private fun buildMetaLine(item: BaseItemDto): String {
     val parts = mutableListOf<String>()
     item.communityRating?.let { parts += "★ %.1f".format(it) }
@@ -520,8 +547,12 @@ private fun SpotlightCard(
         else -> item.name.orEmpty()
     }
 
-    Column(modifier = modifier.width(280.dp)) {
-        FocusableCard(onClick = onClick) {
+    Column(modifier = Modifier.width(280.dp)) {
+        // The focus-relevant modifier (e.g. leftEdgeModifier's override) has to land on
+        // FocusableCard itself, not this wrapping Column - focusProperties only reaches a focus
+        // target further down the same modifier chain, and the Column and the Card's actual focus
+        // node are separate composables, not links in one chain.
+        FocusableCard(onClick = onClick, modifier = modifier) {
             Box {
                 GlideImage(
                     model = repository.buildImageUrl(item.id, imageType = imageType, maxWidth = 560),
