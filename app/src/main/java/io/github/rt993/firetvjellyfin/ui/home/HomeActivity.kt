@@ -12,6 +12,7 @@ import io.github.rt993.firetvjellyfin.ui.details.ItemDetailsActivity
 import io.github.rt993.firetvjellyfin.ui.library.LibraryGridActivity
 import io.github.rt993.firetvjellyfin.ui.playback.PlaybackActivity
 import io.github.rt993.firetvjellyfin.ui.profile.ProfileSelectActivity
+import io.github.rt993.firetvjellyfin.ui.profile.ServerListActivity
 import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
@@ -46,6 +47,8 @@ class HomeActivity : ComponentActivity() {
                 onOpenLibrary = ::openLibraryGrid,
                 onShowAccountInfo = ::showAccountInfo,
                 onLogout = ::logOut,
+                onChangeServer = ::changeServer,
+                hasMultipleServers = JellyfinClientHolder.savedServers().size > 1,
             )
         }
     }
@@ -88,6 +91,17 @@ class HomeActivity : ComponentActivity() {
     private fun logOut() {
         JellyfinClientHolder.signOut()
         startActivity(Intent(this, ProfileSelectActivity::class.java).putExtra(SplashActivity.EXTRA_FROM_SPLASH, true))
+        finish()
+    }
+
+    /**
+     * Signs out of the current profile and opens the server list directly, skipping the profile
+     * picker for the server being left - picking a different server there takes over navigation
+     * from here (see ServerListActivity.selectServer).
+     */
+    private fun changeServer() {
+        JellyfinClientHolder.signOut()
+        startActivity(Intent(this, ServerListActivity::class.java))
         finish()
     }
 

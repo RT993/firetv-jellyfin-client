@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.3.0** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.3.1** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon

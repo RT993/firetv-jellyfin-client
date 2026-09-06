@@ -129,6 +129,8 @@ fun HomeScreen(
     onOpenLibrary: (BaseItemDto) -> Unit,
     onShowAccountInfo: () -> Unit,
     onLogout: () -> Unit,
+    onChangeServer: () -> Unit,
+    hasMultipleServers: Boolean,
 ) {
     var state by remember { mutableStateOf(HomeUiState()) }
     LaunchedEffect(userId) {
@@ -278,8 +280,13 @@ fun HomeScreen(
 
                 if (showAccountMenu) {
                     AccountMenu(
-                        onInfo = { onShowAccountInfo(); showAccountMenu = false },
-                        onLogout = onLogout,
+                        onLogout = { showAccountMenu = false; onLogout() },
+                        onChangeServer = if (hasMultipleServers) {
+                            { showAccountMenu = false; onChangeServer() }
+                        } else {
+                            null
+                        },
+                        onInfo = { showAccountMenu = false; onShowAccountInfo() },
                     )
                 }
 
@@ -296,7 +303,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun BoxScope.AccountMenu(onInfo: () -> Unit, onLogout: () -> Unit) {
+private fun BoxScope.AccountMenu(onLogout: () -> Unit, onChangeServer: (() -> Unit)?, onInfo: () -> Unit) {
     Column(
         modifier = Modifier
             .align(Alignment.BottomStart)
@@ -305,8 +312,11 @@ private fun BoxScope.AccountMenu(onInfo: () -> Unit, onLogout: () -> Unit) {
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Button(onClick = onInfo) { Text(stringResource(R.string.user_menu_info)) }
         Button(onClick = onLogout) { Text(stringResource(R.string.user_menu_logout)) }
+        if (onChangeServer != null) {
+            Button(onClick = onChangeServer) { Text(stringResource(R.string.user_menu_change_server)) }
+        }
+        Button(onClick = onInfo) { Text(stringResource(R.string.user_menu_info)) }
     }
 }
 
@@ -342,7 +352,7 @@ private fun HomeSidebar(
             SidebarItem(R.drawable.ic_nav_library, library.name.orEmpty(), hasFocus, onClick = { onLibrary(library) })
         }
         Spacer(Modifier.weight(1f))
-        SidebarItem(R.drawable.ic_nav_settings, stringResource(R.string.nav_settings), hasFocus, onClick = onSettings)
+        SidebarItem(R.drawable.ic_profile, stringResource(R.string.nav_account), hasFocus, onClick = onSettings)
     }
 }
 
@@ -366,6 +376,10 @@ private fun SidebarItem(icon: Int, label: String, showLabel: Boolean, onClick: (
             imageVector = ImageVector.vectorResource(id = icon),
             contentDescription = if (showLabel) null else label,
             tint = Color.Unspecified,
+            // Explicit, uniform size regardless of each drawable's own declared intrinsic size -
+            // ic_profile.xml in particular is authored bigger (for the profile picker's tiles) and
+            // would otherwise render larger than the other sidebar icons.
+            modifier = Modifier.size(24.dp),
         )
         if (showLabel) {
             Spacer(Modifier.width(12.dp))

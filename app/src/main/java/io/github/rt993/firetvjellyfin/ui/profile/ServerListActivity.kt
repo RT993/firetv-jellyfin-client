@@ -46,6 +46,7 @@ import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.SavedServer
 import io.github.rt993.firetvjellyfin.ui.login.LoginActivity
+import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseAccent
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseBackground
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseSurface
@@ -89,6 +90,17 @@ class ServerListActivity : ComponentActivity() {
     private fun selectServer(server: SavedServer) {
         if (server.url != currentUrl) {
             JellyfinClientHolder.connect(server.url)
+            // Explicit navigation rather than just finish()ing back to whatever's underneath -
+            // this screen is reached two ways (the profile picker's own server icon, and Home's
+            // "Change Server" menu action, which finishes Home and has no picker left to fall
+            // back to), and both need to land on a picker showing the newly-selected server's
+            // profiles. CLEAR_TOP/SINGLE_TOP reuse an existing picker instance when there is one
+            // (the first case) instead of stacking a redundant second one.
+            startActivity(
+                Intent(this, ProfileSelectActivity::class.java)
+                    .putExtra(SplashActivity.EXTRA_FROM_SPLASH, true)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            )
         }
         finish()
     }
