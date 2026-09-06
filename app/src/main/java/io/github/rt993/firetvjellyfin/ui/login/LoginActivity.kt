@@ -15,6 +15,7 @@ import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.profile.ProfileSelectActivity
 import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
+import org.jellyfin.sdk.api.client.exception.InvalidStatusException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -265,10 +266,16 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
 
     private fun showError(cause: Throwable? = null) {
         Log.e(TAG, "Login failed", cause)
-        errorText.text = if (cause != null) {
-            "${getString(R.string.login_error_generic)}\n${cause.javaClass.simpleName}: ${cause.message}"
-        } else {
-            getString(R.string.login_error_generic)
+        errorText.text = when {
+            // A 401 here (unlike a wrong password further down the same status family, which the
+            // server generally reports the same way) most often means the server itself is
+            // refusing the connection because it doesn't consider this client's IP "local" -
+            // common with a VPN/Tailscale address the server's own network settings don't know
+            // about, and easy to mistake for a bad username/password otherwise.
+            cause is InvalidStatusException && cause.status == 401 ->
+                getString(R.string.login_error_401)
+            cause != null -> "${getString(R.string.login_error_generic)}\n${cause.javaClass.simpleName}: ${cause.message}"
+            else -> getString(R.string.login_error_generic)
         }
         errorText.visibility = View.VISIBLE
     }

@@ -3,7 +3,7 @@
     <string name="app_name">TreeHouse</string>
 
     <!-- Splash -->
-    <string name="splash_version">Version 0.3.2</string>
+    <string name="splash_version">Version 0.3.3</string>
 
     <!-- Login -->
     <string name="login_step_welcome_subtitle">Let\'s get connected</string>
@@ -18,6 +18,7 @@
     <string name="login_sign_in_title">Sign in</string>
     <string name="login_connecting">Connecting…</string>
     <string name="login_error_generic">Could not sign in. Check the server address and credentials.</string>
+    <string name="login_error_401">Server rejected the connection (not a wrong password) - check its remote-access network settings, especially if you\'re connecting over a VPN like Tailscale.</string>
     <string name="login_quick_connect_code_format">Enter code %1$s in another Jellyfin app or web page</string>
 
     <!-- Profile picker -->
