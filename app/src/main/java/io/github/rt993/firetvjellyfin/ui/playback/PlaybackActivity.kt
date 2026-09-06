@@ -36,6 +36,7 @@ import io.github.rt993.firetvjellyfin.playback.PlaybackDecisionMaker
 import io.github.rt993.firetvjellyfin.playback.PlaybackMode
 import io.github.rt993.firetvjellyfin.playback.PlaybackSelection
 import io.github.rt993.firetvjellyfin.playback.resolveJellyfinUrl
+import io.github.rt993.firetvjellyfin.util.CrashLogger
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.api.client.ApiClient
@@ -543,8 +544,34 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         finish()
     }
 
+    /**
+     * The OS calls this as a warning before it kills a process for memory pressure - unlike an
+     * exception, that kind of kill isn't a crash: it doesn't show a toast, doesn't hit
+     * CrashLogger's uncaught-exception handler, and doesn't appear in dropbox or a crash-only log
+     * buffer, so from the outside it looks like total silence (a movie that "just quit" with no
+     * error, mid-playback, no crash record anywhere). Logging this - persistently, not just to
+     * logcat - is the only way to tell that apart from every other kind of silent failure.
+     */
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        val levelName = when (level) {
+            TRIM_MEMORY_RUNNING_MODERATE -> "RUNNING_MODERATE"
+            TRIM_MEMORY_RUNNING_LOW -> "RUNNING_LOW"
+            TRIM_MEMORY_RUNNING_CRITICAL -> "RUNNING_CRITICAL"
+            TRIM_MEMORY_UI_HIDDEN -> "UI_HIDDEN"
+            TRIM_MEMORY_BACKGROUND -> "BACKGROUND"
+            TRIM_MEMORY_MODERATE -> "MODERATE"
+            TRIM_MEMORY_COMPLETE -> "COMPLETE"
+            else -> level.toString()
+        }
+        val message = "PlaybackActivity.onTrimMemory($levelName) itemId=$itemId mode=$currentMode position=${player?.currentPosition}ms"
+        Log.w(TAG, message)
+        CrashLogger.logEvent(this, message)
+    }
+
     override fun onStop() {
         super.onStop()
+        Log.i(TAG, "onStop isFinishing=$isFinishing position=${player?.currentPosition}ms")
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         uiHandler.removeCallbacksAndMessages(null)
         player?.release()
