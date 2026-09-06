@@ -84,6 +84,11 @@ private val SIDEBAR_WIDTH_EXPANDED = 220.dp
 // top of the hero image entirely.
 private val HERO_TOP_SAFE_MARGIN = 32.dp
 
+// Boxes the hero backdrop in from the screen edges with rounded corners, rather than having it
+// bleed full-bleed into the sidebar/edge - reads as a distinct "card" rather than a raw background.
+private val HERO_HORIZONTAL_MARGIN = 48.dp
+private val HERO_CORNER_RADIUS = 20.dp
+
 private const val TAG = "HomeScreen"
 
 private data class HomeUiState(
@@ -143,16 +148,15 @@ fun HomeScreen(
         )
     }
 
+    // The hero only ever reflects its own paging state - it used to also switch to whatever poster
+    // card currently had D-pad focus, but that made it feel like it wasn't really a fixed "top
+    // shelf" banner at all, just a preview that changed as you browsed.
     var heroIndex by remember { mutableStateOf(0) }
-    var spotlight by remember { mutableStateOf<BaseItemDto?>(null) }
-    LaunchedEffect(state.trending, state.continueWatching) {
-        if (spotlight == null) spotlight = state.trending.getOrNull(heroIndex) ?: state.continueWatching.firstOrNull()
-    }
+    val heroItem = state.trending.getOrNull(heroIndex) ?: state.continueWatching.firstOrNull()
     fun pageHero(delta: Int) {
         val trending = state.trending
         if (trending.isEmpty()) return
         heroIndex = (heroIndex + delta + trending.size) % trending.size
-        spotlight = trending[heroIndex]
     }
 
     val heroFocusRequester = remember { FocusRequester() }
@@ -172,7 +176,11 @@ fun HomeScreen(
             )
 
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                HeroBackdrop(item = spotlight, repository = repository, modifier = Modifier.padding(top = HERO_TOP_SAFE_MARGIN))
+                HeroBackdrop(
+                    item = heroItem,
+                    repository = repository,
+                    modifier = Modifier.padding(top = HERO_TOP_SAFE_MARGIN, start = HERO_HORIZONTAL_MARGIN, end = HERO_HORIZONTAL_MARGIN),
+                )
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -183,13 +191,13 @@ fun HomeScreen(
                         Column {
                             Spacer(Modifier.height(280.dp + HERO_TOP_SAFE_MARGIN))
                             HeroInfo(
-                                item = spotlight,
+                                item = heroItem,
                                 pageCount = state.trending.size,
                                 currentIndex = heroIndex,
                                 focusRequester = heroFocusRequester,
                                 onPageLeft = { pageHero(-1) },
                                 onPageRight = { pageHero(1) },
-                                onPlay = { spotlight?.let(onPlay) },
+                                onPlay = { heroItem?.let(onPlay) },
                             )
                         }
                     }
@@ -201,7 +209,6 @@ fun HomeScreen(
                                     PosterCard(
                                         item = mediaItem,
                                         repository = repository,
-                                        onFocused = { spotlight = mediaItem },
                                         onClick = { onOpenDetails(mediaItem) },
                                     )
                                 }
@@ -215,7 +222,6 @@ fun HomeScreen(
                                     SpotlightCard(
                                         item = mediaItem,
                                         repository = repository,
-                                        onFocused = { spotlight = mediaItem },
                                         onClick = { onOpenDetails(mediaItem) },
                                     )
                                 }
@@ -309,7 +315,7 @@ private fun SidebarItem(icon: Int, label: String, showLabel: Boolean, onClick: (
         Icon(
             imageVector = ImageVector.vectorResource(id = icon),
             contentDescription = if (showLabel) null else label,
-            tint = TreeHouseTextPrimary,
+            tint = Color.Unspecified,
         )
         if (showLabel) {
             Spacer(Modifier.width(12.dp))
@@ -321,7 +327,7 @@ private fun SidebarItem(icon: Int, label: String, showLabel: Boolean, onClick: (
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 private fun HeroBackdrop(item: BaseItemDto?, repository: JellyfinRepository, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxWidth().fillMaxHeight(0.62f)) {
+    Box(modifier.fillMaxWidth().fillMaxHeight(0.62f).clip(RoundedCornerShape(HERO_CORNER_RADIUS))) {
         if (item != null) {
             GlideImage(
                 model = repository.buildImageUrl(item.id, imageType = ImageType.BACKDROP, maxWidth = 1280),
@@ -449,11 +455,10 @@ private fun MediaRow(title: String, content: LazyListScope.() -> Unit) {
 private fun PosterCard(
     item: BaseItemDto,
     repository: JellyfinRepository,
-    onFocused: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    FocusableCard(modifier = modifier.width(140.dp), onFocused = onFocused, onClick = onClick) {
+    FocusableCard(modifier = modifier.width(140.dp), onClick = onClick) {
         GlideImage(
             model = repository.buildImageUrl(item.id, maxWidth = 280),
             contentDescription = item.name,
@@ -476,7 +481,6 @@ private fun PosterCard(
 private fun SpotlightCard(
     item: BaseItemDto,
     repository: JellyfinRepository,
-    onFocused: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -496,7 +500,7 @@ private fun SpotlightCard(
     }
 
     Column(modifier = modifier.width(280.dp)) {
-        FocusableCard(onFocused = onFocused, onClick = onClick) {
+        FocusableCard(onClick = onClick) {
             Box {
                 GlideImage(
                     model = repository.buildImageUrl(item.id, imageType = imageType, maxWidth = 560),
