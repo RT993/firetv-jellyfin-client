@@ -6,6 +6,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.lifecycle.lifecycleScope
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.ui.details.ItemDetailsActivity
@@ -14,6 +15,7 @@ import io.github.rt993.firetvjellyfin.ui.playback.PlaybackActivity
 import io.github.rt993.firetvjellyfin.ui.profile.ProfileSelectActivity
 import io.github.rt993.firetvjellyfin.ui.profile.ServerListActivity
 import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
+import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
@@ -49,6 +51,7 @@ class HomeActivity : ComponentActivity() {
                 onLogout = ::logOut,
                 onChangeServer = ::changeServer,
                 hasMultipleServers = JellyfinClientHolder.savedServers().size > 1,
+                onScanLibrary = ::scanLibrary,
             )
         }
     }
@@ -80,6 +83,24 @@ class HomeActivity : ComponentActivity() {
                 .putExtra(LibraryGridActivity.EXTRA_LIBRARY_ID, library.id.toString())
                 .putExtra(LibraryGridActivity.EXTRA_TITLE, library.name.orEmpty()),
         )
+    }
+
+    /**
+     * Asks the server to start a full library scan, same as clicking "Scan All Libraries" in its
+     * own dashboard - handy for picking up newly added files without leaving the TV. Fire-and-
+     * forget: the scan runs server-side, so this just confirms the request went through rather
+     * than tracking its progress.
+     */
+    private fun scanLibrary() {
+        val repository = JellyfinClientHolder.repository ?: return
+        lifecycleScope.launch {
+            runCatching { repository.refreshLibrary() }
+                .onSuccess { Toast.makeText(this@HomeActivity, R.string.library_scan_started, Toast.LENGTH_LONG).show() }
+                .onFailure {
+                    Log.e(TAG, "refreshLibrary failed", it)
+                    Toast.makeText(this@HomeActivity, R.string.library_scan_failed, Toast.LENGTH_LONG).show()
+                }
+        }
     }
 
     private fun showAccountInfo() {

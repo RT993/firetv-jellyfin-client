@@ -3,7 +3,7 @@
     <string name="app_name">TreeHouse</string>
 
     <!-- Splash -->
-    <string name="splash_version">Version 0.3.3</string>
+    <string name="splash_version">Version 0.3.4</string>
 
     <!-- Login -->
     <string name="login_step_welcome_subtitle">Let\'s get connected</string>
@@ -43,7 +43,10 @@
     <string name="user_menu_info">Info</string>
     <string name="user_menu_logout">Log Out</string>
     <string name="user_menu_change_server">Change Server</string>
+    <string name="user_menu_scan_library">Scan Library</string>
     <string name="user_menu_info_format">Signed in as %1$s\n%2$s</string>
+    <string name="library_scan_started">Library scan started</string>
+    <string name="library_scan_failed">Could not start a library scan</string>
 
     <!-- Details -->
     <string name="details_play">Play</string>

@@ -5,6 +5,7 @@ import org.jellyfin.sdk.api.client.extensions.authenticateUserByName
 import org.jellyfin.sdk.api.client.extensions.authenticateWithQuickConnect
 import org.jellyfin.sdk.api.client.extensions.imageApi
 import org.jellyfin.sdk.api.client.extensions.itemsApi
+import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.api.client.extensions.mediaInfoApi
 import org.jellyfin.sdk.api.client.extensions.mediaSegmentsApi
 import org.jellyfin.sdk.api.client.extensions.quickConnectApi
@@ -79,6 +80,16 @@ class JellyfinRepository(private val api: ApiClient) {
     /** The server's own display name (e.g. "Rick's Jellyfin"), for the saved-servers list. Doesn't require auth. */
     suspend fun getPublicServerName(): String? =
         runCatching { api.systemApi.getPublicSystemInfo().content.serverName }.getOrNull()
+
+    /**
+     * Kicks off the same full library scan as the server dashboard's own "Scan All Libraries" -
+     * this just asks the server to start one, it doesn't wait for it to finish or report progress
+     * back (Jellyfin's own admin UI is still the place to watch that), so the newly found/updated
+     * items simply show up once the server's done, no different from adding them any other way.
+     */
+    suspend fun refreshLibrary() {
+        api.libraryApi.refreshLibrary()
+    }
 
     /** The libraries (Movies, Shows, Music, …) visible to the signed-in user. */
     suspend fun getUserViews(userId: UUID): List<BaseItemDto> {

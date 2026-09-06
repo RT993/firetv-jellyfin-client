@@ -131,6 +131,7 @@ fun HomeScreen(
     onLogout: () -> Unit,
     onChangeServer: () -> Unit,
     hasMultipleServers: Boolean,
+    onScanLibrary: () -> Unit,
 ) {
     var state by remember { mutableStateOf(HomeUiState()) }
     LaunchedEffect(userId) {
@@ -286,6 +287,7 @@ fun HomeScreen(
                         } else {
                             null
                         },
+                        onScanLibrary = { showAccountMenu = false; onScanLibrary() },
                         onInfo = { showAccountMenu = false; onShowAccountInfo() },
                     )
                 }
@@ -303,7 +305,12 @@ fun HomeScreen(
 }
 
 @Composable
-private fun BoxScope.AccountMenu(onLogout: () -> Unit, onChangeServer: (() -> Unit)?, onInfo: () -> Unit) {
+private fun BoxScope.AccountMenu(
+    onLogout: () -> Unit,
+    onChangeServer: (() -> Unit)?,
+    onScanLibrary: () -> Unit,
+    onInfo: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .align(Alignment.BottomStart)
@@ -316,6 +323,7 @@ private fun BoxScope.AccountMenu(onLogout: () -> Unit, onChangeServer: (() -> Un
         if (onChangeServer != null) {
             Button(onClick = onChangeServer) { Text(stringResource(R.string.user_menu_change_server)) }
         }
+        Button(onClick = onScanLibrary) { Text(stringResource(R.string.user_menu_scan_library)) }
         Button(onClick = onInfo) { Text(stringResource(R.string.user_menu_info)) }
     }
 }

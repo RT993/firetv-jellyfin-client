@@ -4,7 +4,6 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,8 +30,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -140,7 +137,6 @@ private fun ProfileSelectScreen(
                         ProfileTile(
                             name = profile.username,
                             icon = R.drawable.ic_profile,
-                            avatarRes = avatarFor(profile.username),
                             onClick = { onSelectProfile(profile) },
                             modifier = if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier,
                         )
@@ -162,36 +158,20 @@ private fun ProfileSelectScreen(
     }
 }
 
-/** A real photo for the two profiles it's known for; the generic person icon for everyone else. */
-private fun avatarFor(username: String): Int? = when (username.trim().lowercase()) {
-    "rikitree" -> R.drawable.avatar_rikitree
-    "becky" -> R.drawable.avatar_becky
-    else -> null
-}
-
 @Composable
-private fun ProfileTile(name: String, icon: Int, onClick: () -> Unit, avatarRes: Int? = null, modifier: Modifier = Modifier) {
+private fun ProfileTile(name: String, icon: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
     // The incoming modifier (carrying the initial-focus FocusRequester, when passed) has to land
     // on FocusableCard itself, not this wrapping Column - a FocusRequester only works when it's on
     // the same modifier chain as an actual focusable node.
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         FocusableCard(onClick = onClick, modifier = modifier.size(140.dp)) {
-            if (avatarRes != null) {
-                Image(
-                    painter = painterResource(id = avatarRes),
+            Box(Modifier.fillMaxSize().background(TreeHouseSurface), contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = ImageVector.vectorResource(id = icon),
                     contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(56.dp),
                 )
-            } else {
-                Box(Modifier.fillMaxSize().background(TreeHouseSurface), contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = ImageVector.vectorResource(id = icon),
-                        contentDescription = null,
-                        tint = Color.Unspecified,
-                        modifier = Modifier.size(56.dp),
-                    )
-                }
             }
         }
         Spacer(Modifier.height(12.dp))
