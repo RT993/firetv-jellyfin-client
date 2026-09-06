@@ -150,8 +150,7 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
         val password = inputPassword.text?.toString().orEmpty()
         if (username.isBlank()) return
 
-        val api = JellyfinClientHolder.api ?: return
-        val repository = JellyfinRepository(api)
+        val repository = JellyfinClientHolder.repository ?: return
 
         setCredentialsStepEnabled(false)
         lifecycleScope.launch {
@@ -175,8 +174,7 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
     }
 
     private fun startQuickConnect() {
-        val api = JellyfinClientHolder.api ?: return
-        val repository = JellyfinRepository(api)
+        val repository = JellyfinClientHolder.repository ?: return
 
         setCredentialsStepEnabled(false)
         lifecycleScope.launch {

@@ -32,11 +32,34 @@ import org.jellyfin.sdk.model.api.request.GetResumeItemsRequest
 import org.jellyfin.sdk.model.api.request.GetSeasonsRequest
 import io.github.rt993.firetvjellyfin.playback.buildDeviceProfile
 
+// How long a cached list/item is trusted before re-asking the server. Long enough that going
+// Home -> a library -> back -> another library -> back again (a few tens of seconds of normal
+// browsing) hits cache instead of the network every time; short enough that content added on the
+// server mid-session shows up again within a couple of minutes without restarting the app.
+private const val CACHE_TTL_MILLIS = 2 * 60 * 1000L
+
 /**
  * Thin, app-specific wrapper around the raw jellyfin-sdk-kotlin [ApiClient] calls this app needs.
  * Keeps call sites (fragments/activities) free of SDK request/response plumbing.
+ *
+ * One instance is shared for the whole signed-in session (see [io.github.rt993.firetvjellyfin
+ * .data.JellyfinClientHolder.repository]) rather than a fresh one per screen, specifically so the
+ * small in-memory caches below ([userViewsCache], [itemsCache], etc.) actually persist across
+ * navigation instead of being thrown away and rebuilt empty every time a screen is opened.
+ *
+ * What's deliberately NOT cached: [getResumeItems] ("Pick up where you left off") and playback
+ * info - both reflect state (watch position, what's next) that changes the moment you actually
+ * watch something, where a stale answer would be actively misleading rather than just slightly
+ * out of date.
  */
 class JellyfinRepository(private val api: ApiClient) {
+
+    private val userViewsCache = TtlCache<UUID, List<BaseItemDto>>(CACHE_TTL_MILLIS)
+    private val itemsCache = TtlCache<Pair<UUID, Int>, List<BaseItemDto>>(CACHE_TTL_MILLIS)
+    private val recentlyAddedCache = TtlCache<Int, List<BaseItemDto>>(CACHE_TTL_MILLIS)
+    private val itemCache = TtlCache<UUID, BaseItemDto>(CACHE_TTL_MILLIS)
+    private val seasonsCache = TtlCache<UUID, List<BaseItemDto>>(CACHE_TTL_MILLIS)
+    private val episodesCache = TtlCache<Pair<UUID, UUID>, List<BaseItemDto>>(CACHE_TTL_MILLIS)
 
     suspend fun loginWithPassword(username: String, password: String): AuthenticationResult {
         val response = api.userApi.authenticateUserByName(username = username, password = password)
@@ -53,8 +76,12 @@ class JellyfinRepository(private val api: ApiClient) {
         api.userApi.authenticateWithQuickConnect(secret = secret).content
 
     /** The libraries (Movies, Shows, Music, …) visible to the signed-in user. */
-    suspend fun getUserViews(userId: UUID): List<BaseItemDto> =
-        api.userViewsApi.getUserViews(userId = userId).content.items.orEmpty()
+    suspend fun getUserViews(userId: UUID): List<BaseItemDto> {
+        userViewsCache.get(userId)?.let { return it }
+        val result = api.userViewsApi.getUserViews(userId = userId).content.items.orEmpty()
+        userViewsCache.put(userId, result)
+        return result
+    }
 
     /**
      * Items directly inside a library/folder, newest first. Not recursive: a Shows library's
@@ -65,13 +92,20 @@ class JellyfinRepository(private val api: ApiClient) {
      * children, showing up as an empty grid with nothing to open.
      */
     suspend fun getItems(userId: UUID, parentId: UUID, limit: Int = 50): List<BaseItemDto> {
+        // Keyed on (parentId, limit), not just parentId - Home asks for 50 items per library for
+        // its row previews, the library grid asks for up to 500 for the full browse view. Keying
+        // on parentId alone would let whichever call happened first quietly cap the other one.
+        val cacheKey = parentId to limit
+        itemsCache.get(cacheKey)?.let { return it }
         val request = GetItemsRequest(
             userId = userId,
             parentId = parentId,
             includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES, BaseItemKind.BOX_SET),
             limit = limit,
         )
-        return api.itemsApi.getItems(request).content.items.orEmpty()
+        val result = api.itemsApi.getItems(request).content.items.orEmpty()
+        itemsCache.put(cacheKey, result)
+        return result
     }
 
     /**
@@ -82,33 +116,46 @@ class JellyfinRepository(private val api: ApiClient) {
      * (resolution, Dolby Vision/HDR, Dolby Atmos/surround) are read from.
      */
     suspend fun getItem(userId: UUID, itemId: UUID): BaseItemDto? {
+        itemCache.get(itemId)?.let { return it }
         val request = GetItemsRequest(
             userId = userId,
             ids = listOf(itemId),
             fields = listOf(ItemFields.OVERVIEW, ItemFields.GENRES, ItemFields.PEOPLE, ItemFields.MEDIA_STREAMS),
             enableUserData = true,
         )
-        return api.itemsApi.getItems(request).content.items.orEmpty().firstOrNull()
+        val result = api.itemsApi.getItems(request).content.items.orEmpty().firstOrNull()
+        if (result != null) itemCache.put(itemId, result)
+        return result
     }
 
-    /** Toggles the Watchlist-equivalent "favorite" flag Jellyfin itself tracks per user/item. */
+    /**
+     * Toggles the Watchlist-equivalent "favorite" flag Jellyfin itself tracks per user/item.
+     * Invalidates the cached [getItem] entry for this item - otherwise reopening its details page
+     * within the cache's TTL would show the favorite state from before this call.
+     */
     suspend fun setFavorite(userId: UUID, itemId: UUID, isFavorite: Boolean): Boolean {
         val response = if (isFavorite) {
             api.userLibraryApi.markFavoriteItem(itemId = itemId, userId = userId)
         } else {
             api.userLibraryApi.unmarkFavoriteItem(itemId = itemId, userId = userId)
         }
+        itemCache.invalidate(itemId)
         return response.content.isFavorite
     }
 
     /** The seasons of a series, in order. */
     suspend fun getSeasons(userId: UUID, seriesId: UUID): List<BaseItemDto> {
+        seasonsCache.get(seriesId)?.let { return it }
         val request = GetSeasonsRequest(seriesId = seriesId, userId = userId)
-        return api.tvShowsApi.getSeasons(request).content.items.orEmpty()
+        val result = api.tvShowsApi.getSeasons(request).content.items.orEmpty()
+        seasonsCache.put(seriesId, result)
+        return result
     }
 
     /** The episodes of one season, in order. */
     suspend fun getEpisodes(userId: UUID, seriesId: UUID, seasonId: UUID): List<BaseItemDto> {
+        val cacheKey = seriesId to seasonId
+        episodesCache.get(cacheKey)?.let { return it }
         val request = GetEpisodesRequest(
             seriesId = seriesId,
             userId = userId,
@@ -116,7 +163,9 @@ class JellyfinRepository(private val api: ApiClient) {
             fields = listOf(ItemFields.OVERVIEW),
             enableUserData = true,
         )
-        return api.tvShowsApi.getEpisodes(request).content.items.orEmpty()
+        val result = api.tvShowsApi.getEpisodes(request).content.items.orEmpty()
+        episodesCache.put(cacheKey, result)
+        return result
     }
 
     /**
@@ -125,6 +174,7 @@ class JellyfinRepository(private val api: ApiClient) {
      * per-library [getItems] above skips both to keep those responses small.
      */
     suspend fun getRecentlyAdded(userId: UUID, limit: Int = 20): List<BaseItemDto> {
+        recentlyAddedCache.get(limit)?.let { return it }
         val request = GetItemsRequest(
             userId = userId,
             recursive = true,
@@ -135,7 +185,9 @@ class JellyfinRepository(private val api: ApiClient) {
             enableUserData = true,
             limit = limit,
         )
-        return api.itemsApi.getItems(request).content.items.orEmpty()
+        val result = api.itemsApi.getItems(request).content.items.orEmpty()
+        recentlyAddedCache.put(limit, result)
+        return result
     }
 
     /**

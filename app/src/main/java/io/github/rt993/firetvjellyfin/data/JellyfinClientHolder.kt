@@ -22,6 +22,14 @@ object JellyfinClientHolder {
     var api: ApiClient? = null
         private set
 
+    // One JellyfinRepository shared for the whole signed-in session, instead of every
+    // Activity/Fragment building its own throwaway instance - each fresh instance meant the
+    // repository's in-memory caches (see JellyfinRepository) were rebuilt empty on every screen
+    // open, defeating the point of caching entirely. Rebuilt alongside [api] in [connect] so a
+    // new server connection (or account) never sees a previous one's cached data.
+    var repository: JellyfinRepository? = null
+        private set
+
     fun initialize(context: Context) {
         credentialStore = CredentialStore(context)
         jellyfin = createJellyfin {
@@ -55,6 +63,7 @@ object JellyfinClientHolder {
             httpClientOptions = HttpClientOptions(requestTimeout = 2.minutes, socketTimeout = 2.minutes),
         )
         api = client
+        repository = JellyfinRepository(client)
         credentialStore.serverUrl = normalizedUrl
         return client
     }
@@ -76,6 +85,7 @@ object JellyfinClientHolder {
     fun signOut() {
         credentialStore.clear()
         api = null
+        repository = null
     }
 
     private fun normalizeServerUrl(input: String): String {
@@ -89,5 +99,5 @@ object JellyfinClientHolder {
 
     // Kept separate from BuildConfig.VERSION_NAME so this file has no Gradle-generated dependency -
     // which means it has to be bumped by hand alongside app/build.gradle.kts's versionName.
-    private const val BuildConfigVersion = "0.2.14"
+    private const val BuildConfigVersion = "0.2.15"
 }

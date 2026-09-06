@@ -7,7 +7,6 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
-import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.playback.PlaybackActivity
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
@@ -18,18 +17,17 @@ class ItemDetailsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val api = JellyfinClientHolder.api
+        val repository = JellyfinClientHolder.repository
         val itemIdString = intent.getStringExtra(EXTRA_ITEM_ID)
         val userIdString = JellyfinClientHolder.currentUserId()
         val itemId = itemIdString?.let { runCatching { UUID.fromString(it) }.getOrNull() }
         val userId = userIdString?.let { runCatching { UUID.fromString(it) }.getOrNull() }
-        if (api == null || itemId == null || userId == null) {
-            Log.e(TAG, "Missing session or item id (api=$api, itemId=$itemIdString, userId=$userIdString)")
+        if (repository == null || itemId == null || userId == null) {
+            Log.e(TAG, "Missing session or item id (repository=$repository, itemId=$itemIdString, userId=$userIdString)")
             Toast.makeText(this, "Missing session or item id", Toast.LENGTH_LONG).show()
             finish()
             return
         }
-        val repository = JellyfinRepository(api)
 
         setContent {
             DetailsScreen(

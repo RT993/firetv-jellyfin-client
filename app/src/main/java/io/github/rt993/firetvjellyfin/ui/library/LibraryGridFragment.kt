@@ -13,7 +13,6 @@ import androidx.leanback.widget.RowPresenter
 import androidx.leanback.widget.VerticalGridPresenter
 import androidx.lifecycle.lifecycleScope
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
-import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.details.ItemDetailsActivity
 import io.github.rt993.firetvjellyfin.ui.home.CardPresenter
 import kotlinx.coroutines.launch
@@ -42,17 +41,16 @@ class LibraryGridFragment : VerticalGridSupportFragment() {
         // looking at.
         title = requireActivity().intent.getStringExtra(LibraryGridActivity.EXTRA_TITLE)
 
-        val api = JellyfinClientHolder.api
+        val repository = JellyfinClientHolder.repository
         val libraryIdString = requireActivity().intent.getStringExtra(LibraryGridActivity.EXTRA_LIBRARY_ID)
         val userIdString = JellyfinClientHolder.currentUserId()
         val libraryId = libraryIdString?.let { runCatching { UUID.fromString(it) }.getOrNull() }
         val userId = userIdString?.let { runCatching { UUID.fromString(it) }.getOrNull() }
-        if (api == null || libraryId == null || userId == null) {
-            Log.e(TAG, "onCreate: missing session/library (api=$api, libraryId=$libraryIdString, userId=$userIdString)")
+        if (repository == null || libraryId == null || userId == null) {
+            Log.e(TAG, "onCreate: missing session/library (repository=$repository, libraryId=$libraryIdString, userId=$userIdString)")
             return
         }
 
-        val repository = JellyfinRepository(api)
         progressBarManager.show()
         lifecycleScope.launch {
             val items = runCatching { repository.getItems(userId, libraryId, limit = GRID_ITEM_LIMIT) }

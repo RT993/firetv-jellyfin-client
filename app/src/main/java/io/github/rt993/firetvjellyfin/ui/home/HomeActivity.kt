@@ -8,7 +8,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
-import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.details.ItemDetailsActivity
 import io.github.rt993.firetvjellyfin.ui.library.LibraryGridActivity
 import io.github.rt993.firetvjellyfin.ui.login.LoginActivity
@@ -28,16 +27,15 @@ class HomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val api = JellyfinClientHolder.api
+        val repository = JellyfinClientHolder.repository
         val userIdString = JellyfinClientHolder.currentUserId()
         val userId = userIdString?.let { runCatching { UUID.fromString(it) }.getOrNull() }
-        if (api == null || userId == null) {
-            Log.e(TAG, "Missing session (api=$api, userId=$userIdString)")
+        if (repository == null || userId == null) {
+            Log.e(TAG, "Missing session (repository=$repository, userId=$userIdString)")
             Toast.makeText(this, "Not signed in", Toast.LENGTH_LONG).show()
             finish()
             return
         }
-        val repository = JellyfinRepository(api)
 
         setContent {
             HomeScreen(

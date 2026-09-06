@@ -160,7 +160,7 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         itemId = resolvedItemId
         userId = resolvedUserId
 
-        val repo = JellyfinRepository(resolvedApi)
+        val repo = JellyfinClientHolder.repository ?: return finishWithError("no repository (session lost?)")
         repository = repo
         val decisionMaker = PlaybackDecisionMaker(resolvedApi)
         val startPositionTicks = intent.getLongExtra(EXTRA_START_POSITION_TICKS, 0L)
