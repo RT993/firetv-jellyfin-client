@@ -9,7 +9,6 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -51,6 +50,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -171,6 +171,12 @@ fun HomeScreen(
 
     var showAccountMenu by remember { mutableStateOf(false) }
 
+    // Computed once from screen configuration rather than via BoxWithConstraints, which disables
+    // Compose's recomposition-skipping for its entire content - on this app's low-end Fire Stick
+    // target that meant the whole LazyColumn (every row, every card) re-executed on every
+    // recomposition of this screen (e.g. every D-pad hero page), causing real, visible input lag.
+    val heroHeight = LocalConfiguration.current.screenHeightDp.dp * 0.62f
+
     TreeHouseTheme {
         Row(Modifier.fillMaxSize().background(TreeHouseBackground)) {
             HomeSidebar(
@@ -180,13 +186,7 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxHeight(),
             )
 
-            BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
-                // The reserved space below (the placeholder Spacer) has to match this exactly, or
-                // the backdrop and the scrolling content below it disagree about how tall the
-                // backdrop actually is on this screen - which was letting Movies-row content
-                // scroll up underneath/behind the (fixed-height) backdrop box.
-                val heroHeight = maxHeight * 0.62f
-
+            Box(Modifier.weight(1f).fillMaxHeight()) {
                 HeroBackdrop(
                     item = heroItem,
                     repository = repository,
@@ -345,7 +345,10 @@ private fun SidebarItem(icon: Int, label: String, showLabel: Boolean, onClick: (
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 private fun HeroBackdrop(item: BaseItemDto?, repository: JellyfinRepository, modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxWidth().fillMaxHeight(0.62f).clip(RoundedCornerShape(HERO_CORNER_RADIUS))) {
+    // Height is fixed by the caller (see heroHeight in HomeScreen) - no fillMaxHeight() here, since
+    // stacking it on top of that already-exact height would just re-apply the 0.62f fraction a
+    // second time and shrink the box further.
+    Box(modifier.fillMaxWidth().clip(RoundedCornerShape(HERO_CORNER_RADIUS))) {
         if (item != null) {
             GlideImage(
                 model = repository.buildImageUrl(item.id, imageType = ImageType.BACKDROP, maxWidth = 1280),

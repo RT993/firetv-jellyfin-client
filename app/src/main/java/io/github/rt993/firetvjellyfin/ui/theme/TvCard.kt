@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
@@ -26,13 +25,12 @@ private const val FOCUSED_GLOW_DP = 24
 fun FocusableCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    onFocused: () -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     val shape = RoundedCornerShape(CARD_CORNER_DP.dp)
     Card(
         onClick = onClick,
-        modifier = modifier.onFocusChanged { if (it.isFocused) onFocused() },
+        modifier = modifier,
         shape = CardDefaults.shape(shape = shape, focusedShape = shape),
         scale = CardDefaults.scale(focusedScale = FOCUSED_SCALE),
         border = CardDefaults.border(
