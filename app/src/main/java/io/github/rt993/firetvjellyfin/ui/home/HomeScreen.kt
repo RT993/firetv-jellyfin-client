@@ -73,6 +73,8 @@ import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextPrimary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextSecondary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTheme
 import io.github.rt993.firetvjellyfin.util.formatRuntimeTicks
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
@@ -131,20 +133,32 @@ fun HomeScreen(
 ) {
     var state by remember { mutableStateOf(HomeUiState()) }
     LaunchedEffect(userId) {
-        val librariesResult = runCatching { repository.getUserViews(userId) }
-            .onFailure { Log.e(TAG, "getUserViews failed", it) }
+        // These three were previously awaited one after another - each a full network round trip -
+        // even though none depends on another's result. Running them concurrently cuts Home's load
+        // time from roughly the sum of all requests to roughly the slowest single one, a real,
+        // noticeable difference on a Fire Stick talking to a home server over Wi-Fi.
+        val librariesDeferred = async { runCatching { repository.getUserViews(userId) }.onFailure { Log.e(TAG, "getUserViews failed", it) } }
+        val trendingDeferred = async { runCatching { repository.getRecentlyAdded(userId) }.onFailure { Log.e(TAG, "getRecentlyAdded failed", it) } }
+        val continueWatchingDeferred = async { runCatching { repository.getResumeItems(userId) }.onFailure { Log.e(TAG, "getResumeItems failed", it) } }
+
+        val librariesResult = librariesDeferred.await()
         val libraries = librariesResult.getOrDefault(emptyList())
-        val trending = runCatching { repository.getRecentlyAdded(userId) }
-            .onFailure { Log.e(TAG, "getRecentlyAdded failed", it) }
-            .getOrDefault(emptyList())
-        val continueWatching = runCatching { repository.getResumeItems(userId) }
-            .onFailure { Log.e(TAG, "getResumeItems failed", it) }
-            .getOrDefault(emptyList())
-        val libraryItems = libraries.associate { library ->
-            library.id to runCatching { repository.getItems(userId, library.id) }
-                .onFailure { Log.e(TAG, "getItems failed for library ${library.name}", it) }
-                .getOrDefault(emptyList())
-        }
+        val trending = trendingDeferred.await().getOrDefault(emptyList())
+        val continueWatching = continueWatchingDeferred.await().getOrDefault(emptyList())
+
+        // Same idea for the per-library item fetches - one network call per library, all
+        // independent of each other, so they run concurrently instead of queued back to back.
+        val libraryItems = libraries
+            .map { library ->
+                async {
+                    library.id to runCatching { repository.getItems(userId, library.id) }
+                        .onFailure { Log.e(TAG, "getItems failed for library ${library.name}", it) }
+                        .getOrDefault(emptyList())
+                }
+            }
+            .awaitAll()
+            .toMap()
+
         state = HomeUiState(
             isLoading = false,
             error = librariesResult.exceptionOrNull()?.let { "${it.javaClass.simpleName}: ${it.message}" },

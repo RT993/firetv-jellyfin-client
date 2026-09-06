@@ -53,11 +53,13 @@ class LibraryGridFragment : VerticalGridSupportFragment() {
         }
 
         val repository = JellyfinRepository(api)
+        progressBarManager.show()
         lifecycleScope.launch {
             val items = runCatching { repository.getItems(userId, libraryId, limit = GRID_ITEM_LIMIT) }
                 .onFailure { Log.e(TAG, "getItems failed for library $libraryId", it) }
                 .getOrDefault(emptyList())
             Log.i(TAG, "library $libraryId: ${items.size} item(s)")
+            progressBarManager.hide()
             if (!isAdded) return@launch
             adapter = ArrayObjectAdapter(CardPresenter(repository)).apply { addAll(0, items) }
         }

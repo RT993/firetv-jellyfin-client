@@ -1,6 +1,7 @@
 package io.github.rt993.firetvjellyfin.ui.details
 
 import android.util.Log
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +41,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.tv.material3.Border
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Icon
@@ -59,6 +61,7 @@ import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextSecondary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTheme
 import io.github.rt993.firetvjellyfin.ui.theme.ambientColorFor
 import io.github.rt993.firetvjellyfin.util.formatRuntimeTicks
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
@@ -74,6 +77,15 @@ private const val EPISODE_CARD_WIDTH_DP = 220
 private const val EPISODE_ASPECT_RATIO = 16f / 9f
 private const val POSTER_ASPECT_RATIO = 2f / 3f
 private const val MAX_CAST_SHOWN = 6
+
+// Matches where DetailsMetadata's title/text actually starts (DetailsInfoPanel's 48dp start
+// padding + the 320dp AmbientGlow poster box + the 28dp spacer after it) - the season picker used
+// to start flush at the screen's own 48dp edge instead, landing it underneath the poster itself
+// whenever the poster overflowed its allotted row height, instead of under the title text above it.
+private val SEASON_ROW_START = 396.dp
+private val SeasonGlassContainer = Color.White.copy(alpha = 0.12f)
+private val SeasonGlassContainerSelected = Color.White.copy(alpha = 0.24f)
+private val SeasonGlassBorder = Color.White.copy(alpha = 0.35f)
 
 /**
  * Split-layout details screen, replacing the old Leanback [androidx.leanback.app
@@ -108,21 +120,32 @@ fun DetailsScreen(
         }
         item = loaded
         isFavorite = loaded.userData?.isFavorite ?: false
-        playTarget = if (loaded.type == BaseItemKind.SERIES) {
-            resolveSeriesPlayTarget(repository, userId, loaded)
-        } else {
-            loaded
+
+        // playTarget/seasons/ambientColor are all independent of each other - awaiting them one
+        // after another (as before) meant up to three sequential network round trips before the
+        // screen was fully interactive. Running them concurrently cuts that to roughly the
+        // slowest single one.
+        val playTargetDeferred = async {
+            if (loaded.type == BaseItemKind.SERIES) resolveSeriesPlayTarget(repository, userId, loaded) else loaded
         }
-        if (loaded.type == BaseItemKind.SERIES) {
-            seasons = runCatching { repository.getSeasons(userId, loaded.id) }
-                .onFailure { Log.e(TAG, "getSeasons failed", it) }
-                .getOrDefault(emptyList())
-                .sortedBy { it.indexNumber ?: Int.MAX_VALUE }
+        val seasonsDeferred = async {
+            if (loaded.type != BaseItemKind.SERIES) {
+                emptyList()
+            } else {
+                runCatching { repository.getSeasons(userId, loaded.id) }
+                    .onFailure { Log.e(TAG, "getSeasons failed", it) }
+                    .getOrDefault(emptyList())
+                    .sortedBy { it.indexNumber ?: Int.MAX_VALUE }
+            }
         }
         // The "trakt.tv show page" ambient glow behind the poster - one extraction per screen
         // open, not per focus/frame, so it's cheap enough even on the low-end Fire Stick hardware
         // this app targets.
-        ambientColor = ambientColorFor(context, repository.buildImageUrl(loaded.id, maxWidth = 200))
+        val ambientColorDeferred = async { ambientColorFor(context, repository.buildImageUrl(loaded.id, maxWidth = 200)) }
+
+        playTarget = playTargetDeferred.await()
+        seasons = seasonsDeferred.await()
+        ambientColor = ambientColorDeferred.await()
     }
 
     val currentItem = item
@@ -430,14 +453,20 @@ private fun SeasonsAndEpisodes(
 
     Column(modifier.padding(top = 12.dp)) {
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 48.dp),
+            contentPadding = PaddingValues(start = SEASON_ROW_START, end = 48.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(seasons, key = { it.id }) { season ->
                 val selected = season.id == selectedSeason?.id
                 Button(
                     onClick = { selectedSeason = season },
-                    colors = ButtonDefaults.colors(containerColor = if (selected) TreeHouseAccent else TreeHouseSurface),
+                    colors = ButtonDefaults.colors(
+                        containerColor = if (selected) SeasonGlassContainerSelected else SeasonGlassContainer,
+                    ),
+                    border = ButtonDefaults.border(
+                        border = Border(BorderStroke(1.dp, SeasonGlassBorder), shape = RoundedCornerShape(20.dp)),
+                    ),
+                    shape = ButtonDefaults.shape(shape = RoundedCornerShape(20.dp)),
                 ) {
                     Text(season.name.orEmpty())
                 }
