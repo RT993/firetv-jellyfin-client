@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -350,13 +349,15 @@ private fun HomeSidebar(
 @Composable
 private fun SidebarItem(icon: Int, label: String, showLabel: Boolean, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
+    // clickable() already makes this focusable on its own - a separate .focusable() here stacked
+    // two focus targets on top of each other, so the first D-pad press only moved focus onto the
+    // inner one and a second press was needed to actually register as a click.
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(if (isFocused) TreeHouseAccent.copy(alpha = 0.3f) else Color.Transparent)
             .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
             .clickable(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,

@@ -60,13 +60,15 @@ class JellyfinRepository(private val api: ApiClient) {
      * Items directly inside a library/folder, newest first. Not recursive: a Shows library's
      * direct children are series (not their episodes), and a Movies library's direct children
      * are movies - recursing would pull in every episode of every series instead of one card
-     * per show.
+     * per show. BOX_SET is included too, or a "Collections" library (Jellyfin's grouping of
+     * related movies/shows into one entry) would filter out every single one of its own direct
+     * children, showing up as an empty grid with nothing to open.
      */
     suspend fun getItems(userId: UUID, parentId: UUID, limit: Int = 50): List<BaseItemDto> {
         val request = GetItemsRequest(
             userId = userId,
             parentId = parentId,
-            includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES),
+            includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES, BaseItemKind.BOX_SET),
             limit = limit,
         )
         return api.itemsApi.getItems(request).content.items.orEmpty()

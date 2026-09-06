@@ -126,7 +126,14 @@ fun DetailsScreen(
         // screen was fully interactive. Running them concurrently cuts that to roughly the
         // slowest single one.
         val playTargetDeferred = async {
-            if (loaded.type == BaseItemKind.SERIES) resolveSeriesPlayTarget(repository, userId, loaded) else loaded
+            when (loaded.type) {
+                // A Box Set (a "Collections" grouping of related movies/shows) has no video stream
+                // of its own to play - offering a Play button for it would just fail against the
+                // server with nothing useful to tell the user why.
+                BaseItemKind.BOX_SET -> null
+                BaseItemKind.SERIES -> resolveSeriesPlayTarget(repository, userId, loaded)
+                else -> loaded
+            }
         }
         val seasonsDeferred = async {
             if (loaded.type != BaseItemKind.SERIES) {
