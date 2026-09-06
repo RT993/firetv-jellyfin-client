@@ -32,11 +32,11 @@ import org.jellyfin.sdk.model.api.request.GetResumeItemsRequest
 import org.jellyfin.sdk.model.api.request.GetSeasonsRequest
 import io.github.rt993.firetvjellyfin.playback.buildDeviceProfile
 
-// How long a cached list/item is trusted before re-asking the server. Long enough that going
-// Home -> a library -> back -> another library -> back again (a few tens of seconds of normal
-// browsing) hits cache instead of the network every time; short enough that content added on the
-// server mid-session shows up again within a couple of minutes without restarting the app.
-private const val CACHE_TTL_MILLIS = 2 * 60 * 1000L
+// How long a cached list/item is trusted before re-asking the server - a real network fetch still
+// happens at least once every 30 minutes per key, it's just skipped for repeat visits inside that
+// window (Home -> a library -> back -> another library -> back again, all well under 30 minutes of
+// normal browsing).
+private const val CACHE_TTL_MILLIS = 30 * 60 * 1000L
 
 /**
  * Thin, app-specific wrapper around the raw jellyfin-sdk-kotlin [ApiClient] calls this app needs.

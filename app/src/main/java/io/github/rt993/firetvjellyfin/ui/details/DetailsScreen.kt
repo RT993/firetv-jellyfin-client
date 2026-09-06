@@ -53,9 +53,7 @@ import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.theme.AmbientGlow
 import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
-import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseAccent
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseBackground
-import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseSurface
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextPrimary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextSecondary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTheme
@@ -83,9 +81,13 @@ private const val MAX_CAST_SHOWN = 6
 // to start flush at the screen's own 48dp edge instead, landing it underneath the poster itself
 // whenever the poster overflowed its allotted row height, instead of under the title text above it.
 private val SEASON_ROW_START = 396.dp
-private val SeasonGlassContainer = Color.White.copy(alpha = 0.12f)
-private val SeasonGlassContainerSelected = Color.White.copy(alpha = 0.24f)
-private val SeasonGlassBorder = Color.White.copy(alpha = 0.35f)
+
+// A shared "frosted glass" pill style - translucent white fill plus a thin lighter border - used
+// for the season picker, Play, and Watchlist buttons instead of a solid color fill.
+private val GlassContainer = Color.White.copy(alpha = 0.12f)
+private val GlassContainerActive = Color.White.copy(alpha = 0.24f)
+private val GlassBorder = Color.White.copy(alpha = 0.35f)
+private val GlassShape = RoundedCornerShape(20.dp)
 
 /**
  * Split-layout details screen, replacing the old Leanback [androidx.leanback.app
@@ -355,7 +357,12 @@ private fun DetailsMetadata(
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (playTarget != null) {
                 val isResume = (playTarget.userData?.playbackPositionTicks ?: 0L) > 0L
-                Button(onClick = onPlay) {
+                Button(
+                    onClick = onPlay,
+                    colors = ButtonDefaults.colors(containerColor = GlassContainerActive),
+                    border = ButtonDefaults.border(border = Border(BorderStroke(1.dp, GlassBorder), shape = GlassShape)),
+                    shape = ButtonDefaults.shape(shape = GlassShape),
+                ) {
                     Icon(imageVector = ImageVector.vectorResource(R.drawable.ic_hero_play), contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(if (isResume) R.string.details_resume else R.string.details_play))
@@ -363,7 +370,9 @@ private fun DetailsMetadata(
             }
             Button(
                 onClick = onToggleFavorite,
-                colors = ButtonDefaults.colors(containerColor = if (isFavorite) TreeHouseAccent else TreeHouseSurface),
+                colors = ButtonDefaults.colors(containerColor = if (isFavorite) GlassContainerActive else GlassContainer),
+                border = ButtonDefaults.border(border = Border(BorderStroke(1.dp, GlassBorder), shape = GlassShape)),
+                shape = ButtonDefaults.shape(shape = GlassShape),
             ) {
                 Icon(
                     imageVector = ImageVector.vectorResource(if (isFavorite) R.drawable.ic_favorite_filled else R.drawable.ic_favorite_outline),
@@ -468,12 +477,10 @@ private fun SeasonsAndEpisodes(
                 Button(
                     onClick = { selectedSeason = season },
                     colors = ButtonDefaults.colors(
-                        containerColor = if (selected) SeasonGlassContainerSelected else SeasonGlassContainer,
+                        containerColor = if (selected) GlassContainerActive else GlassContainer,
                     ),
-                    border = ButtonDefaults.border(
-                        border = Border(BorderStroke(1.dp, SeasonGlassBorder), shape = RoundedCornerShape(20.dp)),
-                    ),
-                    shape = ButtonDefaults.shape(shape = RoundedCornerShape(20.dp)),
+                    border = ButtonDefaults.border(border = Border(BorderStroke(1.dp, GlassBorder), shape = GlassShape)),
+                    shape = ButtonDefaults.shape(shape = GlassShape),
                 ) {
                     Text(season.name.orEmpty())
                 }
