@@ -73,6 +73,7 @@ import org.jellyfin.sdk.model.api.VideoRangeType
 private const val TAG = "DetailsScreen"
 private const val EPISODE_CARD_WIDTH_DP = 220
 private const val EPISODE_ASPECT_RATIO = 16f / 9f
+private const val BOX_SET_MOVIE_CARD_WIDTH_DP = 150
 private const val POSTER_ASPECT_RATIO = 2f / 3f
 private const val MAX_CAST_SHOWN = 6
 
@@ -102,11 +103,13 @@ fun DetailsScreen(
     userId: UUID,
     itemId: UUID,
     onPlay: (BaseItemDto) -> Unit,
+    onOpenDetails: (BaseItemDto) -> Unit,
 ) {
     var item by remember { mutableStateOf<BaseItemDto?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var playTarget by remember { mutableStateOf<BaseItemDto?>(null) }
     var seasons by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
+    var boxSetMovies by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     var isFavorite by remember { mutableStateOf(false) }
     var ambientColor by remember { mutableStateOf<Color?>(null) }
     val scope = rememberCoroutineScope()
@@ -123,20 +126,10 @@ fun DetailsScreen(
         item = loaded
         isFavorite = loaded.userData?.isFavorite ?: false
 
-        // playTarget/seasons/ambientColor are all independent of each other - awaiting them one
-        // after another (as before) meant up to three sequential network round trips before the
-        // screen was fully interactive. Running them concurrently cuts that to roughly the
-        // slowest single one.
-        val playTargetDeferred = async {
-            when (loaded.type) {
-                // A Box Set (a "Collections" grouping of related movies/shows) has no video stream
-                // of its own to play - offering a Play button for it would just fail against the
-                // server with nothing useful to tell the user why.
-                BaseItemKind.BOX_SET -> null
-                BaseItemKind.SERIES -> resolveSeriesPlayTarget(repository, userId, loaded)
-                else -> loaded
-            }
-        }
+        // playTarget/seasons/boxSetMovies/ambientColor are all independent of each other -
+        // awaiting them one after another (as before) meant up to four sequential network round
+        // trips before the screen was fully interactive. Running them concurrently cuts that to
+        // roughly the slowest single one.
         val seasonsDeferred = async {
             if (loaded.type != BaseItemKind.SERIES) {
                 emptyList()
@@ -147,13 +140,37 @@ fun DetailsScreen(
                     .sortedBy { it.indexNumber ?: Int.MAX_VALUE }
             }
         }
+        val boxSetMoviesDeferred = async {
+            if (loaded.type != BaseItemKind.BOX_SET) {
+                emptyList()
+            } else {
+                // Not necessarily meaningfully ordered as returned by the server - sorting by
+                // release year gives a coherent "first movie" for the collection's own Play
+                // button below, and a sensible left-to-right order for the row itself.
+                runCatching { repository.getItems(userId, loaded.id) }
+                    .onFailure { Log.e(TAG, "getItems failed for box set ${loaded.name}", it) }
+                    .getOrDefault(emptyList())
+                    .sortedBy { it.productionYear ?: Int.MAX_VALUE }
+            }
+        }
         // The "trakt.tv show page" ambient glow behind the poster - one extraction per screen
         // open, not per focus/frame, so it's cheap enough even on the low-end Fire Stick hardware
         // this app targets.
         val ambientColorDeferred = async { ambientColorFor(context, repository.buildImageUrl(loaded.id, maxWidth = 200)) }
+        // A Box Set's own Play button starts the first movie in it (awaiting boxSetMoviesDeferred,
+        // already running concurrently above), rather than being a no-op or requiring a click into
+        // a nested item first - the collection itself has no video stream of its own.
+        val playTargetDeferred = async {
+            when (loaded.type) {
+                BaseItemKind.BOX_SET -> boxSetMoviesDeferred.await().firstOrNull()
+                BaseItemKind.SERIES -> resolveSeriesPlayTarget(repository, userId, loaded)
+                else -> loaded
+            }
+        }
 
-        playTarget = playTargetDeferred.await()
         seasons = seasonsDeferred.await()
+        boxSetMovies = boxSetMoviesDeferred.await()
+        playTarget = playTargetDeferred.await()
         ambientColor = ambientColorDeferred.await()
     }
 
@@ -199,6 +216,15 @@ fun DetailsScreen(
                         series = currentItem,
                         seasons = seasons,
                         onPlayEpisode = onPlay,
+                        modifier = Modifier.fillMaxWidth().height(260.dp),
+                    )
+                }
+
+                if (currentItem.type == BaseItemKind.BOX_SET && boxSetMovies.isNotEmpty()) {
+                    BoxSetMovies(
+                        repository = repository,
+                        movies = boxSetMovies,
+                        onOpenDetails = onOpenDetails,
                         modifier = Modifier.fillMaxWidth().height(260.dp),
                     )
                 }
@@ -368,18 +394,23 @@ private fun DetailsMetadata(
                     Text(stringResource(if (isResume) R.string.details_resume else R.string.details_play))
                 }
             }
-            Button(
-                onClick = onToggleFavorite,
-                colors = ButtonDefaults.colors(containerColor = if (isFavorite) GlassContainerActive else GlassContainer),
-                border = ButtonDefaults.border(border = Border(BorderStroke(1.dp, GlassBorder), shape = GlassShape)),
-                shape = ButtonDefaults.shape(shape = GlassShape),
-            ) {
-                Icon(
-                    imageVector = ImageVector.vectorResource(if (isFavorite) R.drawable.ic_favorite_filled else R.drawable.ic_favorite_outline),
-                    contentDescription = null,
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(if (isFavorite) R.string.details_watchlisted else R.string.details_watchlist))
+            // A Box Set is a grouping of other titles, not a title of its own to favorite - its
+            // Play button (starting the first movie in it) replaces this entirely rather than
+            // sitting next to it.
+            if (item.type != BaseItemKind.BOX_SET) {
+                Button(
+                    onClick = onToggleFavorite,
+                    colors = ButtonDefaults.colors(containerColor = if (isFavorite) GlassContainerActive else GlassContainer),
+                    border = ButtonDefaults.border(border = Border(BorderStroke(1.dp, GlassBorder), shape = GlassShape)),
+                    shape = ButtonDefaults.shape(shape = GlassShape),
+                ) {
+                    Icon(
+                        imageVector = ImageVector.vectorResource(if (isFavorite) R.drawable.ic_favorite_filled else R.drawable.ic_favorite_outline),
+                        contentDescription = null,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(if (isFavorite) R.string.details_watchlisted else R.string.details_watchlist))
+                }
             }
         }
     }
@@ -519,6 +550,55 @@ private fun EpisodeCard(episode: BaseItemDto, repository: JellyfinRepository, on
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.width(EPISODE_CARD_WIDTH_DP.dp),
+        )
+    }
+}
+
+/**
+ * A Box Set's own movies, in a plain poster row - unlike [SeasonsAndEpisodes] there's no picker
+ * needed (a collection has no further grouping below it), and clicking a movie opens its own full
+ * Details page rather than playing it directly, since a movie (unlike an episode) has its own rich
+ * metadata/actions worth seeing first.
+ */
+@Composable
+private fun BoxSetMovies(
+    repository: JellyfinRepository,
+    movies: List<BaseItemDto>,
+    onOpenDetails: (BaseItemDto) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.padding(top = 12.dp)) {
+        LazyRow(
+            contentPadding = PaddingValues(start = SEASON_ROW_START, end = 48.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            items(movies, key = { it.id }) { movie ->
+                BoxSetMovieCard(movie = movie, repository = repository, onClick = { onOpenDetails(movie) })
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalGlideComposeApi::class)
+@Composable
+private fun BoxSetMovieCard(movie: BaseItemDto, repository: JellyfinRepository, onClick: () -> Unit) {
+    Column {
+        FocusableCard(onClick = onClick, modifier = Modifier.width(BOX_SET_MOVIE_CARD_WIDTH_DP.dp)) {
+            GlideImage(
+                model = repository.buildImageUrl(movie.id, maxWidth = 280),
+                contentDescription = movie.name,
+                modifier = Modifier.fillMaxWidth().aspectRatio(POSTER_ASPECT_RATIO),
+                contentScale = ContentScale.Crop,
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            movie.name.orEmpty(),
+            color = TreeHouseTextPrimary,
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.width(BOX_SET_MOVIE_CARD_WIDTH_DP.dp),
         )
     }
 }

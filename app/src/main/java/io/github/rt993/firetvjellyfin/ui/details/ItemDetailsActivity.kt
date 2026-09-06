@@ -35,6 +35,7 @@ class ItemDetailsActivity : ComponentActivity() {
                 userId = userId,
                 itemId = itemId,
                 onPlay = ::openPlayback,
+                onOpenDetails = ::openDetails,
             )
         }
     }
@@ -45,6 +46,14 @@ class ItemDetailsActivity : ComponentActivity() {
                 .putExtra(PlaybackActivity.EXTRA_ITEM_ID, item.id.toString())
                 .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, item.name)
                 .putExtra(PlaybackActivity.EXTRA_START_POSITION_TICKS, item.userData?.playbackPositionTicks ?: 0L),
+        )
+    }
+
+    /** Opens another item's own Details page - e.g. a movie clicked from inside a Box Set's row. */
+    private fun openDetails(item: BaseItemDto) {
+        startActivity(
+            Intent(this, ItemDetailsActivity::class.java)
+                .putExtra(EXTRA_ITEM_ID, item.id.toString()),
         )
     }
 
