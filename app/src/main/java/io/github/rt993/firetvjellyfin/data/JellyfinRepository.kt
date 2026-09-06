@@ -8,6 +8,7 @@ import org.jellyfin.sdk.api.client.extensions.itemsApi
 import org.jellyfin.sdk.api.client.extensions.mediaInfoApi
 import org.jellyfin.sdk.api.client.extensions.mediaSegmentsApi
 import org.jellyfin.sdk.api.client.extensions.quickConnectApi
+import org.jellyfin.sdk.api.client.extensions.systemApi
 import org.jellyfin.sdk.api.client.extensions.tvShowsApi
 import org.jellyfin.sdk.api.client.extensions.userApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
@@ -74,6 +75,10 @@ class JellyfinRepository(private val api: ApiClient) {
 
     suspend fun completeQuickConnectLogin(secret: String): AuthenticationResult =
         api.userApi.authenticateWithQuickConnect(secret = secret).content
+
+    /** The server's own display name (e.g. "Rick's Jellyfin"), for the saved-servers list. Doesn't require auth. */
+    suspend fun getPublicServerName(): String? =
+        runCatching { api.systemApi.getPublicSystemInfo().content.serverName }.getOrNull()
 
     /** The libraries (Movies, Shows, Music, …) visible to the signed-in user. */
     suspend fun getUserViews(userId: UUID): List<BaseItemDto> {

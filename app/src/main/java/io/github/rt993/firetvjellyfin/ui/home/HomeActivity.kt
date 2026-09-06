@@ -10,8 +10,8 @@ import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.ui.details.ItemDetailsActivity
 import io.github.rt993.firetvjellyfin.ui.library.LibraryGridActivity
-import io.github.rt993.firetvjellyfin.ui.login.LoginActivity
 import io.github.rt993.firetvjellyfin.ui.playback.PlaybackActivity
+import io.github.rt993.firetvjellyfin.ui.profile.ProfileSelectActivity
 import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
@@ -87,7 +87,7 @@ class HomeActivity : ComponentActivity() {
 
     private fun logOut() {
         JellyfinClientHolder.signOut()
-        startActivity(Intent(this, LoginActivity::class.java).putExtra(SplashActivity.EXTRA_FROM_SPLASH, true))
+        startActivity(Intent(this, ProfileSelectActivity::class.java).putExtra(SplashActivity.EXTRA_FROM_SPLASH, true))
         finish()
     }
 

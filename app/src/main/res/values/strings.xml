@@ -3,7 +3,7 @@
     <string name="app_name">TreeHouse</string>
 
     <!-- Splash -->
-    <string name="splash_version">Version 0.2.17</string>
+    <string name="splash_version">Version 0.3.0</string>
 
     <!-- Login -->
     <string name="login_step_welcome_subtitle">Let\'s get connected</string>
@@ -19,6 +19,16 @@
     <string name="login_connecting">Connecting…</string>
     <string name="login_error_generic">Could not sign in. Check the server address and credentials.</string>
     <string name="login_quick_connect_code_format">Enter code %1$s in another Jellyfin app or web page</string>
+
+    <!-- Profile picker -->
+    <string name="profile_select_title">Who\'s Watching?</string>
+    <string name="profile_add">Add Profile</string>
+    <string name="profile_switch_server">Switch Server</string>
+
+    <!-- Server list -->
+    <string name="server_list_title">Servers</string>
+    <string name="server_add">Add Server</string>
+    <string name="server_current">Current</string>
 
     <!-- Home -->
     <string name="home_error">Could not load libraries from the server.</string>

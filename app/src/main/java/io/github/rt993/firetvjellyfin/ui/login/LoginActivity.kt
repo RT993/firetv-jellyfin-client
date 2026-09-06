@@ -13,23 +13,32 @@ import androidx.lifecycle.lifecycleScope
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
-import io.github.rt993.firetvjellyfin.ui.home.HomeActivity
+import io.github.rt993.firetvjellyfin.ui.profile.ProfileSelectActivity
 import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 /**
- * A single glass card that walks through add server (a plus button, since this is normally only
- * ever seen once - see [JellyfinClientHolder.hasStoredSession]) -> server address -> credentials
- * (or Quick Connect) -> sign-in, swapping which section is visible instead of Leanback's boxy
- * GuidedStepSupportFragment default look.
+ * A single glass card that walks through add server (a plus button) -> server address ->
+ * credentials (or Quick Connect) -> sign-in, swapping which section is visible instead of
+ * Leanback's boxy GuidedStepSupportFragment default look.
  *
- * Normally reached only after SplashActivity has already run its intro and found no stored
- * session - but it's a separately launchable activity (a Fire TV home-screen tile pinned from an
- * older install can hold a direct reference to it, bypassing Splash entirely), so if it's opened
- * any other way it forwards to Splash first instead of skipping the intro. It also re-checks for
- * a session itself rather than trusting that Splash already ruled that out, for the same reason.
+ * Three entry points, chosen via [EXTRA_MODE]:
+ * - Onboarding (no extra, no server ever saved): the full WELCOME -> SERVER -> CREDENTIALS walk.
+ * - [MODE_ADD_SERVER] (from the "switch server" screen's + button): starts at SERVER directly.
+ * - [MODE_ADD_PROFILE] (from the profile picker's + button): starts at CREDENTIALS directly,
+ *   against whichever server is already the active connection.
+ *
+ * A successful sign-in in any mode saves the profile (and, for the first two, the server) and
+ * always hands off to [ProfileSelectActivity] - this screen's only job is authenticating, not
+ * deciding what happens afterward.
+ *
+ * Normally reached only after SplashActivity has already run its intro - but it's a separately
+ * launchable activity (a Fire TV home-screen tile pinned from an older install can hold a direct
+ * reference to it, bypassing Splash entirely), so a plain onboarding launch that skips Splash
+ * forwards there first instead of skipping the intro. Direct in-app navigations (add server/add
+ * profile) carry [EXTRA_MODE] and are exempt from that check - they're not launcher shortcuts.
  */
 class LoginActivity : FragmentActivity(R.layout.activity_login) {
 
@@ -53,21 +62,42 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
     private lateinit var quickConnectInstructions: TextView
 
     private var step = Step.WELCOME
+    private var entryStep = Step.WELCOME
     private var quickConnectJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (!intent.getBooleanExtra(SplashActivity.EXTRA_FROM_SPLASH, false)) {
+        val mode = intent.getStringExtra(EXTRA_MODE)
+
+        if (mode == null && !intent.getBooleanExtra(SplashActivity.EXTRA_FROM_SPLASH, false)) {
             startActivity(Intent(this, SplashActivity::class.java))
             finish()
             return
         }
-
-        if (JellyfinClientHolder.hasStoredSession() && JellyfinClientHolder.api != null) {
-            startActivity(Intent(this, HomeActivity::class.java))
-            finish()
+        if (mode == null && JellyfinClientHolder.hasAnyProfiles()) {
+            // A stale onboarding entry despite profiles already existing (e.g. a shortcut cached
+            // from before any server was added) - the picker is the real destination now.
+            finishToProfileSelect()
             return
+        }
+        if (mode == MODE_ADD_PROFILE && JellyfinClientHolder.repository == null) {
+            // Usually already connected (the picker only offers "add profile" for the server it's
+            // currently showing), but the connection is only pre-warmed when the last-active
+            // profile's session was still valid - reconnect against the persisted current server
+            // URL rather than assuming that always held.
+            val serverUrl = JellyfinClientHolder.currentServerUrl()
+            if (serverUrl == null) {
+                finish()
+                return
+            }
+            JellyfinClientHolder.connect(serverUrl)
+        }
+
+        entryStep = when (mode) {
+            MODE_ADD_SERVER -> Step.SERVER
+            MODE_ADD_PROFILE -> Step.CREDENTIALS
+            else -> Step.WELCOME
         }
 
         subtitle = findViewById(R.id.login_subtitle)
@@ -94,11 +124,13 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                if (step == entryStep) {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                    return
+                }
                 when (step) {
-                    Step.WELCOME -> {
-                        isEnabled = false
-                        onBackPressedDispatcher.onBackPressed()
-                    }
+                    Step.WELCOME -> Unit
                     Step.SERVER -> showStep(Step.WELCOME)
                     Step.CREDENTIALS -> showStep(Step.SERVER)
                     Step.QUICK_CONNECT -> showStep(Step.CREDENTIALS)
@@ -106,7 +138,7 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
             }
         })
 
-        showStep(Step.WELCOME)
+        showStep(entryStep)
     }
 
     private fun showStep(newStep: Step) {
@@ -142,6 +174,12 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
         if (serverUrl.isNullOrBlank()) return
 
         JellyfinClientHolder.connect(serverUrl)
+        // Best-effort, independent of whether sign-in itself succeeds afterward - the server
+        // being reachable enough to answer this doesn't require valid credentials.
+        lifecycleScope.launch {
+            val name = runCatching { JellyfinClientHolder.repository?.getPublicServerName() }.getOrNull()
+            JellyfinClientHolder.upsertCurrentServerName(name)
+        }
         showStep(Step.CREDENTIALS)
     }
 
@@ -160,7 +198,7 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
                     val userId = result.user?.id
                     if (token != null && userId != null) {
                         JellyfinClientHolder.persistSession(token, userId.toString(), result.user?.name)
-                        startHome()
+                        finishToProfileSelect()
                     } else {
                         setCredentialsStepEnabled(true)
                         showError()
@@ -207,7 +245,7 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
                 val userId = result.user?.id
                 if (token != null && userId != null) {
                     JellyfinClientHolder.persistSession(token, userId.toString(), result.user?.name)
-                    startHome()
+                    finishToProfileSelect()
                 } else {
                     showStep(Step.CREDENTIALS)
                     showError()
@@ -239,13 +277,24 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
         errorText.visibility = View.GONE
     }
 
-    private fun startHome() {
-        startActivity(Intent(this, HomeActivity::class.java))
+    private fun finishToProfileSelect() {
+        startActivity(
+            Intent(this, ProfileSelectActivity::class.java)
+                .putExtra(SplashActivity.EXTRA_FROM_SPLASH, true)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        )
         finish()
     }
 
-    private companion object {
-        const val TAG = "LoginActivity"
-        const val POLL_INTERVAL_MS = 2000L
+    companion object {
+        /** Skips WELCOME, starts at SERVER - reached from the "switch server" screen's + button. */
+        const val MODE_ADD_SERVER = "add_server"
+
+        /** Skips WELCOME/SERVER, starts at CREDENTIALS - reached from the profile picker's + button. */
+        const val MODE_ADD_PROFILE = "add_profile"
+        const val EXTRA_MODE = "extra_mode"
+
+        private const val TAG = "LoginActivity"
+        private const val POLL_INTERVAL_MS = 2000L
     }
 }

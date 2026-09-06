@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M4,4.5 H20 V9.5 H4 Z"
+        android:strokeColor="@color/jellyfin_purple"
+        android:strokeWidth="1.6"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M4,13.5 H20 V18.5 H4 Z"
+        android:strokeColor="@color/jellyfin_purple"
+        android:strokeWidth="1.6"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M7,7 a0.4,0.4 0 1,0 0.001,0"
+        android:fillColor="@color/jellyfin_purple" />
+    <path
+        android:pathData="M7,16 a0.4,0.4 0 1,0 0.001,0"
+        android:fillColor="@color/jellyfin_purple" />
+</vector>

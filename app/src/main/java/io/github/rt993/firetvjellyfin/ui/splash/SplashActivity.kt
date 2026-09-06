@@ -8,12 +8,14 @@ import android.view.animation.DecelerateInterpolator
 import androidx.fragment.app.FragmentActivity
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
-import io.github.rt993.firetvjellyfin.ui.home.HomeActivity
 import io.github.rt993.firetvjellyfin.ui.login.LoginActivity
+import io.github.rt993.firetvjellyfin.ui.profile.ProfileSelectActivity
 
 /**
- * Launcher activity: fades the logo in, holds it, fades it out, then hands off to Home (if a
- * session is already stored) or Login - the routing LoginActivity used to do on its own onCreate.
+ * Launcher activity: fades the logo in, holds it, fades it out, then hands off to the profile
+ * picker (if at least one profile has ever been saved) or Login for first-time setup - the
+ * routing LoginActivity used to do on its own onCreate. The picker shows every time, regardless of
+ * whether a session happens to already be pre-warmed - see [JellyfinClientHolder.hasAnyProfiles].
  */
 class SplashActivity : FragmentActivity(R.layout.activity_splash) {
 
@@ -50,8 +52,8 @@ class SplashActivity : FragmentActivity(R.layout.activity_splash) {
 
     private fun proceed() {
         if (isFinishing) return
-        val destination = if (JellyfinClientHolder.hasStoredSession() && JellyfinClientHolder.api != null) {
-            HomeActivity::class.java
+        val destination = if (JellyfinClientHolder.hasAnyProfiles()) {
+            ProfileSelectActivity::class.java
         } else {
             LoginActivity::class.java
         }

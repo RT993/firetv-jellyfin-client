@@ -43,6 +43,16 @@
             android:theme="@style/Theme.FireTvJellyfin" />
 
         <activity
+            android:name=".ui.profile.ProfileSelectActivity"
+            android:exported="false"
+            android:theme="@style/Theme.FireTvJellyfin" />
+
+        <activity
+            android:name=".ui.profile.ServerListActivity"
+            android:exported="false"
+            android:theme="@style/Theme.FireTvJellyfin" />
+
+        <activity
             android:name=".ui.home.HomeActivity"
             android:exported="false"
             android:theme="@style/Theme.FireTvJellyfin" />

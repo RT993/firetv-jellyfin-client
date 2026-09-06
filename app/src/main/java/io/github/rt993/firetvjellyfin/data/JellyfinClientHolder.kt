@@ -37,14 +37,15 @@ object JellyfinClientHolder {
             clientInfo = ClientInfo(name = "TreeHouse", version = BuildConfigVersion)
         }
 
+        // Pre-warms a connection for whichever profile was last active, purely so picking that
+        // same profile again in ProfileSelectActivity is instant - it does NOT skip the picker
+        // itself (see hasAnyProfiles/activateProfile), and a missing/expired session here is not
+        // an error: the picker's own activateProfile call establishes a fresh one regardless of
+        // whatever state this leaves api/repository in.
         val savedServerUrl = credentialStore.serverUrl
         if (savedServerUrl != null && credentialStore.hasSession) {
             connect(savedServerUrl)
             api?.update(accessToken = credentialStore.accessToken)
-        } else if (savedServerUrl != null) {
-            // A stored server with no valid (or expired) session - drop it so the login flow
-            // starts clean instead of silently trying a dead token.
-            credentialStore.clear()
         }
     }
 
@@ -68,11 +69,48 @@ object JellyfinClientHolder {
         return client
     }
 
+    /** Persists a successful sign-in as both the active session and a saved profile for it. */
     fun persistSession(accessToken: String, userId: String, username: String?) {
         api?.update(accessToken = accessToken)
         credentialStore.accessToken = accessToken
         credentialStore.userId = userId
         credentialStore.username = username
+        credentialStore.loginTimestamp = System.currentTimeMillis()
+
+        val serverUrl = credentialStore.serverUrl
+        if (serverUrl != null) {
+            credentialStore.upsertProfile(SavedProfile(serverUrl, userId, username.orEmpty(), accessToken))
+        }
+    }
+
+    /** Records (or updates) the current server's display name once it's known. */
+    fun upsertCurrentServerName(name: String?) {
+        val url = credentialStore.serverUrl ?: return
+        credentialStore.upsertServer(SavedServer(url, name.orEmpty()))
+    }
+
+    fun savedServers(): List<SavedServer> = credentialStore.servers
+
+    fun currentServerUrl(): String? = credentialStore.serverUrl
+
+    /** Saved profiles for whichever server is currently active - what the picker shows. */
+    fun savedProfilesForCurrentServer(): List<SavedProfile> =
+        credentialStore.serverUrl?.let { credentialStore.profilesForServer(it) }.orEmpty()
+
+    fun hasAnyProfiles(): Boolean = credentialStore.profiles.isNotEmpty()
+
+    /**
+     * Switches to [profile]: connects to its server first if that isn't already the live
+     * connection, then authenticates as it. This is the only path that should ever make a
+     * profile "active" - picking a profile in the UI should never silently keep whatever
+     * session happened to be pre-warmed by [initialize] if it belongs to someone else.
+     */
+    fun activateProfile(profile: SavedProfile) {
+        val client = if (api?.baseUrl == profile.serverUrl) requireNotNull(api) else connect(profile.serverUrl)
+        client.update(accessToken = profile.accessToken)
+        credentialStore.accessToken = profile.accessToken
+        credentialStore.userId = profile.userId
+        credentialStore.username = profile.username
         credentialStore.loginTimestamp = System.currentTimeMillis()
     }
 
@@ -82,8 +120,13 @@ object JellyfinClientHolder {
 
     fun hasStoredSession(): Boolean = credentialStore.hasSession
 
+    /**
+     * Deactivates the current session only - every saved server/profile stays in place, so the
+     * profile picker still shows them all and picking one (even the one just signed out of)
+     * simply re-authenticates it fresh via [activateProfile].
+     */
     fun signOut() {
-        credentialStore.clear()
+        credentialStore.clearCurrentSession()
         api = null
         repository = null
     }
@@ -99,5 +142,5 @@ object JellyfinClientHolder {
 
     // Kept separate from BuildConfig.VERSION_NAME so this file has no Gradle-generated dependency -
     // which means it has to be bumped by hand alongside app/build.gradle.kts's versionName.
-    private const val BuildConfigVersion = "0.2.17"
+    private const val BuildConfigVersion = "0.3.0"
 }
