@@ -47,10 +47,18 @@ If you'd rather install from a machine on the same network via ADB, see
 
 - **Server login**: server address entry, username/password, or Quick Connect (approve from
   another already-signed-in Jellyfin app/web page).
+- **Profiles & servers**: a "Who's Watching?" picker shown after every splash intro, listing the
+  profiles saved for whichever server is currently active - a "+" tile adds another profile to
+  that same server, and a small server icon switches to (or adds) a different Jellyfin server
+  entirely. Everything ever signed into stays saved on-device, so switching back is a couple of
+  D-pad presses, not a fresh sign-in.
 - **Home**: a D-pad-pageable hero carousel of trending movies/shows with a crossfading cinematic
   backdrop, a "Pick up where you left off" row, and one poster row per library. A left nav rail
-  (Search, Home, one icon per library, Settings) stays out of the way - transparent and icon-only -
-  until D-pad focus actually lands on it, then it fades in a background and labels.
+  (Home, one icon per library, Account) stays out of the way - transparent and icon-only - until
+  D-pad focus actually lands on it, then it fades in a background and labels. The Account item
+  opens a menu with Logout, Change Server (only shown once more than one server is saved), Scan
+  Library (kicks off the same full library scan as the server dashboard's own "Scan All
+  Libraries" button, for picking up newly added files without leaving the couch), and Info.
 - **Details screen**: a split layout - full-bleed backdrop on the right, gradient-masked into a
   poster/title/metadata panel on the left. Technical badges (4K/1080p, Dolby Vision/HDR10/HLG,
   Dolby Atmos/surround) read from the file's actual media streams, a Watchlist toggle backed by
