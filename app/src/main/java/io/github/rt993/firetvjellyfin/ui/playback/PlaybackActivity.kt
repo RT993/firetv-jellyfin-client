@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.KeyEvent
 import android.view.SurfaceView
@@ -85,6 +86,11 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
     private var currentAudioStreamIndex: Int? = null
     private var currentSubtitleStreamIndex: Int? = null
 
+    // Tracks a rewind/forward button's own "streak" of quick repeat presses - see handleSeekPress.
+    private var seekStreakDirection = 0
+    private var seekStreakIndex = 0
+    private var lastSeekPressUptimeMs = 0L
+
     private lateinit var aspectContainer: AspectRatioFrameLayout
     private lateinit var playerSurface: SurfaceView
     private lateinit var controls: View
@@ -140,8 +146,8 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         upNextTitle = findViewById(R.id.up_next_title)
         btnUpNextPlay = findViewById(R.id.btn_up_next_play)
 
-        btnRewind.setOnClickListener { seekBy(-SEEK_INCREMENT_MS) }
-        btnForward.setOnClickListener { seekBy(SEEK_INCREMENT_MS) }
+        btnRewind.setOnClickListener { handleSeekPress(-1) }
+        btnForward.setOnClickListener { handleSeekPress(1) }
         btnPlayPause.setOnClickListener { togglePlayPause() }
         btnNextEpisode.setOnClickListener { playNextEpisodeIfAvailable() }
         btnAudioTrack.setOnClickListener { showAudioTrackPicker() }
@@ -407,6 +413,28 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         }
     }
 
+    /**
+     * A single press skips [SEEK_INCREMENT_TIERS_MS]'s first tier (10s). Pressing the *same*
+     * button again within [SEEK_STREAK_TIMEOUT_MS] advances to the next tier instead of repeating
+     * the first - so pressing forward twice in quick succession lands at a 30s total skip (10s +
+     * 20s), and three quick presses at 60s (10s + 20s + 30s), matching how a physical remote's
+     * repeated clicks are meant to accelerate a skip rather than crawl forward 10s at a time.
+     * Switching direction, or pausing longer than the window, drops back to the base 10s tier -
+     * so correcting an overshoot with the other button is always a small nudge, never another
+     * big jump.
+     */
+    private fun handleSeekPress(direction: Int) {
+        val now = SystemClock.uptimeMillis()
+        seekStreakIndex = if (direction == seekStreakDirection && now - lastSeekPressUptimeMs <= SEEK_STREAK_TIMEOUT_MS) {
+            (seekStreakIndex + 1).coerceAtMost(SEEK_INCREMENT_TIERS_MS.lastIndex)
+        } else {
+            0
+        }
+        seekStreakDirection = direction
+        lastSeekPressUptimeMs = now
+        seekBy(direction * SEEK_INCREMENT_TIERS_MS[seekStreakIndex])
+    }
+
     private fun seekBy(deltaMs: Long) {
         val exoPlayer = player ?: return
         val duration = exoPlayer.duration.coerceAtLeast(0L)
@@ -587,7 +615,12 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         private const val TAG = "PlaybackActivity"
         private const val HIDE_DELAY_MS = 4000L
         private const val PROGRESS_UPDATE_MS = 500L
-        private const val SEEK_INCREMENT_MS = 10_000L
+        // Per-press deltas, not cumulative totals - tier 0 alone skips 10s; landing on tier 1 after
+        // a second quick press means the two presses together skipped 10s + 20s = 30s, and tier 2
+        // after a third means 10s + 20s + 30s = 60s. Any further quick press stays on tier 2,
+        // adding another 30s each time rather than escalating indefinitely.
+        private val SEEK_INCREMENT_TIERS_MS = longArrayOf(10_000L, 20_000L, 30_000L)
+        private const val SEEK_STREAK_TIMEOUT_MS = 1500L
         private const val UP_NEXT_THRESHOLD_MS = 30_000L
     }
 }

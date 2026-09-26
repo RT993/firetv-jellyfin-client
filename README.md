@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.3.4** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.3.5** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
@@ -69,8 +69,9 @@ If you'd rather install from a machine on the same network via ADB, see
 - **Playback**: direct-play when the server says the file's compatible with this device, HLS
   transcode fallback otherwise (see [below](#the-direct-play-vs-transcode-decision)). A custom,
   minimal transport UI (not Leanback's stock boxy controls) over a raw `SurfaceView` - play/pause,
-  10s skip back/forward, a thin scrubber, auto-hiding after a few seconds idle - plus **Skip
-  Intro** (reads the server's Media Segments data, when a plugin like Intro Skipper provides it)
+  10/30/60s skip back/forward (pressing the same button again quickly escalates to the next tier,
+  instead of crawling forward 10s at a time), a thin scrubber, auto-hiding after a few seconds
+  idle - plus **Skip Intro** (reads the server's Media Segments data, when a plugin like Intro Skipper provides it)
   and **Play Next** (an "Up Next" prompt in an episode's last 30 seconds, and a persistent
   next-episode button, both auto-resolving the next episode in the season/series).
 - **Splash intro**: a short floating-logo animation on launch before handing off to Home (if
