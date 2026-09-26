@@ -1,8 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <gradient
-        android:angle="270"
-        android:startColor="#332A1F6B"
-        android:centerColor="#1A101820"
-        android:endColor="@color/background_dark" />
-</shape>
+<!-- The photo fills the screen first; the same gradient this app always used sits on top of it as
+     a tint/vignette, so the glass login card (see login_card_bg, a ~12% translucent white panel)
+     stays legible over whatever's behind it instead of the raw photo showing through unfiltered. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <bitmap
+            android:src="@drawable/img_login_background"
+            android:gravity="fill" />
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#332A1F6B"
+                android:centerColor="#1A101820"
+                android:endColor="@color/background_dark" />
+        </shape>
+    </item>
+</layer-list>
