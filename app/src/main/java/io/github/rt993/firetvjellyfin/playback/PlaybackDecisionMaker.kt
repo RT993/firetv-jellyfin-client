@@ -18,6 +18,8 @@ data class PlaybackSelection(
     val mediaStreams: List<MediaStream>,
     val defaultAudioStreamIndex: Int?,
     val defaultSubtitleStreamIndex: Int?,
+    /** Correlates this app's playback-progress reports (see JellyfinRepository) with this specific PlaybackInfo call. */
+    val playSessionId: String?,
 )
 
 /**
@@ -49,7 +51,7 @@ class PlaybackDecisionMaker(private val api: ApiClient) {
 
         return when {
             source.supportsDirectPlay -> directPlay(itemId, source, mediaSourceId, playbackInfo.playSessionId)
-            source.supportsTranscoding -> transcode(source, mediaSourceId)
+            source.supportsTranscoding -> transcode(source, mediaSourceId, playbackInfo.playSessionId)
             else -> null
         }
     }
@@ -75,10 +77,11 @@ class PlaybackDecisionMaker(private val api: ApiClient) {
             source.mediaStreams.orEmpty(),
             source.defaultAudioStreamIndex,
             source.defaultSubtitleStreamIndex,
+            playSessionId,
         )
     }
 
-    private fun transcode(source: MediaSourceInfo, mediaSourceId: String): PlaybackSelection? {
+    private fun transcode(source: MediaSourceInfo, mediaSourceId: String, playSessionId: String?): PlaybackSelection? {
         val relativeOrAbsoluteUrl = source.transcodingUrl ?: return null
         return PlaybackSelection(
             PlaybackMode.TRANSCODE,
@@ -87,6 +90,7 @@ class PlaybackDecisionMaker(private val api: ApiClient) {
             source.mediaStreams.orEmpty(),
             source.defaultAudioStreamIndex,
             source.defaultSubtitleStreamIndex,
+            playSessionId,
         )
     }
 

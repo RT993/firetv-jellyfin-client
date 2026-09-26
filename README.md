@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.3.5** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.3.6** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
@@ -73,7 +73,10 @@ If you'd rather install from a machine on the same network via ADB, see
   instead of crawling forward 10s at a time), a thin scrubber, auto-hiding after a few seconds
   idle - plus **Skip Intro** (reads the server's Media Segments data, when a plugin like Intro Skipper provides it)
   and **Play Next** (an "Up Next" prompt in an episode's last 30 seconds, and a persistent
-  next-episode button, both auto-resolving the next episode in the season/series).
+  next-episode button, both auto-resolving the next episode in the season/series). Reports
+  playback start/progress/stop to the server throughout (`PlayStateApi`, `JellyfinRepository`),
+  the same as any other Jellyfin client - this is what keeps "Continue Watching" and each item's
+  played/resume state on the server actually in sync with what was watched here.
 - **Splash intro**: a short floating-logo animation on launch before handing off to Home (if
   already signed in) or the login flow.
 

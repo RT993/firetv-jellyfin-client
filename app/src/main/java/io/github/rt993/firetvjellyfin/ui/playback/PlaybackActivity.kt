@@ -38,6 +38,9 @@ import io.github.rt993.firetvjellyfin.playback.PlaybackMode
 import io.github.rt993.firetvjellyfin.playback.PlaybackSelection
 import io.github.rt993.firetvjellyfin.playback.resolveJellyfinUrl
 import io.github.rt993.firetvjellyfin.util.CrashLogger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.api.client.ApiClient
@@ -47,6 +50,7 @@ import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.MediaSegmentDto
 import org.jellyfin.sdk.model.api.MediaStream
 import org.jellyfin.sdk.model.api.MediaStreamType
+import org.jellyfin.sdk.model.api.PlayMethod
 import java.util.Locale
 import java.util.UUID
 
@@ -85,11 +89,20 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
     private var mediaStreams: List<MediaStream> = emptyList()
     private var currentAudioStreamIndex: Int? = null
     private var currentSubtitleStreamIndex: Int? = null
+    private var currentPlaySessionId: String? = null
+    private var hasReportedPlaybackStart = false
 
     // Tracks a rewind/forward button's own "streak" of quick repeat presses - see handleSeekPress.
     private var seekStreakDirection = 0
     private var seekStreakIndex = 0
     private var lastSeekPressUptimeMs = 0L
+
+    // Deliberately not lifecycleScope: reportPlaybackStopped() runs from onStop(), which fires
+    // right as this Activity is finishing - a coroutine on lifecycleScope would very likely get
+    // cancelled before its network call actually completes, silently dropping exactly the report
+    // that tells the server this item was watched. This scope has no such lifecycle tied to it, so
+    // the one-shot stop report gets to finish even after the screen itself is gone.
+    private val reportingScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private lateinit var aspectContainer: AspectRatioFrameLayout
     private lateinit var playerSurface: SurfaceView
@@ -116,6 +129,15 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         override fun run() {
             updateProgress()
             uiHandler.postDelayed(this, PROGRESS_UPDATE_MS)
+        }
+    }
+    // Reads currentMediaSourceId/currentPlaySessionId/currentAudioStreamIndex fresh on every tick,
+    // so it keeps reporting correctly for whatever the active session is - including across an
+    // audio-track restart, which swaps all three - without needing to be restarted itself.
+    private val reportProgressRunnable = object : Runnable {
+        override fun run() {
+            reportPlaybackProgress()
+            uiHandler.postDelayed(this, PROGRESS_REPORT_INTERVAL_MS)
         }
     }
 
@@ -225,6 +247,12 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         currentStreamUrl = selection.streamUrl
         currentMediaSourceId = selection.mediaSourceId
         mediaStreams = selection.mediaStreams
+        currentPlaySessionId = selection.playSessionId
+    }
+
+    private fun playMethodFor(mode: PlaybackMode): PlayMethod = when (mode) {
+        PlaybackMode.DIRECT_PLAY -> PlayMethod.DIRECT_PLAY
+        PlaybackMode.TRANSCODE -> PlayMethod.TRANSCODE
     }
 
     private fun setupTrackButtons() {
@@ -295,9 +323,72 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         setMediaItemAndPrepare(startPositionMs)
         exoPlayer.playWhenReady = true
 
+        reportPlaybackStart(startPositionMs * 10_000L)
         uiHandler.post(progressRunnable)
+        uiHandler.postDelayed(reportProgressRunnable, PROGRESS_REPORT_INTERVAL_MS)
         showControls()
         btnPlayPause.requestFocus()
+    }
+
+    /**
+     * See [JellyfinRepository.reportPlaybackStart] for why this matters - without it, the server
+     * never learns this app started playing anything, and its "Continue Watching" / played-state
+     * records for the item never move past whatever they already were.
+     */
+    private fun reportPlaybackStart(positionTicks: Long) {
+        val resolvedItemId = itemId ?: return
+        val repo = repository ?: return
+        hasReportedPlaybackStart = true
+        lifecycleScope.launch {
+            runCatching {
+                repo.reportPlaybackStart(
+                    itemId = resolvedItemId,
+                    mediaSourceId = currentMediaSourceId,
+                    playSessionId = currentPlaySessionId,
+                    positionTicks = positionTicks,
+                    playMethod = playMethodFor(currentMode),
+                    audioStreamIndex = currentAudioStreamIndex,
+                    subtitleStreamIndex = currentSubtitleStreamIndex,
+                )
+            }.onFailure { Log.e(TAG, "reportPlaybackStart failed", it) }
+        }
+    }
+
+    private fun reportPlaybackProgress() {
+        val exoPlayer = player ?: return
+        val resolvedItemId = itemId ?: return
+        val repo = repository ?: return
+        lifecycleScope.launch {
+            runCatching {
+                repo.reportPlaybackProgress(
+                    itemId = resolvedItemId,
+                    mediaSourceId = currentMediaSourceId,
+                    playSessionId = currentPlaySessionId,
+                    positionTicks = exoPlayer.currentPosition * 10_000L,
+                    isPaused = !exoPlayer.playWhenReady,
+                    playMethod = playMethodFor(currentMode),
+                    audioStreamIndex = currentAudioStreamIndex,
+                    subtitleStreamIndex = currentSubtitleStreamIndex,
+                )
+            }.onFailure { Log.e(TAG, "reportPlaybackProgress failed", it) }
+        }
+    }
+
+    /**
+     * The report that actually matters for "Continue Watching" correctness - see
+     * [JellyfinRepository.reportPlaybackStopped]. Guarded by [hasReportedPlaybackStart] so this
+     * never fires for a session that never really started (e.g. [finishWithError] before playback
+     * began), and so it never double-reports if called more than once.
+     */
+    private fun reportPlaybackStopped(mediaSourceId: String?, playSessionId: String?, positionTicks: Long) {
+        if (!hasReportedPlaybackStart) return
+        hasReportedPlaybackStart = false
+        val resolvedItemId = itemId ?: return
+        val repo = repository ?: return
+        reportingScope.launch {
+            runCatching { repo.reportPlaybackStopped(resolvedItemId, mediaSourceId, playSessionId, positionTicks) }
+                .onFailure { Log.e(TAG, "reportPlaybackStopped failed", it) }
+        }
     }
 
     /**
@@ -394,6 +485,8 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         val resolvedUserId = userId ?: return
         val exoPlayer = player ?: return
         val resumePositionMs = exoPlayer.currentPosition
+        val previousMediaSourceId = currentMediaSourceId
+        val previousPlaySessionId = currentPlaySessionId
         lifecycleScope.launch {
             val playbackInfo = runCatching {
                 repo.getPlaybackInfo(resolvedUserId, resolvedItemId, audioStreamIndex = audioStreamIndex, mediaSourceId = currentMediaSourceId)
@@ -407,9 +500,14 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
                 Toast.makeText(this@PlaybackActivity, R.string.playback_error, Toast.LENGTH_SHORT).show()
                 return@launch
             }
+            // A getPlaybackInfo call mints a new playSessionId - as far as the server's concerned,
+            // this is a distinct playback session from the one before it, so it needs its own
+            // start/stop pair rather than pretending the old session just kept going.
+            reportPlaybackStopped(previousMediaSourceId, previousPlaySessionId, resumePositionMs * 10_000L)
             applySelection(selection)
             currentAudioStreamIndex = audioStreamIndex
             setMediaItemAndPrepare(resumePositionMs)
+            reportPlaybackStart(resumePositionMs * 10_000L)
         }
     }
 
@@ -599,7 +697,9 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
 
     override fun onStop() {
         super.onStop()
-        Log.i(TAG, "onStop isFinishing=$isFinishing position=${player?.currentPosition}ms")
+        val finalPositionMs = player?.currentPosition ?: 0L
+        Log.i(TAG, "onStop isFinishing=$isFinishing position=${finalPositionMs}ms")
+        reportPlaybackStopped(currentMediaSourceId, currentPlaySessionId, finalPositionMs * 10_000L)
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         uiHandler.removeCallbacksAndMessages(null)
         player?.release()
@@ -615,6 +715,10 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         private const val TAG = "PlaybackActivity"
         private const val HIDE_DELAY_MS = 4000L
         private const val PROGRESS_UPDATE_MS = 500L
+        // How often the server hears about this session's position - separate from the 500ms UI
+        // progress tick above, which is purely local and far too chatty to also send over the
+        // network on every one of its firings.
+        private const val PROGRESS_REPORT_INTERVAL_MS = 10_000L
         // Per-press deltas, not cumulative totals - tier 0 alone skips 10s; landing on tier 1 after
         // a second quick press means the two presses together skipped 10s + 20s = 30s, and tier 2
         // after a third means 10s + 20s + 30s = 60s. Any further quick press stays on tier 2,

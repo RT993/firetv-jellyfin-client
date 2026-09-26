@@ -8,6 +8,7 @@ import org.jellyfin.sdk.api.client.extensions.itemsApi
 import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.api.client.extensions.mediaInfoApi
 import org.jellyfin.sdk.api.client.extensions.mediaSegmentsApi
+import org.jellyfin.sdk.api.client.extensions.playStateApi
 import org.jellyfin.sdk.api.client.extensions.quickConnectApi
 import org.jellyfin.sdk.api.client.extensions.systemApi
 import org.jellyfin.sdk.api.client.extensions.tvShowsApi
@@ -23,9 +24,15 @@ import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.MediaSegmentDto
 import org.jellyfin.sdk.model.api.MediaSegmentType
+import org.jellyfin.sdk.model.api.PlayMethod
 import org.jellyfin.sdk.model.api.PlaybackInfoDto
 import org.jellyfin.sdk.model.api.PlaybackInfoResponse
+import org.jellyfin.sdk.model.api.PlaybackOrder
+import org.jellyfin.sdk.model.api.PlaybackProgressInfo
+import org.jellyfin.sdk.model.api.PlaybackStartInfo
+import org.jellyfin.sdk.model.api.PlaybackStopInfo
 import org.jellyfin.sdk.model.api.QuickConnectResult
+import org.jellyfin.sdk.model.api.RepeatMode
 import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.api.request.GetEpisodesRequest
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
@@ -314,5 +321,86 @@ class JellyfinRepository(private val api: ApiClient) {
             mediaSourceId = mediaSourceId,
         )
         return api.mediaInfoApi.getPostedPlaybackInfo(itemId = itemId, data = request).content
+    }
+
+    /**
+     * Tells the server a playback session has begun - without this (and the two calls below), the
+     * server has no idea this app is playing anything at all: [getResumeItems]'s "Continue
+     * Watching" state, an item's played/unplayed flag, and its last-played date all come from these
+     * three reports, not from anything client-side. Every other Jellyfin client sends these; this
+     * app didn't, which is why a fully-watched episode kept reappearing in Continue Watching - the
+     * server's records of it were never actually updated.
+     */
+    suspend fun reportPlaybackStart(
+        itemId: UUID,
+        mediaSourceId: String?,
+        playSessionId: String?,
+        positionTicks: Long,
+        playMethod: PlayMethod,
+        audioStreamIndex: Int?,
+        subtitleStreamIndex: Int?,
+    ) {
+        api.playStateApi.reportPlaybackStart(
+            PlaybackStartInfo(
+                itemId = itemId,
+                mediaSourceId = mediaSourceId,
+                playSessionId = playSessionId,
+                positionTicks = positionTicks,
+                canSeek = true,
+                playMethod = playMethod,
+                audioStreamIndex = audioStreamIndex,
+                subtitleStreamIndex = subtitleStreamIndex,
+                isPaused = false,
+                isMuted = false,
+                repeatMode = RepeatMode.REPEAT_NONE,
+                playbackOrder = PlaybackOrder.DEFAULT,
+            ),
+        )
+    }
+
+    /** Periodic heartbeat during playback - see [reportPlaybackStart]. */
+    suspend fun reportPlaybackProgress(
+        itemId: UUID,
+        mediaSourceId: String?,
+        playSessionId: String?,
+        positionTicks: Long,
+        isPaused: Boolean,
+        playMethod: PlayMethod,
+        audioStreamIndex: Int?,
+        subtitleStreamIndex: Int?,
+    ) {
+        api.playStateApi.reportPlaybackProgress(
+            PlaybackProgressInfo(
+                itemId = itemId,
+                mediaSourceId = mediaSourceId,
+                playSessionId = playSessionId,
+                positionTicks = positionTicks,
+                isPaused = isPaused,
+                canSeek = true,
+                playMethod = playMethod,
+                audioStreamIndex = audioStreamIndex,
+                subtitleStreamIndex = subtitleStreamIndex,
+                isMuted = false,
+                repeatMode = RepeatMode.REPEAT_NONE,
+                playbackOrder = PlaybackOrder.DEFAULT,
+            ),
+        )
+    }
+
+    /**
+     * Reports the final position a playback session stopped at - this is what the server actually
+     * uses to decide whether the item crosses its "played" threshold (and should drop off Continue
+     * Watching entirely) versus staying resumable partway through. See [reportPlaybackStart].
+     */
+    suspend fun reportPlaybackStopped(itemId: UUID, mediaSourceId: String?, playSessionId: String?, positionTicks: Long) {
+        api.playStateApi.reportPlaybackStopped(
+            PlaybackStopInfo(
+                itemId = itemId,
+                mediaSourceId = mediaSourceId,
+                playSessionId = playSessionId,
+                positionTicks = positionTicks,
+                failed = false,
+            ),
+        )
     }
 }
