@@ -64,6 +64,7 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
+import io.github.rt993.firetvjellyfin.ui.theme.DynamicBlueBackground
 import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseAccent
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseBackground
@@ -202,7 +203,10 @@ fun HomeScreen(
     val sidebarFocusRequester = remember { FocusRequester() }
 
     TreeHouseTheme {
-        Row(Modifier.fillMaxSize().background(TreeHouseBackground)) {
+        Box(Modifier.fillMaxSize()) {
+            // Slow-drifting blue light bands instead of a flat color fill - see DynamicBackground.kt.
+            DynamicBlueBackground(Modifier.fillMaxSize())
+            Row(Modifier.fillMaxSize()) {
             HomeSidebar(
                 libraries = state.libraries,
                 onLibrary = onOpenLibrary,
@@ -299,6 +303,7 @@ fun HomeScreen(
                         modifier = Modifier.align(Alignment.Center).padding(48.dp),
                     )
                 }
+            }
             }
         }
     }

@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.3.10** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.3.11** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
@@ -52,8 +52,11 @@ If you'd rather install from a machine on the same network via ADB, see
   that same server, and a small server icon switches to (or adds) a different Jellyfin server
   entirely. Everything ever signed into stays saved on-device, so switching back is a couple of
   D-pad presses, not a fresh sign-in.
-- **Home**: a D-pad-pageable hero carousel of trending movies/shows with a crossfading cinematic
-  backdrop, a "Pick up where you left off" row, and one poster row per library. A left nav rail
+- **Home**: a slow-drifting field of diagonal blue light bands behind everything (PS5 dashboard-
+  style - see `ui/theme/DynamicBackground.kt`; built from plain tilted gradient fills, not a real
+  blur, so it stays cheap on the target hardware), a D-pad-pageable hero carousel of trending
+  movies/shows with a crossfading cinematic backdrop, a "Pick up where you left off" row, and one
+  poster row per library. A left nav rail
   (Home, one icon per library, Account) stays out of the way - transparent and icon-only - until
   D-pad focus actually lands on it, then it fades in a background and labels. The Account item
   opens a menu with Logout, Change Server (only shown once more than one server is saved), Scan

@@ -188,7 +188,7 @@ private fun ProfileTile(name: String, icon: Int, onClick: () -> Unit, modifier: 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         FocusableCard(onClick = onClick, modifier = modifier.size(140.dp), shape = CircleShape) {
             Box(
-                Modifier.fillMaxSize().background(TreeHouseSurface.copy(alpha = 0.45f)),
+                Modifier.fillMaxSize().background(TreeHouseSurface.copy(alpha = 0.6f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
