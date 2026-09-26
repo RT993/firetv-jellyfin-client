@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -29,7 +30,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -125,24 +125,17 @@ private fun ProfileSelectScreen(
     }
 
     TreeHouseTheme {
-        Box(Modifier.fillMaxSize()) {
-            // Same photo and gradient tint as the login screen's background (see
-            // login_background.xml) - reused here rather than duplicated, so the picker isn't
-            // left on the old flat color while the screen before it has the photo.
+        Box(Modifier.fillMaxSize().background(TreeHouseBackground)) {
+            // A corner illustration rather than a full-bleed photo - cropped tight around him with
+            // a soft alpha fade baked in (see img_gandalf_corner's own generation) so the edge
+            // blends into the flat background instead of showing a hard rectangle. Anchored to the
+            // bottom-left with the staff's glow pointing up and in, toward the centered profile row.
             Image(
-                painter = painterResource(id = R.drawable.img_login_background),
+                painter = painterResource(id = R.drawable.img_gandalf_corner),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(
-                        0f to Color(0x332A1F6B),
-                        0.5f to Color(0x1A101820),
-                        1f to TreeHouseBackground,
-                    ),
-                ),
+                modifier = Modifier.align(Alignment.BottomStart).fillMaxHeight(0.88f),
+                contentScale = ContentScale.FillHeight,
+                alignment = Alignment.BottomStart,
             )
             Column(
                 modifier = Modifier.align(Alignment.Center),
