@@ -5,6 +5,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
 import androidx.tv.material3.Card
@@ -20,14 +21,17 @@ private const val FOCUSED_GLOW_DP = 24
  * tile across Home and Details - scale up, a colored glow, and a crisp 2px border when focused, so
  * a focused tile never blends into busy background art. The glow is tinted with the app's accent
  * color rather than plain white for a more distinctive, "branded" focus state.
+ *
+ * [shape] defaults to the rounded-rect every poster/spotlight card uses - pass e.g. [androidx
+ * .compose.foundation.shape.CircleShape] for a round tile (the profile picker) instead.
  */
 @Composable
 fun FocusableCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(CARD_CORNER_DP.dp),
     content: @Composable () -> Unit,
 ) {
-    val shape = RoundedCornerShape(CARD_CORNER_DP.dp)
     Card(
         onClick = onClick,
         modifier = modifier,

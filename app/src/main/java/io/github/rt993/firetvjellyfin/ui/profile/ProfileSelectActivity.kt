@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,8 +29,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -121,7 +125,25 @@ private fun ProfileSelectScreen(
     }
 
     TreeHouseTheme {
-        Box(Modifier.fillMaxSize().background(TreeHouseBackground)) {
+        Box(Modifier.fillMaxSize()) {
+            // Same photo and gradient tint as the login screen's background (see
+            // login_background.xml) - reused here rather than duplicated, so the picker isn't
+            // left on the old flat color while the screen before it has the photo.
+            Image(
+                painter = painterResource(id = R.drawable.img_login_background),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        0f to Color(0x332A1F6B),
+                        0.5f to Color(0x1A101820),
+                        1f to TreeHouseBackground,
+                    ),
+                ),
+            )
             Column(
                 modifier = Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -164,7 +186,7 @@ private fun ProfileTile(name: String, icon: Int, onClick: () -> Unit, modifier: 
     // on FocusableCard itself, not this wrapping Column - a FocusRequester only works when it's on
     // the same modifier chain as an actual focusable node.
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        FocusableCard(onClick = onClick, modifier = modifier.size(140.dp)) {
+        FocusableCard(onClick = onClick, modifier = modifier.size(140.dp), shape = CircleShape) {
             Box(Modifier.fillMaxSize().background(TreeHouseSurface), contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = ImageVector.vectorResource(id = icon),
