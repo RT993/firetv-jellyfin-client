@@ -66,7 +66,9 @@ fun ProfileGlowOrb(modifier: Modifier = Modifier, color: Color = TreeHouseAccent
         val center = Offset(size.width / 2f, size.height / 2f)
         val radius = min(size.width, size.height) / 2f
 
-        drawRect(TreeHouseSurface)
+        // No flat fill here - transparent everywhere but the glow/sparkles/ring themselves, so
+        // whatever sits behind the tile (the profile picker's rings) shows through it instead of
+        // being covered by a solid circle.
         drawCircle(
             brush = Brush.radialGradient(
                 colorStops = arrayOf(
