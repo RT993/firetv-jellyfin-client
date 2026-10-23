@@ -8,6 +8,9 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import io.github.rt993.firetvjellyfin.R
@@ -15,6 +18,7 @@ import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.profile.ProfileSelectActivity
 import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
+import io.github.rt993.firetvjellyfin.ui.theme.DynamicBlueBackground
 import io.github.rt993.firetvjellyfin.ui.theme.fadeToNextScreen
 import org.jellyfin.sdk.api.client.exception.InvalidStatusException
 import kotlinx.coroutines.Job
@@ -102,6 +106,8 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
             MODE_ADD_PROFILE -> Step.CREDENTIALS
             else -> Step.WELCOME
         }
+
+        findViewById<ComposeView>(R.id.login_background).setContent { DynamicBlueBackground(Modifier.fillMaxSize()) }
 
         subtitle = findViewById(R.id.login_subtitle)
         stepWelcome = findViewById(R.id.step_welcome)

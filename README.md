@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.5.1** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.5.2** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
@@ -46,7 +46,8 @@ If you'd rather install from a machine on the same network via ADB, see
 ## Features
 
 - **Server login**: server address entry, username/password, or Quick Connect (approve from
-  another already-signed-in Jellyfin app/web page).
+  another already-signed-in Jellyfin app/web page), on a glass card over the same drifting blue
+  light-band background as Home, instead of the static photo this screen used to have.
 - **Profiles & servers**: a "Who's Watching?" picker shown after every splash intro, listing the
   profiles saved for whichever server is currently active - each one a glowing, lightly-sparking
   orb (`ui/theme/ProfileGlowOrb.kt`, a plain animated Canvas fill, not a literal GPU particle

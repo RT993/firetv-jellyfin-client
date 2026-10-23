@@ -3,7 +3,15 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/login_background">
+    android:background="@color/background_dark">
+
+    <!-- Same drifting light-band background as Home/the profile picker, set in LoginActivity -
+         keeps this, the last screen still on the old static-photo look, consistent with the rest
+         of the app instead of a one-off background image. -->
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/login_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 
     <LinearLayout
         android:id="@+id/login_card"
