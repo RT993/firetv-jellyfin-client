@@ -48,11 +48,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.tv.material3.Button
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
@@ -108,13 +110,27 @@ private val HERO_CORNER_RADIUS = 20.dp
 // Gap between the bottom of the boxed hero and the first row of content below it.
 private val HERO_BOTTOM_GAP = 30.dp
 
-// The hero accordion: a row of panels, one per trending item, where the one with D-pad focus
-// expands to HERO_EXPAND_RATIO of the row's width and the rest share what's left equally - rather
-// than one fixed backdrop with a separate paging control, D-pad left/right *is* the paging, moving
-// focus from panel to panel the same way it moves through any other row.
-private val HERO_PANEL_GAP = 10.dp
-private const val HERO_EXPAND_RATIO = 0.52f
 private const val HERO_PANEL_LIMIT = 6
+
+// A stack of poster cards receding/fanning to one side behind whichever one has D-pad focus -
+// D-pad left/right moves focus between cards the same way it moves through any other row, each
+// one reporting its own distance from focus so the whole stack reflows together (same idea as the
+// sidebar's wheel curve, just horizontal). There's no real 3D scene or GPU blur here - Compose's
+// graphicsLayer has no translateZ/perspective-camera equivalent, so "depth" is faked with the same
+// arithmetic a CSS perspective transform would use (apparent size shrinks as
+// DEPTH_PERSPECTIVE_PX / (DEPTH_PERSPECTIVE_PX + DEPTH_STEP_PX * steps-back)), and "blur" is a
+// plain dark overlay instead of a real blur, which needs RenderEffect (API 31+) well above this
+// app's target hardware.
+private const val DEPTH_VISIBLE_STEPS = 3
+// Fraction of the card's own width, not a flat dp value - a flat offset either buries the stack
+// behind the front card (too small relative to a wide card) or blows it apart (too large for a
+// narrow one), since the card's own size already scales with the hero's height.
+private const val DEPTH_SPREAD_FRACTION = 0.32f
+private const val DEPTH_TILT_DEGREES = 14f
+private const val DEPTH_PERSPECTIVE_PX = 1500f
+private const val DEPTH_STEP_PX = 190f
+private const val DEPTH_DIM_STEP = 0.22f
+private const val DEPTH_CAMERA_DISTANCE = 10f
 
 private const val TAG = "HomeScreen"
 
@@ -129,9 +145,9 @@ private data class HomeUiState(
 
 /**
  * Ground-up rewrite in Jetpack Compose for TV, replacing the Leanback [androidx.leanback.app
- * .BrowseSupportFragment]-based Home screen entirely. An accordion gallery of trending movies/
- * shows sits up top - D-pad focus expands whichever panel it lands on, see
- * [HeroAccordionGallery] - one poster row per library, then a Continue Watching row last.
+ * .BrowseSupportFragment]-based Home screen entirely. A depth-carousel of trending movies/shows
+ * sits up top - D-pad focus brings a card to the front of the stack, see
+ * [HeroDepthCarousel] - one poster row per library, then a Continue Watching row last.
  * [HomeSidebar] is a plain hand-built nav rail (not androidx.tv.material3's NavigationDrawer/
  * ModalNavigationDrawer - both turned out to have real, hard-to-verify quirks around measuring
  * collapsed-vs-expanded width that cost two rounds of bugs): no background of its own, icon-only
@@ -237,7 +253,7 @@ fun HomeScreen(
                         // Compose can discard/recycle it like any other row once scrolled well
                         // past, instead of redrawing it on every single scroll frame regardless of
                         // position - same reasoning the old fixed backdrop was built around.
-                        HeroAccordionGallery(
+                        HeroDepthCarousel(
                             items = heroItems,
                             repository = repository,
                             height = heroHeight,
@@ -441,14 +457,16 @@ private fun SidebarItem(icon: Int, label: String, showLabel: Boolean, distance: 
 }
 
 /**
- * An accordion of trending movies/shows: one panel per item in a Row, where the panel with D-pad
- * focus expands to [HERO_EXPAND_RATIO] of the row's width (via an animated [Modifier.weight]) and
- * the rest share what's left equally - so D-pad left/right paging through the old fixed hero's
- * Play button is now just normal focus movement between panels, and the "currently selected" item
- * is never ambiguous the way a separate row of paging dots could be.
+ * A depth-carousel of trending movies/shows: every card is centered on the same spot and pushed
+ * apart purely with [Modifier.offset] (see [HeroDepthCard]), so D-pad left/right moves focus
+ * between them exactly like any other row - the one with focus sits at the front, full size and
+ * bright; the next couple fan back and to the right behind it, shrinking, tilting and dimming;
+ * anything before it fades out fast rather than piling up in front. A dedicated info column next
+ * to the stack always shows whichever item currently has focus - there's no room for synopsis
+ * text on a narrow poster card the way the old full-width accordion panel had.
  */
 @Composable
-private fun HeroAccordionGallery(
+private fun HeroDepthCarousel(
     items: List<BaseItemDto>,
     repository: JellyfinRepository,
     height: Dp,
@@ -460,92 +478,131 @@ private fun HeroAccordionGallery(
     if (panelItems.isEmpty()) return
 
     var focusedIndex by remember { mutableStateOf(0) }
-    val collapsedWeight = (1f - HERO_EXPAND_RATIO) / (panelItems.size - 1).coerceAtLeast(1)
+    val focusedItem = panelItems[focusedIndex.coerceIn(0, panelItems.lastIndex)]
+    val cardWidth = height * POSTER_ASPECT_RATIO
 
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(HERO_PANEL_GAP)) {
-        panelItems.forEachIndexed { index, item ->
-            val expanded = index == focusedIndex
-            val weight by animateFloatAsState(if (expanded) HERO_EXPAND_RATIO else collapsedWeight, label = "accordionWeight")
-            HeroPanel(
-                item = item,
-                repository = repository,
-                expanded = expanded,
-                onClick = { onPlay(item) },
-                modifier = Modifier
-                    .weight(weight)
-                    .fillMaxHeight()
-                    .onFocusChanged { if (it.isFocused) focusedIndex = index }
-                    .then(if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier),
-            )
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier.fillMaxHeight().width(cardWidth * (1f + DEPTH_VISIBLE_STEPS * DEPTH_SPREAD_FRACTION + 0.1f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            panelItems.forEachIndexed { index, item ->
+                HeroDepthCard(
+                    item = item,
+                    repository = repository,
+                    cardWidth = cardWidth,
+                    distance = index - focusedIndex,
+                    onFocused = { focusedIndex = index },
+                    onClick = { onPlay(item) },
+                    modifier = Modifier
+                        .height(height)
+                        .then(if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier),
+                )
+            }
+        }
+        Spacer(Modifier.width(32.dp))
+        HeroDepthInfo(item = focusedItem, modifier = Modifier.weight(1f))
+    }
+}
+
+/**
+ * One card in the stack: a poster image, anchored at the same center spot as every other card in
+ * the stack and pushed to its own position purely with [Modifier.offset] (a real layout-level
+ * shift, not just a visual one) - so its placed bounds, not just its drawn pixels, land where the
+ * stack visually puts it, which is what keeps D-pad left/right landing on the geometrically correct
+ * neighbor despite every card starting from the same centered spot.
+ */
+@OptIn(ExperimentalGlideComposeApi::class)
+@Composable
+private fun HeroDepthCard(
+    item: BaseItemDto,
+    repository: JellyfinRepository,
+    cardWidth: Dp,
+    distance: Int,
+    onFocused: () -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isFront = distance == 0
+    val shown = abs(distance) <= DEPTH_VISIBLE_STEPS
+    val stepsBack = distance.coerceAtLeast(0).toFloat()
+    val density = LocalDensity.current.density
+
+    val scale by animateFloatAsState(
+        DEPTH_PERSPECTIVE_PX / (DEPTH_PERSPECTIVE_PX + DEPTH_STEP_PX * stepsBack),
+        label = "depthScale",
+    )
+    val tiltDegrees by animateFloatAsState(DEPTH_TILT_DEGREES * distance.toFloat().coerceIn(0f, 1f), label = "depthTilt")
+    val spreadOffset by animateDpAsState(cardWidth * DEPTH_SPREAD_FRACTION * distance, label = "depthSpread")
+    val cardAlpha by animateFloatAsState(
+        if (!shown) 0f else if (distance < 0) (1f + distance).coerceAtLeast(0f) else 1f,
+        label = "depthAlpha",
+    )
+    val dimAlpha by animateFloatAsState((stepsBack * DEPTH_DIM_STEP).coerceIn(0f, 0.86f), label = "depthDim")
+
+    Box(
+        modifier = modifier
+            .aspectRatio(POSTER_ASPECT_RATIO)
+            .zIndex(2000f - distance * 20f)
+            .offset(x = spreadOffset)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                rotationY = tiltDegrees
+                alpha = cardAlpha
+                cameraDistance = DEPTH_CAMERA_DISTANCE * density
+            }
+            .clip(RoundedCornerShape(HERO_CORNER_RADIUS))
+            .onFocusChanged { if (it.isFocused) onFocused() }
+            .clickable(onClick = onClick, enabled = shown),
+    ) {
+        GlideImage(
+            model = repository.buildImageUrl(item.id, imageType = ImageType.PRIMARY, maxWidth = 440),
+            contentDescription = item.name,
+            // The drift is only worth animating on the one card actually at the front right now -
+            // every other card is already being scaled/dimmed/tilted back for the stack itself.
+            modifier = if (isFront) Modifier.fillMaxSize().kenBurnsDrift() else Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+        if (dimAlpha > 0f) {
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = dimAlpha)))
         }
     }
 }
 
 /**
- * One accordion panel: a poster image with a bottom gradient and a title that stays legible at
- * any width, since every panel other than the focused one is squeezed down to a sliver. Only the
- * expanded panel shows the fuller metadata/overview - there's no room for it in a collapsed one.
+ * The stack's companion text column - title, rating/year/runtime/rating meta line, overview, and a
+ * "press OK to play" hint for whichever card currently sits at the front. The card itself (not a
+ * separate button) is what's actually focusable/clickable - this column is purely informational.
  */
-@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
-private fun HeroPanel(
-    item: BaseItemDto,
-    repository: JellyfinRepository,
-    expanded: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(HERO_CORNER_RADIUS))
-            .clickable(onClick = onClick),
-    ) {
-        GlideImage(
-            model = repository.buildImageUrl(item.id, imageType = ImageType.PRIMARY, maxWidth = 640),
-            contentDescription = item.name,
-            // The drift is only worth animating on the one panel actually showing full-size right
-            // now - a collapsed sliver is too narrow for it to read as anything but clipped edges.
-            modifier = if (expanded) Modifier.fillMaxSize().kenBurnsDrift() else Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
+private fun HeroDepthInfo(item: BaseItemDto, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Text(
+            item.name.orEmpty(),
+            color = TreeHouseTextPrimary,
+            style = MaterialTheme.typography.headlineSmall,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
         )
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(
-                    0f to Color.Transparent,
-                    0.5f to Color.Transparent,
-                    1f to TreeHouseBackground.copy(alpha = 0.95f),
-                ),
-            ),
-        )
-        Column(modifier = Modifier.align(Alignment.BottomStart).padding(20.dp)) {
+        Spacer(Modifier.height(6.dp))
+        Text(buildMetaLine(item), color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodySmall)
+        item.overview?.takeIf { it.isNotBlank() }?.let { overview ->
+            Spacer(Modifier.height(10.dp))
             Text(
-                item.name.orEmpty(),
-                color = TreeHouseTextPrimary,
-                style = if (expanded) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.labelMedium,
-                maxLines = if (expanded) 2 else 1,
+                overview,
+                color = TreeHouseTextSecondary,
+                maxLines = 4,
                 overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.widthIn(max = 480.dp),
             )
-            if (expanded) {
-                Spacer(Modifier.height(6.dp))
-                Text(buildMetaLine(item), color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodySmall)
-                item.overview?.takeIf { it.isNotBlank() }?.let { overview ->
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        overview,
-                        color = TreeHouseTextSecondary,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.widthIn(max = 480.dp),
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_hero_play), contentDescription = null, tint = TreeHouseTextPrimary)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.playback_play), color = TreeHouseTextPrimary, style = MaterialTheme.typography.labelLarge)
-                }
-            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_hero_play), contentDescription = null, tint = TreeHouseTextPrimary)
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.playback_play), color = TreeHouseTextPrimary, style = MaterialTheme.typography.labelLarge)
         }
     }
 }
