@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.3.11** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.3.12** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
@@ -69,8 +69,9 @@ If you'd rather install from a machine on the same network via ADB, see
   (extracted from the poster art via `androidx.palette`).
 - **TV series get an inline season picker**: a row of seasons on the details screen swaps the
   episode row below it on the same screen - no separate season-pick screen.
-- **Playback**: direct-play when the server says the file's compatible with this device, HLS
-  transcode fallback otherwise (see [below](#the-direct-play-vs-transcode-decision)). A custom,
+- **Playback**: direct-play when the server says the file's compatible with this device, a
+  container remux (direct stream) or full HLS transcode otherwise (see
+  [below](#the-direct-play-vs-direct-stream-vs-transcode-decision)). A custom,
   minimal transport UI (not Leanback's stock boxy controls) over a raw `SurfaceView` - play/pause,
   10/30/60s skip back/forward (pressing the same button again quickly escalates to the next tier,
   instead of crawling forward 10s at a time), a thin scrubber, auto-hiding after a few seconds
@@ -130,7 +131,7 @@ app/src/main/java/io/github/rt993/firetvjellyfin/
 │   └── JellyfinRepository.kt       App-facing wrapper over the raw SDK calls (auth, browse, playback info)
 ├── playback/
 │   ├── DeviceProfileFactory.kt     Declares this device's playback capabilities to the server
-│   └── PlaybackDecisionMaker.kt    The direct-play-vs-transcode decision point (see below)
+│   └── PlaybackDecisionMaker.kt    The direct-play/direct-stream/transcode decision point (see below)
 └── ui/
     ├── splash/   SplashActivity: launcher activity, plays the intro then routes to Home/Login
     ├── login/    Server address -> username/password or Quick Connect (a hand-built step flow,
@@ -147,7 +148,7 @@ app/src/main/java/io/github/rt993/firetvjellyfin/
                   transport UI, Skip Intro, and Play Next (see Features above)
 ```
 
-### The direct-play vs. transcode decision
+### The direct-play vs. direct-stream vs. transcode decision
 
 This is the one architectural point the task called out explicitly, so it's deliberately isolated
 rather than inlined into the player:
@@ -162,7 +163,15 @@ rather than inlined into the player:
 3. [`playback/PlaybackDecisionMaker.kt`](app/src/main/java/io/github/rt993/firetvjellyfin/playback/PlaybackDecisionMaker.kt)
    turns that server answer into one concrete, playable URL. This is the single place in the app
    where that choice is made - `PlaybackActivity` never inspects codecs itself, it just hands
-   ExoPlayer whatever URL comes out.
+   ExoPlayer whatever URL comes out. Direct stream and transcode share the same code path there
+   (both ride the server's `transcodingUrl`/HLS machinery - the difference is purely whether ffmpeg
+   copies or re-encodes), differing only in the `PlaybackMode` tag used for the on-screen badge and
+   the playback-progress reports sent back to the server.
+
+`supportsDirectStream` (the server offering to remux into a compatible container without
+re-encoding, e.g. an .avi/.ts/.wmv rip whose video/audio codecs are already fine) went unchecked
+for a while - the decision jumped straight from direct-play to a full transcode, re-encoding video
+the server didn't actually need to touch. Fixed now; all three outcomes are handled.
 
 The current codec list in `DeviceProfileFactory` is a reasonable generic baseline (H.264/HEVC,
 common containers). It is **not** tuned to a specific Fire TV Stick generation - different stick

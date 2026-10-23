@@ -8,7 +8,7 @@ import org.jellyfin.sdk.model.api.MediaStream
 import org.jellyfin.sdk.model.api.PlaybackInfoResponse
 
 /** How a media source ended up being played. Surfaced in the UI so this is never a silent choice. */
-enum class PlaybackMode { DIRECT_PLAY, TRANSCODE }
+enum class PlaybackMode { DIRECT_PLAY, DIRECT_STREAM, TRANSCODE }
 
 data class PlaybackSelection(
     val mode: PlaybackMode,
@@ -34,14 +34,24 @@ fun resolveJellyfinUrl(api: ApiClient, relativeOrAbsoluteUrl: String): String =
     }
 
 /**
- * The single, isolated place where this app decides direct-play vs. transcode.
+ * The single, isolated place where this app decides direct-play vs. direct-stream vs. transcode.
  *
- * The server already told us, per media source, whether it [MediaSourceInfo.supportsDirectPlay]
- * given the [DeviceProfile][buildDeviceProfile] we submitted with the playback info request (see
+ * The server already told us, per media source, whether it [MediaSourceInfo.supportsDirectPlay],
+ * [MediaSourceInfo.supportsDirectStream], or only [MediaSourceInfo.supportsTranscoding], given the
+ * [DeviceProfile][buildDeviceProfile] we submitted with the playback info request (see
  * [io.github.rt993.firetvjellyfin.data.JellyfinRepository.getPlaybackInfo]). This class does not
  * re-evaluate codec compatibility itself - it only turns that server decision into a concrete,
  * playable URL. Swap this implementation if you want the client to make the call locally instead
  * (e.g. by inspecting MediaCodecList) rather than trusting the server's DeviceProfile matching.
+ *
+ * Direct stream used to be missing entirely here - the server returns it whenever the file's
+ * video/audio codecs are already fine but the *container* isn't one of our DirectPlayProfiles
+ * (e.g. an .avi/.ts/.wmv rip with perfectly playable h264/aac), and a source like that was falling
+ * straight through to a full transcode: the server re-encoding video it didn't actually need to,
+ * just to work around a container mismatch. Direct stream still goes through the same
+ * TranscodingProfile/transcodingUrl machinery as transcode (Jellyfin's server builds that URL the
+ * same way for both - the difference is purely which codecs ffmpeg copies vs. re-encodes), so the
+ * two share an implementation below; only [PlaybackMode] and the reported [PlayMethod] differ.
  */
 class PlaybackDecisionMaker(private val api: ApiClient) {
 
@@ -51,7 +61,8 @@ class PlaybackDecisionMaker(private val api: ApiClient) {
 
         return when {
             source.supportsDirectPlay -> directPlay(itemId, source, mediaSourceId, playbackInfo.playSessionId)
-            source.supportsTranscoding -> transcode(source, mediaSourceId, playbackInfo.playSessionId)
+            source.supportsDirectStream -> remux(PlaybackMode.DIRECT_STREAM, source, mediaSourceId, playbackInfo.playSessionId)
+            source.supportsTranscoding -> remux(PlaybackMode.TRANSCODE, source, mediaSourceId, playbackInfo.playSessionId)
             else -> null
         }
     }
@@ -81,10 +92,10 @@ class PlaybackDecisionMaker(private val api: ApiClient) {
         )
     }
 
-    private fun transcode(source: MediaSourceInfo, mediaSourceId: String, playSessionId: String?): PlaybackSelection? {
+    private fun remux(mode: PlaybackMode, source: MediaSourceInfo, mediaSourceId: String, playSessionId: String?): PlaybackSelection? {
         val relativeOrAbsoluteUrl = source.transcodingUrl ?: return null
         return PlaybackSelection(
-            PlaybackMode.TRANSCODE,
+            mode,
             withAccessToken(resolveJellyfinUrl(api, relativeOrAbsoluteUrl)),
             mediaSourceId,
             source.mediaStreams.orEmpty(),

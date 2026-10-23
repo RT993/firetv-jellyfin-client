@@ -252,6 +252,7 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
 
     private fun playMethodFor(mode: PlaybackMode): PlayMethod = when (mode) {
         PlaybackMode.DIRECT_PLAY -> PlayMethod.DIRECT_PLAY
+        PlaybackMode.DIRECT_STREAM -> PlayMethod.DIRECT_STREAM
         PlaybackMode.TRANSCODE -> PlayMethod.TRANSCODE
     }
 
@@ -265,7 +266,11 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
 
     private fun startPlayback(api: ApiClient, startPositionTicks: Long) {
         subtitleText.text = getString(
-            if (currentMode == PlaybackMode.DIRECT_PLAY) R.string.playback_mode_direct else R.string.playback_mode_transcode,
+            when (currentMode) {
+                PlaybackMode.DIRECT_PLAY -> R.string.playback_mode_direct
+                PlaybackMode.DIRECT_STREAM -> R.string.playback_mode_direct_stream
+                PlaybackMode.TRANSCODE -> R.string.playback_mode_transcode
+            },
         )
 
         // A direct-play URL is one request, and the query-string access token
@@ -459,13 +464,15 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
     /**
      * Direct play sends the whole file through, so every audio track ExoPlayer parsed out of the
      * container is already available locally - a plain track-selection override switches it with
-     * no server involvement. A transcode, though, only ever contains the one audio track Jellyfin
-     * was told to encode; the other tracks were never sent to the client at all, so switching
-     * means asking the server for a new stream with the chosen index, which needs a restart.
+     * no server involvement. Direct stream and transcode, though, only ever contain the one audio
+     * track Jellyfin was told to build the stream with (a remux still only copies a single audio
+     * track, same as a real transcode) - the other tracks were never sent to the client at all, so
+     * switching means asking the server for a new stream with the chosen index, which needs a
+     * restart either way.
      */
     private fun selectAudioTrack(stream: MediaStream) {
         val exoPlayer = player ?: return
-        if (currentMode == PlaybackMode.TRANSCODE) {
+        if (currentMode != PlaybackMode.DIRECT_PLAY) {
             restartWithAudioTrack(stream.index)
             return
         }

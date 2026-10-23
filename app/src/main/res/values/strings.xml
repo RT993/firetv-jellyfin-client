@@ -3,7 +3,7 @@
     <string name="app_name">TreeHouse</string>
 
     <!-- Splash -->
-    <string name="splash_version">Version 0.3.11</string>
+    <string name="splash_version">Version 0.3.12</string>
 
     <!-- Login -->
     <string name="login_step_welcome_subtitle">Let\'s get connected</string>
@@ -58,6 +58,7 @@
     <!-- Playback -->
     <string name="playback_error">Playback failed.</string>
     <string name="playback_mode_direct">Direct play</string>
+    <string name="playback_mode_direct_stream">Direct stream</string>
     <string name="playback_mode_transcode">Transcoding</string>
     <string name="playback_play">Play</string>
     <string name="playback_pause">Pause</string>
