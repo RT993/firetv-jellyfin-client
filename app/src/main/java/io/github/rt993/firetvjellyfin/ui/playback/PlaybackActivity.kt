@@ -37,6 +37,7 @@ import io.github.rt993.firetvjellyfin.playback.PlaybackDecisionMaker
 import io.github.rt993.firetvjellyfin.playback.PlaybackMode
 import io.github.rt993.firetvjellyfin.playback.PlaybackSelection
 import io.github.rt993.firetvjellyfin.playback.resolveJellyfinUrl
+import io.github.rt993.firetvjellyfin.ui.theme.fadeToNextScreen
 import io.github.rt993.firetvjellyfin.util.CrashLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -574,6 +575,7 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
                 .putExtra(EXTRA_ITEM_ID, next.id.toString())
                 .putExtra(EXTRA_ITEM_NAME, next.name),
         )
+        fadeToNextScreen()
         finish()
     }
 

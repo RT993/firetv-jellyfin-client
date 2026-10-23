@@ -63,6 +63,8 @@ import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.theme.DynamicBlueBackground
 import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
+import io.github.rt993.firetvjellyfin.ui.theme.focusParallax
+import io.github.rt993.firetvjellyfin.ui.theme.kenBurnsDrift
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseAccent
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseBackground
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseSurface
@@ -501,7 +503,9 @@ private fun HeroPanel(
         GlideImage(
             model = repository.buildImageUrl(item.id, imageType = ImageType.PRIMARY, maxWidth = 640),
             contentDescription = item.name,
-            modifier = Modifier.fillMaxSize(),
+            // The drift is only worth animating on the one panel actually showing full-size right
+            // now - a collapsed sliver is too narrow for it to read as anything but clipped edges.
+            modifier = if (expanded) Modifier.fillMaxSize().kenBurnsDrift() else Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
         )
         Box(
@@ -591,11 +595,11 @@ private fun PosterCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    FocusableCard(modifier = modifier.width(140.dp), onClick = onClick) {
+    FocusableCard(modifier = modifier.width(140.dp), onClick = onClick) { isFocused ->
         GlideImage(
             model = repository.buildImageUrl(item.id, maxWidth = 280),
             contentDescription = item.name,
-            modifier = Modifier.fillMaxWidth().aspectRatio(POSTER_ASPECT_RATIO),
+            modifier = Modifier.fillMaxWidth().aspectRatio(POSTER_ASPECT_RATIO).focusParallax(isFocused),
             contentScale = ContentScale.Crop,
         )
     }
@@ -637,12 +641,12 @@ private fun SpotlightCard(
         // FocusableCard itself, not this wrapping Column - focusProperties only reaches a focus
         // target further down the same modifier chain, and the Column and the Card's actual focus
         // node are separate composables, not links in one chain.
-        FocusableCard(onClick = onClick, modifier = modifier) {
+        FocusableCard(onClick = onClick, modifier = modifier) { isFocused ->
             Box {
                 GlideImage(
                     model = repository.buildImageUrl(item.id, imageType = imageType, maxWidth = 560),
                     contentDescription = item.name,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(SPOTLIGHT_ASPECT_RATIO),
+                    modifier = Modifier.fillMaxWidth().aspectRatio(SPOTLIGHT_ASPECT_RATIO).focusParallax(isFocused),
                     contentScale = ContentScale.Crop,
                 )
                 if (percent > 0f) {

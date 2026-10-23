@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.ui.details.ItemDetailsActivity
 import io.github.rt993.firetvjellyfin.ui.home.CardPresenter
+import io.github.rt993.firetvjellyfin.ui.theme.fadeToNextScreen
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.api.BaseItemDto
 import java.util.UUID
@@ -68,6 +69,7 @@ class LibraryGridFragment : VerticalGridSupportFragment() {
             Intent(requireContext(), ItemDetailsActivity::class.java)
                 .putExtra(ItemDetailsActivity.EXTRA_ITEM_ID, item.id.toString()),
         )
+        requireActivity().fadeToNextScreen()
     }
 
     private inner class ItemClickedListener : OnItemViewClickedListener {

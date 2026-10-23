@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.4.0** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.5.0** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
@@ -59,9 +59,11 @@ If you'd rather install from a machine on the same network via ADB, see
   style - see `ui/theme/DynamicBackground.kt`; built from plain tilted gradient fills, not a real
   blur, so it stays cheap on the target hardware), an accordion gallery of trending movies/shows up
   top (D-pad focus expands whichever panel it lands on, instead of a separate paging control - see
-  `HeroAccordionGallery`), a "Pick up where you left off" row, and one poster row per library.
-  Poster/spotlight cards pop into a slight 3D tilt on focus (`FocusableCard`'s `graphicsLayer`
-  rotation). A left nav rail (Home, one icon per library, Account) stays out of the way -
+  `HeroAccordionGallery`; the expanded panel's art also drifts in a slow, continuous "Ken Burns"
+  scale+pan - `Modifier.kenBurnsDrift()`), a "Pick up where you left off" row, and one poster row
+  per library. Poster/spotlight cards pop into a slight 3D tilt on focus (`FocusableCard`'s
+  `graphicsLayer` rotation), with the poster art itself drifting slightly closer underneath
+  (`Modifier.focusParallax()`). A left nav rail (Home, one icon per library, Account) stays out of the way -
   transparent and icon-only - until D-pad focus actually lands on it, curving its items around
   whichever one is focused (closer items read larger/brighter, farther ones shrink and recede, like
   a wheel bowing away from the center) and fading in a background and labels. The Account item
@@ -69,10 +71,13 @@ If you'd rather install from a machine on the same network via ADB, see
   Library (kicks off the same full library scan as the server dashboard's own "Scan All
   Libraries" button, for picking up newly added files without leaving the couch), and Info.
 - **Details screen**: a split layout - full-bleed backdrop on the right, gradient-masked into a
-  poster/title/metadata panel on the left. Technical badges (4K/1080p, Dolby Vision/HDR10/HLG,
-  Dolby Atmos/surround) read from the file's actual media streams, a Watchlist toggle backed by
-  Jellyfin's own per-user favorite flag, and a soft per-title ambient color glow behind the poster
-  (extracted from the poster art via `androidx.palette`).
+  poster/title/metadata panel on the left. The backdrop loads "blur-up" style - a near-instant,
+  hand-blurred thumbnail (`BoxBlurTransformation`, a plain box blur, no new dependency) crossfades
+  into the full-resolution image as it loads - and drifts with the same slow Ken Burns scale+pan as
+  Home's hero panel. Technical badges (4K/1080p, Dolby Vision/HDR10/HLG, Dolby Atmos/surround) read
+  from the file's actual media streams, a Watchlist toggle backed by Jellyfin's own per-user
+  favorite flag, and a soft per-title ambient color glow behind the poster (extracted from the
+  poster art via `androidx.palette`).
 - **TV series get an inline season picker**: a row of seasons on the details screen swaps the
   episode row below it on the same screen - no separate season-pick screen.
 - **Playback**: direct-play when the server says the file's compatible with this device, a
@@ -89,6 +94,9 @@ If you'd rather install from a machine on the same network via ADB, see
   played/resume state on the server actually in sync with what was watched here.
 - **Splash intro**: a short floating-logo animation on launch before handing off to Home (if
   already signed in) or the login flow.
+- **Screen transitions**: every `startActivity` navigation (Home <-> Details <-> Playback, the
+  profile/server pickers, login) fades between screens instead of the platform's default hard cut
+  (`Activity.fadeToNextScreen()`, `res/anim/fade_in.xml`/`fade_out.xml`).
 
 ## Tech stack
 

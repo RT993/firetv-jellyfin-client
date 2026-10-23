@@ -33,6 +33,10 @@ private const val TILT_ROTATION_Y = 10f
 private const val TILT_CAMERA_DISTANCE = 14f
 private const val TILT_ANIMATION_MS = 220
 
+private const val PARALLAX_SCALE = 1.06f
+private const val PARALLAX_TRANSLATION_DP = -4f
+private const val PARALLAX_ANIMATION_MS = 220
+
 /**
  * A [Card] with the "Scale & Glow"/halo-border focus treatment shared by every poster/spotlight
  * tile across Home and Details - scale up, a colored glow, a crisp 2px border, and a slight 3D
@@ -42,13 +46,17 @@ private const val TILT_ANIMATION_MS = 220
  *
  * [shape] defaults to the rounded-rect every poster/spotlight card uses - pass e.g. [androidx
  * .compose.foundation.shape.CircleShape] for a round tile (the profile picker) instead.
+ *
+ * [content] receives the card's own focus state, so a caller can drive a subtle inner-image
+ * parallax (see HomeScreen's PosterCard/SpotlightCard) layered under this card-level tilt, instead
+ * of every image inside every focusable tile reimplementing its own focus listener.
  */
 @Composable
 fun FocusableCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(CARD_CORNER_DP.dp),
-    content: @Composable () -> Unit,
+    content: @Composable (isFocused: Boolean) -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
@@ -80,6 +88,32 @@ fun FocusableCard(
         glow = CardDefaults.glow(focusedGlow = Glow(elevationColor = TreeHouseAccent, elevation = FOCUSED_GLOW_DP.dp)),
         interactionSource = interactionSource,
     ) {
-        content()
+        content(isFocused)
+    }
+}
+
+/**
+ * A subtle focus-driven scale/lift for content *inside* a [FocusableCard], layered under the
+ * card's own tilt/scale/glow - reads as the poster art itself drifting toward the viewer on
+ * focus, rather than just the card frame around it growing.
+ */
+@Composable
+fun Modifier.focusParallax(isFocused: Boolean): Modifier {
+    val animationSpec = tween<Float>(PARALLAX_ANIMATION_MS)
+    val scale by animateFloatAsState(
+        targetValue = if (isFocused) PARALLAX_SCALE else 1f,
+        animationSpec = animationSpec,
+        label = "parallaxScale",
+    )
+    val translationDp by animateFloatAsState(
+        targetValue = if (isFocused) PARALLAX_TRANSLATION_DP else 0f,
+        animationSpec = animationSpec,
+        label = "parallaxTranslation",
+    )
+    val density = LocalDensity.current.density
+    return this.graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+        translationY = translationDp * density
     }
 }

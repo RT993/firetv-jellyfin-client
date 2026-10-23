@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.ui.playback.PlaybackActivity
+import io.github.rt993.firetvjellyfin.ui.theme.fadeToNextScreen
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
 
@@ -47,6 +48,7 @@ class ItemDetailsActivity : ComponentActivity() {
                 .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, item.name)
                 .putExtra(PlaybackActivity.EXTRA_START_POSITION_TICKS, item.userData?.playbackPositionTicks ?: 0L),
         )
+        fadeToNextScreen()
     }
 
     /** Opens another item's own Details page - e.g. a movie clicked from inside a Box Set's row. */
@@ -55,6 +57,7 @@ class ItemDetailsActivity : ComponentActivity() {
             Intent(this, ItemDetailsActivity::class.java)
                 .putExtra(EXTRA_ITEM_ID, item.id.toString()),
         )
+        fadeToNextScreen()
     }
 
     companion object {

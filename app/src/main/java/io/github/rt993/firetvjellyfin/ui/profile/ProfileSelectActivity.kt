@@ -45,6 +45,7 @@ import io.github.rt993.firetvjellyfin.ui.login.LoginActivity
 import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
 import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
 import io.github.rt993.firetvjellyfin.ui.theme.LaserBeamBackground
+import io.github.rt993.firetvjellyfin.ui.theme.fadeToNextScreen
 import io.github.rt993.firetvjellyfin.ui.theme.ProfileGlowOrb
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseAccent
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseSurface
@@ -69,6 +70,7 @@ class ProfileSelectActivity : ComponentActivity() {
 
         if (!intent.getBooleanExtra(SplashActivity.EXTRA_FROM_SPLASH, false)) {
             startActivity(Intent(this, SplashActivity::class.java))
+            fadeToNextScreen()
             finish()
             return
         }
@@ -95,6 +97,7 @@ class ProfileSelectActivity : ComponentActivity() {
     private fun openHome(profile: SavedProfile) {
         JellyfinClientHolder.activateProfile(profile)
         startActivity(Intent(this, HomeActivity::class.java))
+        fadeToNextScreen()
         // Finished, not just backgrounded - pressing Back from Home should exit the app the same
         // way it always has, not bounce back to this picker.
         finish()
@@ -102,10 +105,12 @@ class ProfileSelectActivity : ComponentActivity() {
 
     private fun openAddProfile() {
         startActivity(Intent(this, LoginActivity::class.java).putExtra(LoginActivity.EXTRA_MODE, LoginActivity.MODE_ADD_PROFILE))
+        fadeToNextScreen()
     }
 
     private fun openServerList() {
         startActivity(Intent(this, ServerListActivity::class.java))
+        fadeToNextScreen()
     }
 }
 
@@ -171,7 +176,7 @@ private fun ProfileTile(name: String, icon: Int, onClick: () -> Unit, showGlow: 
     // on FocusableCard itself, not this wrapping Column - a FocusRequester only works when it's on
     // the same modifier chain as an actual focusable node.
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        FocusableCard(onClick = onClick, modifier = modifier.size(140.dp), shape = CircleShape) {
+        FocusableCard(onClick = onClick, modifier = modifier.size(140.dp), shape = CircleShape) { _ ->
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 if (showGlow) {
                     // A real profile - the glowing orb fill (see ProfileGlowOrb) rather than a

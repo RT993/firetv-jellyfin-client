@@ -15,6 +15,7 @@ import io.github.rt993.firetvjellyfin.ui.playback.PlaybackActivity
 import io.github.rt993.firetvjellyfin.ui.profile.ProfileSelectActivity
 import io.github.rt993.firetvjellyfin.ui.profile.ServerListActivity
 import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
+import io.github.rt993.firetvjellyfin.ui.theme.fadeToNextScreen
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
@@ -61,6 +62,7 @@ class HomeActivity : ComponentActivity() {
             Intent(this, ItemDetailsActivity::class.java)
                 .putExtra(ItemDetailsActivity.EXTRA_ITEM_ID, item.id.toString()),
         )
+        fadeToNextScreen()
     }
 
     /** A series has no single video to play - route it to the season/episode picker instead. */
@@ -75,6 +77,7 @@ class HomeActivity : ComponentActivity() {
                 .putExtra(PlaybackActivity.EXTRA_ITEM_NAME, item.name)
                 .putExtra(PlaybackActivity.EXTRA_START_POSITION_TICKS, item.userData?.playbackPositionTicks ?: 0L),
         )
+        fadeToNextScreen()
     }
 
     private fun openLibraryGrid(library: BaseItemDto) {
@@ -83,6 +86,7 @@ class HomeActivity : ComponentActivity() {
                 .putExtra(LibraryGridActivity.EXTRA_LIBRARY_ID, library.id.toString())
                 .putExtra(LibraryGridActivity.EXTRA_TITLE, library.name.orEmpty()),
         )
+        fadeToNextScreen()
     }
 
     /**
@@ -112,6 +116,7 @@ class HomeActivity : ComponentActivity() {
     private fun logOut() {
         JellyfinClientHolder.signOut()
         startActivity(Intent(this, ProfileSelectActivity::class.java).putExtra(SplashActivity.EXTRA_FROM_SPLASH, true))
+        fadeToNextScreen()
         finish()
     }
 
@@ -123,6 +128,7 @@ class HomeActivity : ComponentActivity() {
     private fun changeServer() {
         JellyfinClientHolder.signOut()
         startActivity(Intent(this, ServerListActivity::class.java))
+        fadeToNextScreen()
         finish()
     }
 

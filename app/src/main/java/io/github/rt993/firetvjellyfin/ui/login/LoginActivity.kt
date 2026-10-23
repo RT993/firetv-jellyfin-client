@@ -15,6 +15,7 @@ import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.profile.ProfileSelectActivity
 import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
+import io.github.rt993.firetvjellyfin.ui.theme.fadeToNextScreen
 import org.jellyfin.sdk.api.client.exception.InvalidStatusException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -73,6 +74,7 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
 
         if (mode == null && !intent.getBooleanExtra(SplashActivity.EXTRA_FROM_SPLASH, false)) {
             startActivity(Intent(this, SplashActivity::class.java))
+            fadeToNextScreen()
             finish()
             return
         }
@@ -290,6 +292,7 @@ class LoginActivity : FragmentActivity(R.layout.activity_login) {
                 .putExtra(SplashActivity.EXTRA_FROM_SPLASH, true)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
         )
+        fadeToNextScreen()
         finish()
     }
 

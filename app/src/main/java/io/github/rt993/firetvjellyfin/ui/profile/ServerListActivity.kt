@@ -48,6 +48,7 @@ import io.github.rt993.firetvjellyfin.data.SavedServer
 import io.github.rt993.firetvjellyfin.ui.login.LoginActivity
 import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseAccent
+import io.github.rt993.firetvjellyfin.ui.theme.fadeToNextScreen
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseBackground
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseSurface
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextPrimary
@@ -101,12 +102,14 @@ class ServerListActivity : ComponentActivity() {
                     .putExtra(SplashActivity.EXTRA_FROM_SPLASH, true)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
             )
+            fadeToNextScreen()
         }
         finish()
     }
 
     private fun addServer() {
         startActivity(Intent(this, LoginActivity::class.java).putExtra(LoginActivity.EXTRA_MODE, LoginActivity.MODE_ADD_SERVER))
+        fadeToNextScreen()
     }
 }
 

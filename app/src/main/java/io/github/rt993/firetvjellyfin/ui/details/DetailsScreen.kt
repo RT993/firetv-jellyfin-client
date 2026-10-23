@@ -47,12 +47,17 @@ import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.bumptech.glide.Glide
+import com.bumptech.glide.integration.compose.CrossFade
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.ui.theme.AmbientGlow
+import io.github.rt993.firetvjellyfin.ui.theme.BoxBlurTransformation
 import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
+import io.github.rt993.firetvjellyfin.ui.theme.focusParallax
+import io.github.rt993.firetvjellyfin.ui.theme.kenBurnsDrift
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseBackground
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextPrimary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextSecondary
@@ -259,11 +264,20 @@ private suspend fun resolveSeriesPlayTarget(repository: JellyfinRepository, user
 private fun DetailsBackdrop(item: BaseItemDto, repository: JellyfinRepository) {
     Box(Modifier.fillMaxSize()) {
         if (!item.backdropImageTags.isNullOrEmpty()) {
+            val context = LocalContext.current
+            val thumbnailUrl = repository.buildImageUrl(item.id, imageType = ImageType.BACKDROP, maxWidth = 60)
             GlideImage(
                 model = repository.buildImageUrl(item.id, imageType = ImageType.BACKDROP, maxWidth = 1920),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().kenBurnsDrift(),
                 contentScale = ContentScale.Crop,
+                transition = CrossFade,
+                // A blurred, near-instant low-res thumbnail shows first and crossfades into the
+                // full-resolution backdrop as it loads, instead of the art popping in abruptly
+                // over the plain background once the (much larger) full image is fully decoded.
+                requestBuilderTransform = { requestBuilder ->
+                    requestBuilder.thumbnail(Glide.with(context).load(thumbnailUrl).transform(BoxBlurTransformation()))
+                },
             )
         }
         // Left-to-right mask so the info panel stays readable against the art; the backdrop
@@ -533,11 +547,11 @@ private fun SeasonsAndEpisodes(
 @Composable
 private fun EpisodeCard(episode: BaseItemDto, repository: JellyfinRepository, onClick: () -> Unit) {
     Column {
-        FocusableCard(onClick = onClick, modifier = Modifier.width(EPISODE_CARD_WIDTH_DP.dp)) {
+        FocusableCard(onClick = onClick, modifier = Modifier.width(EPISODE_CARD_WIDTH_DP.dp)) { isFocused ->
             GlideImage(
                 model = repository.buildImageUrl(episode.id, imageType = ImageType.PRIMARY, maxWidth = 440),
                 contentDescription = episode.name,
-                modifier = Modifier.fillMaxWidth().aspectRatio(EPISODE_ASPECT_RATIO),
+                modifier = Modifier.fillMaxWidth().aspectRatio(EPISODE_ASPECT_RATIO).focusParallax(isFocused),
                 contentScale = ContentScale.Crop,
             )
         }
@@ -583,11 +597,11 @@ private fun BoxSetMovies(
 @Composable
 private fun BoxSetMovieCard(movie: BaseItemDto, repository: JellyfinRepository, onClick: () -> Unit) {
     Column {
-        FocusableCard(onClick = onClick, modifier = Modifier.width(BOX_SET_MOVIE_CARD_WIDTH_DP.dp)) {
+        FocusableCard(onClick = onClick, modifier = Modifier.width(BOX_SET_MOVIE_CARD_WIDTH_DP.dp)) { isFocused ->
             GlideImage(
                 model = repository.buildImageUrl(movie.id, maxWidth = 280),
                 contentDescription = movie.name,
-                modifier = Modifier.fillMaxWidth().aspectRatio(POSTER_ASPECT_RATIO),
+                modifier = Modifier.fillMaxWidth().aspectRatio(POSTER_ASPECT_RATIO).focusParallax(isFocused),
                 contentScale = ContentScale.Crop,
             )
         }

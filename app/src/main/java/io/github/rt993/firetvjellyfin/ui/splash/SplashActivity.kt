@@ -10,6 +10,7 @@ import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.ui.login.LoginActivity
 import io.github.rt993.firetvjellyfin.ui.profile.ProfileSelectActivity
+import io.github.rt993.firetvjellyfin.ui.theme.fadeToNextScreen
 
 /**
  * Launcher activity: fades the logo in, holds it, fades it out, then hands off to the profile
@@ -58,6 +59,7 @@ class SplashActivity : FragmentActivity(R.layout.activity_splash) {
             LoginActivity::class.java
         }
         startActivity(Intent(this, destination).putExtra(EXTRA_FROM_SPLASH, true))
+        fadeToNextScreen()
         finish()
     }
 
