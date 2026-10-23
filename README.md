@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.5.2** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.5.3** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
@@ -51,9 +51,11 @@ If you'd rather install from a machine on the same network via ADB, see
 - **Profiles & servers**: a "Who's Watching?" picker shown after every splash intro, listing the
   profiles saved for whichever server is currently active - each one a glowing, lightly-sparking
   orb (`ui/theme/ProfileGlowOrb.kt`, a plain animated Canvas fill, not a literal GPU particle
-  system) in front of a vertical beam of light landing on the row (`LaserBeamBackground`, same
-  gradient-fill approach as Home's background below). A "+" tile adds another profile to that same
-  server, and a small server icon switches to (or adds) a different Jellyfin server entirely.
+  system) in front of a stack of concentric glow rings breathing in and out behind the row, colored
+  in a gradient from the accent color at the center out to indigo at the rim
+  (`MagicRingsBackground`, same stroked-circle-with-additive-glow approach as everything else here).
+  A "+" tile adds another profile to that same server, and a small server icon switches to (or
+  adds) a different Jellyfin server entirely.
   Everything ever signed into stays saved on-device, so switching back is a couple of D-pad
   presses, not a fresh sign-in.
 - **Home**: a slow-drifting field of diagonal blue light bands behind everything (PS5 dashboard-

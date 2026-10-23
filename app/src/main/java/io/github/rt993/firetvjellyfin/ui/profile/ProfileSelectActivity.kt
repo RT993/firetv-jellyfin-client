@@ -44,7 +44,7 @@ import io.github.rt993.firetvjellyfin.ui.home.HomeActivity
 import io.github.rt993.firetvjellyfin.ui.login.LoginActivity
 import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
 import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
-import io.github.rt993.firetvjellyfin.ui.theme.LaserBeamBackground
+import io.github.rt993.firetvjellyfin.ui.theme.MagicRingsBackground
 import io.github.rt993.firetvjellyfin.ui.theme.fadeToNextScreen
 import io.github.rt993.firetvjellyfin.ui.theme.ProfileGlowOrb
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseAccent
@@ -128,10 +128,9 @@ private fun ProfileSelectScreen(
 
     TreeHouseTheme {
         Box(Modifier.fillMaxSize()) {
-            // A beam of light landing right where the profile row sits, instead of the earlier
-            // static photo - see LaserBeamBackground. landingYFraction is aimed at this screen's
-            // Column, which is vertically centered, so the splash lights up the row itself.
-            LaserBeamBackground(modifier = Modifier.fillMaxSize(), landingYFraction = 0.5f)
+            // A stack of breathing, concentric glow rings centered on the profile row - see
+            // MagicRingsBackground.
+            MagicRingsBackground(modifier = Modifier.fillMaxSize(), centerYFraction = 0.5f)
             Column(
                 modifier = Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally,
