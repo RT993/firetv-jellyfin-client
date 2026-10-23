@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.3.12** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.4.0** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
@@ -48,17 +48,23 @@ If you'd rather install from a machine on the same network via ADB, see
 - **Server login**: server address entry, username/password, or Quick Connect (approve from
   another already-signed-in Jellyfin app/web page).
 - **Profiles & servers**: a "Who's Watching?" picker shown after every splash intro, listing the
-  profiles saved for whichever server is currently active - a "+" tile adds another profile to
-  that same server, and a small server icon switches to (or adds) a different Jellyfin server
-  entirely. Everything ever signed into stays saved on-device, so switching back is a couple of
-  D-pad presses, not a fresh sign-in.
+  profiles saved for whichever server is currently active - each one a glowing, lightly-sparking
+  orb (`ui/theme/ProfileGlowOrb.kt`, a plain animated Canvas fill, not a literal GPU particle
+  system) in front of a vertical beam of light landing on the row (`LaserBeamBackground`, same
+  gradient-fill approach as Home's background below). A "+" tile adds another profile to that same
+  server, and a small server icon switches to (or adds) a different Jellyfin server entirely.
+  Everything ever signed into stays saved on-device, so switching back is a couple of D-pad
+  presses, not a fresh sign-in.
 - **Home**: a slow-drifting field of diagonal blue light bands behind everything (PS5 dashboard-
   style - see `ui/theme/DynamicBackground.kt`; built from plain tilted gradient fills, not a real
-  blur, so it stays cheap on the target hardware), a D-pad-pageable hero carousel of trending
-  movies/shows with a crossfading cinematic backdrop, a "Pick up where you left off" row, and one
-  poster row per library. A left nav rail
-  (Home, one icon per library, Account) stays out of the way - transparent and icon-only - until
-  D-pad focus actually lands on it, then it fades in a background and labels. The Account item
+  blur, so it stays cheap on the target hardware), an accordion gallery of trending movies/shows up
+  top (D-pad focus expands whichever panel it lands on, instead of a separate paging control - see
+  `HeroAccordionGallery`), a "Pick up where you left off" row, and one poster row per library.
+  Poster/spotlight cards pop into a slight 3D tilt on focus (`FocusableCard`'s `graphicsLayer`
+  rotation). A left nav rail (Home, one icon per library, Account) stays out of the way -
+  transparent and icon-only - until D-pad focus actually lands on it, curving its items around
+  whichever one is focused (closer items read larger/brighter, farther ones shrink and recede, like
+  a wheel bowing away from the center) and fading in a background and labels. The Account item
   opens a menu with Logout, Change Server (only shown once more than one server is saved), Scan
   Library (kicks off the same full library scan as the server dashboard's own "Scan All
   Libraries" button, for picking up newly added files without leaving the couch), and Info.

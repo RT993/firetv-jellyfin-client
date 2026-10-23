@@ -1,11 +1,19 @@
 package io.github.rt993.firetvjellyfin.ui.theme
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
 import androidx.tv.material3.Card
@@ -16,11 +24,21 @@ private const val CARD_CORNER_DP = 12
 private const val FOCUSED_SCALE = 1.14f
 private const val FOCUSED_GLOW_DP = 24
 
+// A fixed tilt, not cursor-tracked - there's no pointer on a D-pad remote, so instead of tilting
+// toward wherever a cursor sits, a focused card just pops into this one consistent 3D angle, the
+// same "it lifted toward you" read a cursor-tracked tilt gives on a single card, without needing
+// motion input this device doesn't have.
+private const val TILT_ROTATION_X = -8f
+private const val TILT_ROTATION_Y = 10f
+private const val TILT_CAMERA_DISTANCE = 14f
+private const val TILT_ANIMATION_MS = 220
+
 /**
  * A [Card] with the "Scale & Glow"/halo-border focus treatment shared by every poster/spotlight
- * tile across Home and Details - scale up, a colored glow, and a crisp 2px border when focused, so
- * a focused tile never blends into busy background art. The glow is tinted with the app's accent
- * color rather than plain white for a more distinctive, "branded" focus state.
+ * tile across Home and Details - scale up, a colored glow, a crisp 2px border, and a slight 3D
+ * tilt when focused, so a focused tile never blends into busy background art. The glow is tinted
+ * with the app's accent color rather than plain white for a more distinctive, "branded" focus
+ * state.
  *
  * [shape] defaults to the rounded-rect every poster/spotlight card uses - pass e.g. [androidx
  * .compose.foundation.shape.CircleShape] for a round tile (the profile picker) instead.
@@ -32,15 +50,35 @@ fun FocusableCard(
     shape: Shape = RoundedCornerShape(CARD_CORNER_DP.dp),
     content: @Composable () -> Unit,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val density = LocalDensity.current.density
+    val tiltAnimationSpec = tween<Float>(TILT_ANIMATION_MS)
+    val rotationX by animateFloatAsState(
+        targetValue = if (isFocused) TILT_ROTATION_X else 0f,
+        animationSpec = tiltAnimationSpec,
+        label = "tiltRotationX",
+    )
+    val rotationY by animateFloatAsState(
+        targetValue = if (isFocused) TILT_ROTATION_Y else 0f,
+        animationSpec = tiltAnimationSpec,
+        label = "tiltRotationY",
+    )
+
     Card(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.graphicsLayer {
+            this.rotationX = rotationX
+            this.rotationY = rotationY
+            cameraDistance = TILT_CAMERA_DISTANCE * density
+        },
         shape = CardDefaults.shape(shape = shape, focusedShape = shape),
         scale = CardDefaults.scale(focusedScale = FOCUSED_SCALE),
         border = CardDefaults.border(
             focusedBorder = Border(border = BorderStroke(2.dp, Color.White), shape = shape),
         ),
         glow = CardDefaults.glow(focusedGlow = Glow(elevationColor = TreeHouseAccent, elevation = FOCUSED_GLOW_DP.dp)),
+        interactionSource = interactionSource,
     ) {
         content()
     }

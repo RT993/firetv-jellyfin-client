@@ -2,6 +2,7 @@ package io.github.rt993.firetvjellyfin.ui.home
 
 import android.util.Log
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,7 +28,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,24 +38,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
 import androidx.tv.material3.Icon
@@ -75,6 +72,7 @@ import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTheme
 import io.github.rt993.firetvjellyfin.util.formatRuntimeTicks
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlin.math.abs
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
@@ -84,6 +82,16 @@ private const val POSTER_ASPECT_RATIO = 2f / 3f
 private const val SPOTLIGHT_ASPECT_RATIO = 16f / 9f
 private val SIDEBAR_WIDTH_COLLAPSED = 64.dp
 private val SIDEBAR_WIDTH_EXPANDED = 220.dp
+
+// How the sidebar's items curve away from whichever one currently has D-pad focus - the item at
+// distance 0 sits at full size/brightness and flush against the rail; farther items shrink, dim,
+// and recede, like they're riding the rim of a wheel bowing back past the focused one. Distance is
+// measured in list positions (Home, each library, then Account, in traversal order), not pixels -
+// it curves the same way a focus move does, one step at a time.
+private const val WHEEL_CURVE_STEPS = 3
+private const val WHEEL_MIN_SCALE = 0.86f
+private const val WHEEL_MIN_ALPHA = 0.55f
+private val WHEEL_MAX_RECEDE = 14.dp
 
 // A safe-zone margin so the backdrop's top edge doesn't land flush against the physical top of
 // the screen - many TVs overscan (crop) a few percent off every edge, which was cutting off the
@@ -98,6 +106,14 @@ private val HERO_CORNER_RADIUS = 20.dp
 // Gap between the bottom of the boxed hero and the first row of content below it.
 private val HERO_BOTTOM_GAP = 30.dp
 
+// The hero accordion: a row of panels, one per trending item, where the one with D-pad focus
+// expands to HERO_EXPAND_RATIO of the row's width and the rest share what's left equally - rather
+// than one fixed backdrop with a separate paging control, D-pad left/right *is* the paging, moving
+// focus from panel to panel the same way it moves through any other row.
+private val HERO_PANEL_GAP = 10.dp
+private const val HERO_EXPAND_RATIO = 0.52f
+private const val HERO_PANEL_LIMIT = 6
+
 private const val TAG = "HomeScreen"
 
 private data class HomeUiState(
@@ -111,14 +127,14 @@ private data class HomeUiState(
 
 /**
  * Ground-up rewrite in Jetpack Compose for TV, replacing the Leanback [androidx.leanback.app
- * .BrowseSupportFragment]-based Home screen entirely. A Dynamic Billboard (cinematic backdrop)
- * sits behind a hero carousel of trending movies/shows - pageable with D-pad left/right on its
- * Play button, see [HeroInfo] - one poster row per library, then a Continue Watching row last. The
- * backdrop also crossfades to whichever card currently has focus further down. [HomeSidebar] is a
- * plain hand-built nav rail (not androidx.tv.material3's NavigationDrawer/ModalNavigationDrawer -
- * both turned out to have real, hard-to-verify quirks around measuring collapsed-vs-expanded width
- * that cost two rounds of bugs): no background of its own, icon-only until D-pad focus actually
- * lands on it, then it expands to show labels.
+ * .BrowseSupportFragment]-based Home screen entirely. An accordion gallery of trending movies/
+ * shows sits up top - D-pad focus expands whichever panel it lands on, see
+ * [HeroAccordionGallery] - one poster row per library, then a Continue Watching row last.
+ * [HomeSidebar] is a plain hand-built nav rail (not androidx.tv.material3's NavigationDrawer/
+ * ModalNavigationDrawer - both turned out to have real, hard-to-verify quirks around measuring
+ * collapsed-vs-expanded width that cost two rounds of bugs): no background of its own, icon-only
+ * until D-pad focus actually lands on it, then it expands to show labels and curves its items
+ * around whichever one is focused.
  */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
@@ -172,16 +188,9 @@ fun HomeScreen(
         )
     }
 
-    // The hero only ever reflects its own paging state - it used to also switch to whatever poster
-    // card currently had D-pad focus, but that made it feel like it wasn't really a fixed "top
-    // shelf" banner at all, just a preview that changed as you browsed.
-    var heroIndex by remember { mutableStateOf(0) }
-    val heroItem = state.trending.getOrNull(heroIndex) ?: state.continueWatching.firstOrNull()
-    fun pageHero(delta: Int) {
-        val trending = state.trending
-        if (trending.isEmpty()) return
-        heroIndex = (heroIndex + delta + trending.size) % trending.size
-    }
+    // Falls back to Continue Watching items if there's no trending data yet, so the gallery isn't
+    // simply empty on a freshly-seeded server with little watch history.
+    val heroItems = state.trending.ifEmpty { state.continueWatching }
 
     val heroFocusRequester = remember { FocusRequester() }
     LaunchedEffect(state.isLoading) {
@@ -222,35 +231,21 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(HERO_BOTTOM_GAP),
                 ) {
                     item {
-                        // The backdrop now scrolls away as a normal part of the list instead of
-                        // sitting fixed behind it - it used to be drawn as a static sibling of this
-                        // LazyColumn, which meant it never actually left the screen: scrolling down
-                        // to Shows just moved the row content over it, and the backdrop kept
-                        // bleeding through every gap between cards. Bundling it into one item here
-                        // also means Compose can discard/recycle it like any other row once it's
-                        // scrolled well past, instead of redrawing that big image/gradient/rounded
-                        // clip on every single scroll frame regardless of position.
-                        Box(Modifier.fillMaxWidth().height(heroHeight + HERO_TOP_SAFE_MARGIN).clipToBounds()) {
-                            HeroBackdrop(
-                                item = heroItem,
-                                repository = repository,
-                                modifier = Modifier
-                                    .padding(top = HERO_TOP_SAFE_MARGIN, start = HERO_HORIZONTAL_MARGIN, end = HERO_HORIZONTAL_MARGIN)
-                                    .fillMaxSize(),
-                            )
-                            Column(Modifier.fillMaxSize()) {
-                                Spacer(Modifier.height(280.dp))
-                                HeroInfo(
-                                    item = heroItem,
-                                    pageCount = state.trending.size,
-                                    currentIndex = heroIndex,
-                                    focusRequester = heroFocusRequester,
-                                    onPageLeft = { pageHero(-1) },
-                                    onPageRight = { pageHero(1) },
-                                    onPlay = { heroItem?.let(onPlay) },
-                                )
-                            }
-                        }
+                        // Bundled into one LazyColumn item (not a static sibling of the list) so
+                        // Compose can discard/recycle it like any other row once scrolled well
+                        // past, instead of redrawing it on every single scroll frame regardless of
+                        // position - same reasoning the old fixed backdrop was built around.
+                        HeroAccordionGallery(
+                            items = heroItems,
+                            repository = repository,
+                            height = heroHeight,
+                            firstFocusRequester = heroFocusRequester,
+                            onPlay = onPlay,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(heroHeight)
+                                .padding(top = HERO_TOP_SAFE_MARGIN, start = HERO_HORIZONTAL_MARGIN, end = HERO_HORIZONTAL_MARGIN),
+                        )
                     }
                     items(state.libraries, key = { it.id }) { library ->
                         val libraryItems = state.libraryItems[library.id].orEmpty()
@@ -351,6 +346,12 @@ private fun HomeSidebar(
     var hasFocus by remember { mutableStateOf(false) }
     val width by animateDpAsState(if (hasFocus) SIDEBAR_WIDTH_EXPANDED else SIDEBAR_WIDTH_COLLAPSED, label = "sidebarWidth")
 
+    // Which item currently holds focus, by position in traversal order (Home, each library,
+    // Account) - every item below reads its own distance from this shared index to curve its own
+    // scale/opacity/offset, so the whole rail reflows together as focus moves through it.
+    var focusedIndex by remember { mutableStateOf(0) }
+    val accountIndex = libraries.size + 1
+
     Column(
         modifier = modifier
             .width(width)
@@ -360,27 +361,63 @@ private fun HomeSidebar(
             .padding(vertical = 24.dp, horizontal = 12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        SidebarItem(R.drawable.ic_nav_home, stringResource(R.string.nav_home), hasFocus, onClick = {})
-        libraries.forEach { library ->
-            SidebarItem(R.drawable.ic_nav_library, library.name.orEmpty(), hasFocus, onClick = { onLibrary(library) })
+        SidebarItem(
+            icon = R.drawable.ic_nav_home,
+            label = stringResource(R.string.nav_home),
+            showLabel = hasFocus,
+            distance = -focusedIndex,
+            onFocused = { focusedIndex = 0 },
+            onClick = {},
+        )
+        libraries.forEachIndexed { i, library ->
+            val index = i + 1
+            SidebarItem(
+                icon = R.drawable.ic_nav_library,
+                label = library.name.orEmpty(),
+                showLabel = hasFocus,
+                distance = index - focusedIndex,
+                onFocused = { focusedIndex = index },
+                onClick = { onLibrary(library) },
+            )
         }
         Spacer(Modifier.weight(1f))
-        SidebarItem(R.drawable.ic_profile, stringResource(R.string.nav_account), hasFocus, onClick = onSettings)
+        SidebarItem(
+            icon = R.drawable.ic_profile,
+            label = stringResource(R.string.nav_account),
+            showLabel = hasFocus,
+            distance = accountIndex - focusedIndex,
+            onFocused = { focusedIndex = accountIndex },
+            onClick = onSettings,
+        )
     }
 }
 
 @Composable
-private fun SidebarItem(icon: Int, label: String, showLabel: Boolean, onClick: () -> Unit) {
+private fun SidebarItem(icon: Int, label: String, showLabel: Boolean, distance: Int, onFocused: () -> Unit, onClick: () -> Unit) {
     var isFocused by remember { mutableStateOf(false) }
+    val proximity = 1f - (abs(distance).coerceAtMost(WHEEL_CURVE_STEPS) / WHEEL_CURVE_STEPS.toFloat())
+    val scale by animateFloatAsState(WHEEL_MIN_SCALE + (1f - WHEEL_MIN_SCALE) * proximity, label = "wheelScale")
+    val curveAlpha by animateFloatAsState(WHEEL_MIN_ALPHA + (1f - WHEEL_MIN_ALPHA) * proximity, label = "wheelAlpha")
+    val recede by animateDpAsState(WHEEL_MAX_RECEDE * (1f - proximity), label = "wheelRecede")
+
     // clickable() already makes this focusable on its own - a separate .focusable() here stacked
     // two focus targets on top of each other, so the first D-pad press only moved focus onto the
     // inner one and a second press was needed to actually register as a click.
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .offset(x = -recede)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                alpha = curveAlpha
+            }
             .clip(RoundedCornerShape(8.dp))
             .background(if (isFocused) TreeHouseAccent.copy(alpha = 0.3f) else Color.Transparent)
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                if (it.isFocused) onFocused()
+            }
             .clickable(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -401,104 +438,110 @@ private fun SidebarItem(icon: Int, label: String, showLabel: Boolean, onClick: (
     }
 }
 
-@OptIn(ExperimentalGlideComposeApi::class)
+/**
+ * An accordion of trending movies/shows: one panel per item in a Row, where the panel with D-pad
+ * focus expands to [HERO_EXPAND_RATIO] of the row's width (via an animated [Modifier.weight]) and
+ * the rest share what's left equally - so D-pad left/right paging through the old fixed hero's
+ * Play button is now just normal focus movement between panels, and the "currently selected" item
+ * is never ambiguous the way a separate row of paging dots could be.
+ */
 @Composable
-private fun HeroBackdrop(item: BaseItemDto?, repository: JellyfinRepository, modifier: Modifier = Modifier) {
-    // Height is fixed by the caller (see heroHeight in HomeScreen) - no fillMaxHeight() here, since
-    // stacking it on top of that already-exact height would just re-apply the 0.62f fraction a
-    // second time and shrink the box further.
-    Box(modifier.fillMaxWidth().clip(RoundedCornerShape(HERO_CORNER_RADIUS))) {
-        if (item != null) {
-            GlideImage(
-                model = repository.buildImageUrl(item.id, imageType = ImageType.BACKDROP, maxWidth = 1280),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
+private fun HeroAccordionGallery(
+    items: List<BaseItemDto>,
+    repository: JellyfinRepository,
+    height: Dp,
+    firstFocusRequester: FocusRequester,
+    onPlay: (BaseItemDto) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val panelItems = remember(items) { items.take(HERO_PANEL_LIMIT) }
+    if (panelItems.isEmpty()) return
+
+    var focusedIndex by remember { mutableStateOf(0) }
+    val collapsedWeight = (1f - HERO_EXPAND_RATIO) / (panelItems.size - 1).coerceAtLeast(1)
+
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(HERO_PANEL_GAP)) {
+        panelItems.forEachIndexed { index, item ->
+            val expanded = index == focusedIndex
+            val weight by animateFloatAsState(if (expanded) HERO_EXPAND_RATIO else collapsedWeight, label = "accordionWeight")
+            HeroPanel(
+                item = item,
+                repository = repository,
+                expanded = expanded,
+                onClick = { onPlay(item) },
+                modifier = Modifier
+                    .weight(weight)
+                    .fillMaxHeight()
+                    .onFocusChanged { if (it.isFocused) focusedIndex = index }
+                    .then(if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier),
             )
         }
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(
-                    0f to Color.Transparent,
-                    0.55f to TreeHouseBackground.copy(alpha = 0.55f),
-                    1f to TreeHouseBackground,
-                ),
-            ),
-        )
     }
 }
 
 /**
- * The "Top Shelf" hero: title/meta/overview for whichever [item] is current, plus a Play button
- * that doubles as the paging control - D-pad left/right on it cycles [onPageLeft]/[onPageRight]
- * through the trending movies/shows instead of moving focus elsewhere, mirroring how a real remote
- * scrolls a featured-content carousel. Down still moves focus into the rows below normally.
+ * One accordion panel: a poster image with a bottom gradient and a title that stays legible at
+ * any width, since every panel other than the focused one is squeezed down to a sliver. Only the
+ * expanded panel shows the fuller metadata/overview - there's no room for it in a collapsed one.
  */
+@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
-private fun HeroInfo(
-    item: BaseItemDto?,
-    pageCount: Int,
-    currentIndex: Int,
-    focusRequester: FocusRequester,
-    onPageLeft: () -> Unit,
-    onPageRight: () -> Unit,
-    onPlay: () -> Unit,
+private fun HeroPanel(
+    item: BaseItemDto,
+    repository: JellyfinRepository,
+    expanded: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    if (item == null) return
-    Column(Modifier.padding(start = 48.dp, end = 48.dp)) {
-        Text(item.name.orEmpty(), style = MaterialTheme.typography.headlineLarge, color = TreeHouseTextPrimary)
-        Spacer(Modifier.height(8.dp))
-        Text(buildMetaLine(item), color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodyMedium)
-        item.overview?.takeIf { it.isNotBlank() }?.let { overview ->
-            Spacer(Modifier.height(8.dp))
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(HERO_CORNER_RADIUS))
+            .clickable(onClick = onClick),
+    ) {
+        GlideImage(
+            model = repository.buildImageUrl(item.id, imageType = ImageType.PRIMARY, maxWidth = 640),
+            contentDescription = item.name,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    0f to Color.Transparent,
+                    0.5f to Color.Transparent,
+                    1f to TreeHouseBackground.copy(alpha = 0.95f),
+                ),
+            ),
+        )
+        Column(modifier = Modifier.align(Alignment.BottomStart).padding(20.dp)) {
             Text(
-                overview,
-                color = TreeHouseTextSecondary,
-                maxLines = 2,
+                item.name.orEmpty(),
+                color = TreeHouseTextPrimary,
+                style = if (expanded) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.labelMedium,
+                maxLines = if (expanded) 2 else 1,
                 overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.widthIn(max = 560.dp),
             )
-        }
-        Spacer(Modifier.height(16.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Button(
-                onClick = onPlay,
-                modifier = Modifier
-                    .focusRequester(focusRequester)
-                    .onKeyEvent { event ->
-                        if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-                        when (event.key) {
-                            Key.DirectionLeft -> { onPageLeft(); true }
-                            Key.DirectionRight -> { onPageRight(); true }
-                            else -> false
-                        }
-                    },
-            ) {
-                Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_hero_play), contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.playback_play))
+            if (expanded) {
+                Spacer(Modifier.height(6.dp))
+                Text(buildMetaLine(item), color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodySmall)
+                item.overview?.takeIf { it.isNotBlank() }?.let { overview ->
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        overview,
+                        color = TreeHouseTextSecondary,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.widthIn(max = 480.dp),
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(imageVector = ImageVector.vectorResource(id = R.drawable.ic_hero_play), contentDescription = null, tint = TreeHouseTextPrimary)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.playback_play), color = TreeHouseTextPrimary, style = MaterialTheme.typography.labelLarge)
+                }
             }
-            if (pageCount > 1) {
-                Spacer(Modifier.width(20.dp))
-                HeroDots(count = pageCount, currentIndex = currentIndex)
-            }
-        }
-    }
-}
-
-@Composable
-private fun HeroDots(count: Int, currentIndex: Int) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        repeat(count) { i ->
-            Box(
-                Modifier
-                    .size(8.dp)
-                    .background(
-                        color = if (i == currentIndex) TreeHouseAccent else TreeHouseTextSecondary.copy(alpha = 0.4f),
-                        shape = CircleShape,
-                    ),
-            )
         }
     }
 }

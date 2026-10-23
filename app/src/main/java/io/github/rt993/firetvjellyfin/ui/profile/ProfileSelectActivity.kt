@@ -4,7 +4,6 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,11 +28,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,8 +44,9 @@ import io.github.rt993.firetvjellyfin.ui.home.HomeActivity
 import io.github.rt993.firetvjellyfin.ui.login.LoginActivity
 import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
 import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
+import io.github.rt993.firetvjellyfin.ui.theme.LaserBeamBackground
+import io.github.rt993.firetvjellyfin.ui.theme.ProfileGlowOrb
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseAccent
-import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseBackground
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseSurface
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextPrimary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTheme
@@ -126,24 +123,10 @@ private fun ProfileSelectScreen(
 
     TreeHouseTheme {
         Box(Modifier.fillMaxSize()) {
-            // Same photo and gradient tint as the login screen's background (see
-            // login_background.xml) - reused here rather than duplicated, so the picker isn't
-            // left on the old flat color while the screen before it has the photo.
-            Image(
-                painter = painterResource(id = R.drawable.img_login_background),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(
-                        0f to Color(0x332A1F6B),
-                        0.5f to Color(0x1A101820),
-                        1f to TreeHouseBackground,
-                    ),
-                ),
-            )
+            // A beam of light landing right where the profile row sits, instead of the earlier
+            // static photo - see LaserBeamBackground. landingYFraction is aimed at this screen's
+            // Column, which is vertically centered, so the splash lights up the row itself.
+            LaserBeamBackground(modifier = Modifier.fillMaxSize(), landingYFraction = 0.5f)
             Column(
                 modifier = Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -160,6 +143,7 @@ private fun ProfileSelectScreen(
                             name = profile.username,
                             icon = R.drawable.ic_profile,
                             onClick = { onSelectProfile(profile) },
+                            showGlow = true,
                             modifier = if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier,
                         )
                     }
@@ -167,6 +151,7 @@ private fun ProfileSelectScreen(
                         name = stringResource(R.string.profile_add),
                         icon = R.drawable.ic_add,
                         onClick = onAddProfile,
+                        showGlow = false,
                         modifier = if (profiles.isEmpty()) Modifier.focusRequester(firstFocusRequester) else Modifier,
                     )
                 }
@@ -181,16 +166,21 @@ private fun ProfileSelectScreen(
 }
 
 @Composable
-private fun ProfileTile(name: String, icon: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun ProfileTile(name: String, icon: Int, onClick: () -> Unit, showGlow: Boolean, modifier: Modifier = Modifier) {
     // The incoming modifier (carrying the initial-focus FocusRequester, when passed) has to land
     // on FocusableCard itself, not this wrapping Column - a FocusRequester only works when it's on
     // the same modifier chain as an actual focusable node.
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         FocusableCard(onClick = onClick, modifier = modifier.size(140.dp), shape = CircleShape) {
-            Box(
-                Modifier.fillMaxSize().background(TreeHouseSurface.copy(alpha = 0.6f)),
-                contentAlignment = Alignment.Center,
-            ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                if (showGlow) {
+                    // A real profile - the glowing orb fill (see ProfileGlowOrb) rather than a
+                    // flat circle, so the people who actually live here stand out from the plain
+                    // "+" add-profile tile below.
+                    ProfileGlowOrb(modifier = Modifier.fillMaxSize())
+                } else {
+                    Box(Modifier.fillMaxSize().background(TreeHouseSurface.copy(alpha = 0.6f)))
+                }
                 Icon(
                     imageVector = ImageVector.vectorResource(id = icon),
                     contentDescription = null,
