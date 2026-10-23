@@ -66,7 +66,9 @@ fun MagicRingsBackground(
     val density = LocalDensity.current.density
 
     Canvas(modifier = modifier.fillMaxSize()) {
-        drawRect(TreeHouseBackground)
+        // No flat fill here - the screen behind this already has its own windowBackground (the
+        // same dark navy), so painting it a second time here just added a redundant opaque
+        // rectangle. Transparent everywhere but the rings themselves.
         val center = Offset(size.width / 2f, size.height * centerYFraction)
         val unit = minOf(size.width, size.height)
         val strokePx = STROKE_DP * density
