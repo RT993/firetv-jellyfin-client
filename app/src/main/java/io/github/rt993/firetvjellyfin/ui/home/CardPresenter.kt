@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
@@ -26,6 +27,16 @@ private const val FOCUS_IN_ANIM_MS = 220L
 private const val FOCUS_OUT_ANIM_MS = 150L
 private const val FOCUS_OVERSHOOT_TENSION = 2.5f
 
+// Same 3D tilt and inner-image parallax as the Compose poster cards elsewhere in the app (see
+// FocusableCard/Modifier.focusParallax) - rotationX/Y and scaleX/Y are plain View properties too,
+// so the same tasteful tilt-on-focus treatment doesn't need Compose to work here. Left at the
+// platform's default camera distance (not a custom, exaggerated one like the Compose version's)
+// since that default already reads as a natural tilt for angles this small.
+private const val TILT_ROTATION_X = -8f
+private const val TILT_ROTATION_Y = 10f
+private const val PARALLAX_SCALE = 1.06f
+private const val FOCUS_BORDER_WIDTH_DP = 2
+
 /** Renders a single [BaseItemDto] as a poster card inside a leanback row. */
 class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
 
@@ -40,18 +51,33 @@ class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
             // show through at the edges even with the strip itself transparent.
             background = ColorDrawable(Color.TRANSPARENT)
             clipRoundedCorners(context)
+            foreground = focusBorderDrawable(context).apply { alpha = 0 }
 
             val focusElevationPx = dpToPx(context, FOCUS_ELEVATION_DP)
             onFocusChangeListener = View.OnFocusChangeListener { view, hasFocus ->
+                val animationSpec = if (hasFocus) FOCUS_IN_ANIM_MS else FOCUS_OUT_ANIM_MS
+                // A slight overshoot on the way in gives the card a springy "pop"; settling back
+                // down plays smooth instead, so it doesn't visibly overshoot below 1x/0deg.
+                val interpolator = if (hasFocus) OvershootInterpolator(FOCUS_OVERSHOOT_TENSION) else DecelerateInterpolator()
                 view.animate()
                     .scaleX(if (hasFocus) FOCUS_SCALE else 1f)
                     .scaleY(if (hasFocus) FOCUS_SCALE else 1f)
                     .translationZ(if (hasFocus) focusElevationPx else 0f)
-                    .setDuration(if (hasFocus) FOCUS_IN_ANIM_MS else FOCUS_OUT_ANIM_MS)
-                    // A slight overshoot on the way in gives the card a springy "pop"; settling
-                    // back down plays smooth instead, so it doesn't visibly overshoot below 1x.
-                    .setInterpolator(if (hasFocus) OvershootInterpolator(FOCUS_OVERSHOOT_TENSION) else DecelerateInterpolator())
+                    .rotationX(if (hasFocus) TILT_ROTATION_X else 0f)
+                    .rotationY(if (hasFocus) TILT_ROTATION_Y else 0f)
+                    .setDuration(animationSpec)
+                    .setInterpolator(interpolator)
                     .start()
+                // A separate, slightly larger scale on just the art itself, clipped to the card's
+                // own rounded-rect outline - the same "poster drifting closer" parallax layered
+                // under the card-level tilt that the Compose cards use (Modifier.focusParallax).
+                (view as? ImageCardView)?.mainImageView?.animate()
+                    ?.scaleX(if (hasFocus) PARALLAX_SCALE else 1f)
+                    ?.scaleY(if (hasFocus) PARALLAX_SCALE else 1f)
+                    ?.setDuration(animationSpec)
+                    ?.setInterpolator(interpolator)
+                    ?.start()
+                view.foreground?.alpha = if (hasFocus) 255 else 0
             }
         }
         return ViewHolder(cardView)
@@ -84,6 +110,16 @@ class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
             cardView.mainImageView?.let { Glide.with(cardView.context).clear(it) }
         }
         cardView.mainImage = null
+    }
+
+    /** A white rounded-rect outline, same width/corner radius as the Compose cards' focus border
+     * (see FocusableCard) - toggled visible/invisible on focus rather than drawn always-transparent,
+     * since GradientDrawable's own alpha animates less smoothly than a plain View property would. */
+    private fun focusBorderDrawable(context: Context): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = dpToPx(context, CARD_CORNER_RADIUS_DP)
+        setStroke(dpToPx(context, FOCUS_BORDER_WIDTH_DP).toInt(), Color.WHITE)
+        setColor(Color.TRANSPARENT)
     }
 
     private fun ImageCardView.setMainImageDimensions(context: Context, widthDp: Int, heightDp: Int) {

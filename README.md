@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.6.2** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.6.3** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
@@ -8,7 +8,10 @@ Fire TV Stick hardware (1-1.5GB RAM, weak quad-core CPUs). Home and Details are 
 TV (`androidx.tv.material3`); the Movies/TV Shows library grid and playback screen are still plain
 Leanback + a hand-rolled, Apple-TV-inspired transport UI - Leanback stays where its boxier defaults
 don't matter (a dense poster grid) and where Compose for TV would have added weight for no visual
-benefit, on hardware where that weight is a real cost, not just a style preference.
+benefit, on hardware where that weight is a real cost, not just a style preference. The grid's own
+`CardPresenter` still gets the same 3D tilt/border/parallax focus treatment as the Compose poster
+cards elsewhere (`ui/home/CardPresenter.kt`) - plain `View` properties (`rotationX`/`scaleX`/etc.)
+give the same result without needing Compose at all.
 
 ## Screenshots
 
