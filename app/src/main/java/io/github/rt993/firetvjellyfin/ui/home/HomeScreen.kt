@@ -74,6 +74,7 @@ import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTheme
 import io.github.rt993.firetvjellyfin.util.formatRuntimeTicks
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlin.math.abs
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
@@ -119,16 +120,17 @@ private const val HERO_PANEL_LIMIT = 6
 // DEPTH_PERSPECTIVE_PX / (DEPTH_PERSPECTIVE_PX + DEPTH_STEP_PX * steps-back)), and "blur" is a
 // plain dark overlay instead of a real blur, which needs RenderEffect (API 31+) well above this
 // app's target hardware.
-private const val DEPTH_VISIBLE_STEPS = 3
+private const val DEPTH_VISIBLE_STEPS = 5
 // Fraction of the card's own width, not a flat dp value - a flat offset either buries the stack
 // behind the front card (too small relative to a wide card) or blows it apart (too large for a
 // narrow one), since the card's own size already scales with the hero's height.
-private const val DEPTH_SPREAD_FRACTION = 0.32f
+private const val DEPTH_SPREAD_FRACTION = 0.76f
 private const val DEPTH_TILT_DEGREES = 14f
-private const val DEPTH_PERSPECTIVE_PX = 1500f
-private const val DEPTH_STEP_PX = 190f
+private const val DEPTH_PERSPECTIVE_PX = 1150f
+private const val DEPTH_STEP_PX = 220f
 private const val DEPTH_DIM_STEP = 0.22f
 private const val DEPTH_CAMERA_DISTANCE = 10f
+private const val DEPTH_AUTOPLAY_DELAY_MS = 3200L
 
 private const val TAG = "HomeScreen"
 
@@ -458,11 +460,13 @@ private fun SidebarItem(icon: Int, label: String, showLabel: Boolean, distance: 
 /**
  * A depth-carousel of trending movies/shows: every card is centered on the same spot and pushed
  * apart purely with [Modifier.offset] (see [HeroDepthCard]), so D-pad left/right moves focus
- * between them exactly like any other row - the one with focus sits at the front, full size and
- * bright; the next couple fan back and to the right behind it, shrinking, tilting and dimming;
- * anything before it fades out fast rather than piling up in front. A dedicated info column next
- * to the stack always shows whichever item currently has focus - there's no room for synopsis
- * text on a narrow poster card the way the old full-width accordion panel had.
+ * between them exactly like any other row. Distance wraps around (card 0 is also "one step after"
+ * the last card), so the fan reads as a closed loop rather than a dead end at either side, and it
+ * auto-advances on its own - pausing the moment real D-pad focus lands anywhere in the stack, and
+ * resuming from wherever it's left once focus moves on - so the hero never just sits still while
+ * nothing has focus on it yet. A dedicated info column next to the stack always shows whichever
+ * item currently sits at the front - there's no room for synopsis text on a narrow poster card the
+ * way the old full-width accordion panel had.
  */
 @Composable
 private fun HeroDepthCarousel(
@@ -475,22 +479,45 @@ private fun HeroDepthCarousel(
 ) {
     val panelItems = remember(items) { items.take(HERO_PANEL_LIMIT) }
     if (panelItems.isEmpty()) return
+    val count = panelItems.size
 
     var focusedIndex by remember { mutableStateOf(0) }
+    var hasFocusWithinStack by remember { mutableStateOf(false) }
     val focusedItem = panelItems[focusedIndex.coerceIn(0, panelItems.lastIndex)]
     val cardWidth = height * POSTER_ASPECT_RATIO
+    val maxDistance = count / 2
+
+    // Auto-advances the front card on a loop, same as the autoplay prop this is modeled on -
+    // restarted (and, since it starts by returning early, effectively paused) every time real
+    // D-pad focus enters or leaves the stack, the same way autoplay there pauses on hover/focus.
+    LaunchedEffect(count, hasFocusWithinStack) {
+        if (hasFocusWithinStack || count <= 1) return@LaunchedEffect
+        while (true) {
+            delay(DEPTH_AUTOPLAY_DELAY_MS)
+            focusedIndex = (focusedIndex + 1) % count
+        }
+    }
 
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Box(
-            modifier = Modifier.fillMaxHeight().width(cardWidth * (1f + DEPTH_VISIBLE_STEPS * DEPTH_SPREAD_FRACTION + 0.1f)),
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(cardWidth * (1f + 2f * maxDistance * DEPTH_SPREAD_FRACTION + 0.15f))
+                .onFocusChanged { hasFocusWithinStack = it.hasFocus }
+                .focusGroup(),
             contentAlignment = Alignment.Center,
         ) {
             panelItems.forEachIndexed { index, item ->
+                var distance = index - focusedIndex
+                if (count > 1) {
+                    distance = ((distance % count) + count) % count
+                    if (distance > count / 2) distance -= count
+                }
                 HeroDepthCard(
                     item = item,
                     repository = repository,
                     cardWidth = cardWidth,
-                    distance = index - focusedIndex,
+                    distance = distance,
                     onFocused = { focusedIndex = index },
                     onClick = { onPlay(item) },
                     modifier = Modifier
@@ -509,7 +536,9 @@ private fun HeroDepthCarousel(
  * the stack and pushed to its own position purely with [Modifier.offset] (a real layout-level
  * shift, not just a visual one) - so its placed bounds, not just its drawn pixels, land where the
  * stack visually puts it, which is what keeps D-pad left/right landing on the geometrically correct
- * neighbor despite every card starting from the same centered spot.
+ * neighbor despite every card starting from the same centered spot. Receding symmetrically either
+ * side of the front card (a classic coverflow), not just fanning out one way, since [distance] now
+ * wraps around a loop instead of running out at either end.
  */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
@@ -523,26 +552,31 @@ private fun HeroDepthCard(
     modifier: Modifier = Modifier,
 ) {
     val isFront = distance == 0
-    val shown = abs(distance) <= DEPTH_VISIBLE_STEPS
-    val stepsBack = distance.coerceAtLeast(0).toFloat()
+    val absDistance = abs(distance)
+    val shown = absDistance <= DEPTH_VISIBLE_STEPS
     val density = LocalDensity.current.density
 
     val scale by animateFloatAsState(
-        DEPTH_PERSPECTIVE_PX / (DEPTH_PERSPECTIVE_PX + DEPTH_STEP_PX * stepsBack),
+        DEPTH_PERSPECTIVE_PX / (DEPTH_PERSPECTIVE_PX + DEPTH_STEP_PX * absDistance),
         label = "depthScale",
     )
-    val tiltDegrees by animateFloatAsState(DEPTH_TILT_DEGREES * distance.toFloat().coerceIn(0f, 1f), label = "depthTilt")
+    val tiltDegrees by animateFloatAsState(
+        DEPTH_TILT_DEGREES * distance.coerceIn(-1, 1).toFloat(),
+        label = "depthTilt",
+    )
     val spreadOffset by animateDpAsState(cardWidth * DEPTH_SPREAD_FRACTION * distance, label = "depthSpread")
+    // The outermost visible step fades rather than popping straight to invisible once a card
+    // crosses DEPTH_VISIBLE_STEPS.
     val cardAlpha by animateFloatAsState(
-        if (!shown) 0f else if (distance < 0) (1f + distance).coerceAtLeast(0f) else 1f,
+        if (!shown) 0f else (DEPTH_VISIBLE_STEPS + 1 - absDistance).toFloat().coerceIn(0f, 1f),
         label = "depthAlpha",
     )
-    val dimAlpha by animateFloatAsState((stepsBack * DEPTH_DIM_STEP).coerceIn(0f, 0.86f), label = "depthDim")
+    val dimAlpha by animateFloatAsState((absDistance * DEPTH_DIM_STEP).coerceIn(0f, 0.86f), label = "depthDim")
 
     Box(
         modifier = modifier
             .aspectRatio(POSTER_ASPECT_RATIO)
-            .zIndex(2000f - distance * 20f)
+            .zIndex(2000f - absDistance * 20f)
             .offset(x = spreadOffset)
             .graphicsLayer {
                 scaleX = scale

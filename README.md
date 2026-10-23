@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.6.1** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.6.2** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
@@ -61,8 +61,9 @@ If you'd rather install from a machine on the same network via ADB, see
 - **Home**: a field of flat, irregular glass-shard shapes drifting slowly across the screen at a
   few depths (`ui/theme/AeroShardsBackground.kt`; a handful of tinted polygons with a brighter
   accent-colored rim-light stroke, not real ray-traced glass), a depth-carousel of trending movies/shows up top
-  (D-pad focus brings a poster to the front of a stack that fans back and to the right behind it,
-  shrinking/tilting/dimming with distance, with a synopsis column alongside - see
+  (a coverflow-style stack that auto-advances on its own - pausing the moment D-pad focus lands on
+  it, resuming once it moves on - with posters receding symmetrically either side of the front one,
+  shrinking/tilting/dimming with distance, and a synopsis column alongside - see
   `HeroDepthCarousel`; the front poster's art also drifts in a slow, continuous "Ken Burns"
   scale+pan - `Modifier.kenBurnsDrift()`), a "Pick up where you left off" row, and one poster row
   per library. Poster/spotlight cards pop into a slight 3D tilt on focus (`FocusableCard`'s
