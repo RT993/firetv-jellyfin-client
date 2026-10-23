@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.5.6** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.6.0** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
@@ -58,9 +58,9 @@ If you'd rather install from a machine on the same network via ADB, see
   (or adds) a different Jellyfin server entirely.
   Everything ever signed into stays saved on-device, so switching back is a couple of D-pad
   presses, not a fresh sign-in.
-- **Home**: a slow-drifting field of diagonal blue light bands behind everything (PS5 dashboard-
-  style - see `ui/theme/DynamicBackground.kt`; built from plain tilted gradient fills, not a real
-  blur, so it stays cheap on the target hardware), a depth-carousel of trending movies/shows up top
+- **Home**: a field of flat, irregular glass-shard shapes drifting slowly across the screen at a
+  few depths (`ui/theme/AeroShardsBackground.kt`; a handful of tinted polygons with a brighter
+  accent-colored rim-light stroke, not real ray-traced glass), a depth-carousel of trending movies/shows up top
   (D-pad focus brings a poster to the front of a stack that fans back and to the right behind it,
   shrinking/tilting/dimming with distance, with a synopsis column alongside - see
   `HeroDepthCarousel`; the front poster's art also drifts in a slow, continuous "Ken Burns"

@@ -63,7 +63,7 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
-import io.github.rt993.firetvjellyfin.ui.theme.DynamicBlueBackground
+import io.github.rt993.firetvjellyfin.ui.theme.AeroShardsBackground
 import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
 import io.github.rt993.firetvjellyfin.ui.theme.focusParallax
 import io.github.rt993.firetvjellyfin.ui.theme.kenBurnsDrift
@@ -231,8 +231,9 @@ fun HomeScreen(
 
     TreeHouseTheme {
         Box(Modifier.fillMaxSize()) {
-            // Slow-drifting blue light bands instead of a flat color fill - see DynamicBackground.kt.
-            DynamicBlueBackground(Modifier.fillMaxSize())
+            // A field of flat glass shards drifting slowly across the screen at a few depths,
+            // instead of a flat color fill - see AeroShardsBackground.kt.
+            AeroShardsBackground(modifier = Modifier.fillMaxSize())
             Row(Modifier.fillMaxSize()) {
             HomeSidebar(
                 libraries = state.libraries,
