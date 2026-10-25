@@ -28,11 +28,13 @@ private const val FOCUS_OUT_ANIM_MS = 150L
 private const val FOCUS_OVERSHOOT_TENSION = 2.5f
 
 // Same 3D tilt and inner-image parallax as the Compose poster cards elsewhere in the app (see
-// FocusableCard/Modifier.focusParallax) - rotationX/Y and scaleX/Y are plain View properties too,
-// so the same tasteful tilt-on-focus treatment doesn't need Compose to work here. Left at the
+// FocusableCard/Modifier.focusParallax) - rotationY and scaleX/Y are plain View properties too, so
+// the same tasteful tilt-on-focus treatment doesn't need Compose to work here. Left at the
 // platform's default camera distance (not a custom, exaggerated one like the Compose version's)
-// since that default already reads as a natural tilt for angles this small.
-private const val TILT_ROTATION_X = -8f
+// since that default already reads as a natural tilt for angles this small. Y-axis only, not X:
+// tipping the top edge back made the elevation shadow (cast from the flat, untilted outline, never
+// reprojected in 3D) stop lining up with the foreshortened top edge, leaving a sliver of square
+// shadow corner visible above the rounded card - see TvCard.kt's FocusableCard for the same fix.
 private const val TILT_ROTATION_Y = 10f
 private const val PARALLAX_SCALE = 1.06f
 private const val FOCUS_BORDER_WIDTH_DP = 2
@@ -63,7 +65,6 @@ class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
                     .scaleX(if (hasFocus) FOCUS_SCALE else 1f)
                     .scaleY(if (hasFocus) FOCUS_SCALE else 1f)
                     .translationZ(if (hasFocus) focusElevationPx else 0f)
-                    .rotationX(if (hasFocus) TILT_ROTATION_X else 0f)
                     .rotationY(if (hasFocus) TILT_ROTATION_Y else 0f)
                     .setDuration(animationSpec)
                     .setInterpolator(interpolator)

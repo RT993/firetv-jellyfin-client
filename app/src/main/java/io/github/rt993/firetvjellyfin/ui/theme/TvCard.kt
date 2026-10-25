@@ -25,10 +25,13 @@ private const val FOCUSED_SCALE = 1.14f
 private const val FOCUSED_GLOW_DP = 24
 
 // A fixed tilt, not cursor-tracked - there's no pointer on a D-pad remote, so instead of tilting
-// toward wherever a cursor sits, a focused card just pops into this one consistent 3D angle, the
-// same "it lifted toward you" read a cursor-tracked tilt gives on a single card, without needing
-// motion input this device doesn't have.
-private const val TILT_ROTATION_X = -8f
+// toward wherever a cursor sits, a focused card just pops into this one consistent "turned toward
+// you" angle, the same read a cursor-tracked tilt gives on a single card, without needing motion
+// input this device doesn't have. Y-axis only, not X: tipping the top edge back (rotationX) made
+// the card's elevation shadow - cast from its flat, untilted outline, not reprojected in 3D - stop
+// lining up with the now-foreshortened top edge, leaving a sliver of square shadow corner visible
+// above the rounded card. A pure Y-axis turn doesn't foreshorten the top edge at all, so it never
+// exposed the mismatch.
 private const val TILT_ROTATION_Y = 10f
 private const val TILT_CAMERA_DISTANCE = 14f
 private const val TILT_ANIMATION_MS = 220
@@ -62,11 +65,6 @@ fun FocusableCard(
     val isFocused by interactionSource.collectIsFocusedAsState()
     val density = LocalDensity.current.density
     val tiltAnimationSpec = tween<Float>(TILT_ANIMATION_MS)
-    val rotationX by animateFloatAsState(
-        targetValue = if (isFocused) TILT_ROTATION_X else 0f,
-        animationSpec = tiltAnimationSpec,
-        label = "tiltRotationX",
-    )
     val rotationY by animateFloatAsState(
         targetValue = if (isFocused) TILT_ROTATION_Y else 0f,
         animationSpec = tiltAnimationSpec,
@@ -76,7 +74,6 @@ fun FocusableCard(
     Card(
         onClick = onClick,
         modifier = modifier.graphicsLayer {
-            this.rotationX = rotationX
             this.rotationY = rotationY
             cameraDistance = TILT_CAMERA_DISTANCE * density
         },
