@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.6.3** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.7.0** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
@@ -71,13 +71,13 @@ If you'd rather install from a machine on the same network via ADB, see
   scale+pan - `Modifier.kenBurnsDrift()`), a "Pick up where you left off" row, and one poster row
   per library. Poster/spotlight cards pop into a slight 3D tilt on focus (`FocusableCard`'s
   `graphicsLayer` rotation), with the poster art itself drifting slightly closer underneath
-  (`Modifier.focusParallax()`). A left nav rail (Home, one icon per library, Account) stays out of the way -
-  transparent and icon-only - until D-pad focus actually lands on it, curving its items around
-  whichever one is focused (closer items read larger/brighter, farther ones shrink and recede, like
-  a wheel bowing away from the center) and fading in a background and labels. The Account item
-  opens a menu with Logout, Change Server (only shown once more than one server is saved), Scan
-  Library (kicks off the same full library scan as the server dashboard's own "Scan All
-  Libraries" button, for picking up newly added files without leaving the couch), and Info.
+  (`Modifier.focusParallax()`). A frosted-glass nav bar (Home, one item per library, Account) sits
+  fixed across the top of the screen, always visible - a single accent-colored pill slides smoothly
+  to track whichever item has D-pad focus (`TopNavBar`, a native take on React Bits' GooeyNav - one
+  animated shape instead of a WebGL droplet-particle simulation). The Account item opens a menu with
+  Logout, Change Server (only shown once more than one server is saved), Scan Library (kicks off the
+  same full library scan as the server dashboard's own "Scan All Libraries" button, for picking up
+  newly added files without leaving the couch), and Info.
 - **Details screen**: a split layout - full-bleed backdrop on the right, gradient-masked into a
   poster/title/metadata panel on the left. The backdrop loads "blur-up" style - a near-instant,
   hand-blurred thumbnail (`BoxBlurTransformation`, a plain box blur, no new dependency) crossfades
@@ -115,10 +115,11 @@ two UI toolkits below fits it better, not the same one everywhere:
   for D-pad-aware focus styling (scale, glow, border on focus), plain `compose-foundation`
   `LazyRow`/`LazyColumn` for the scrolling rows (`androidx.tv:tv-foundation` was tried first, but
   at the pinned version it contains no usable `TvLazyRow`/`TvLazyColumn` at all - see the comment
-  in `app/build.gradle.kts`). The left nav rail is hand-built from plain Compose Foundation
+  in `app/build.gradle.kts`). The top nav bar is hand-built from plain Compose Foundation
   primitives (`Modifier.focusGroup`/`onFocusChanged`, `animateDpAsState`), not
   `NavigationDrawer`/`ModalNavigationDrawer` - both had real, hard-to-verify quirks around
-  measuring collapsed-vs-expanded width that cost two rounds of bugs before being replaced.
+  measuring collapsed-vs-expanded width that cost two rounds of bugs when this nav was still a
+  left-side rail.
 - **Library grid and Playback**: Kotlin + [androidx.leanback](https://developer.android.com/reference/androidx/leanback/package-summary)
   (`VerticalGridSupportFragment`) for the dense Movies/TV Shows poster grid - a plain grid has no
   real design surface for Compose's focus-styling advantages to matter, so it stays on Leanback's
@@ -159,9 +160,9 @@ app/src/main/java/io/github/rt993/firetvjellyfin/
     ├── login/    Server address -> username/password or Quick Connect (a hand-built step flow,
     │             not GuidedStepSupportFragment)
     ├── home/     HomeScreen (Compose): hero carousel, "Pick up where you left off" row, one poster
-    │             row per library, a hand-built left nav rail - see ui/theme/ for shared pieces
+    │             row per library, a hand-built top nav bar - see ui/theme/ for shared pieces
     ├── library/  LibraryGridActivity/Fragment: VerticalGridSupportFragment (Leanback) - the
-    │             Movies/TV Shows poster grid reached from a Home sidebar item
+    │             Movies/TV Shows poster grid reached from a Home nav bar item
     ├── details/  DetailsScreen (Compose): split layout, technical badges, ambient poster glow,
     │             inline season/episode picker for a series
     ├── theme/    Shared Compose pieces: TreeHouseTheme (colors), TvCard (the focus scale/glow/

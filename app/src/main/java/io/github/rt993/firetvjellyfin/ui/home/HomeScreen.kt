@@ -1,9 +1,12 @@
 package io.github.rt993.firetvjellyfin.ui.home
 
 import android.util.Log
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,6 +50,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -67,6 +73,7 @@ import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
 import io.github.rt993.firetvjellyfin.ui.theme.focusParallax
 import io.github.rt993.firetvjellyfin.ui.theme.kenBurnsDrift
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseAccent
+import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseBackground
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseSurface
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextPrimary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextSecondary
@@ -83,22 +90,23 @@ import org.jellyfin.sdk.model.api.ImageType
 
 private const val POSTER_ASPECT_RATIO = 2f / 3f
 private const val SPOTLIGHT_ASPECT_RATIO = 16f / 9f
-private val SIDEBAR_WIDTH_COLLAPSED = 64.dp
-private val SIDEBAR_WIDTH_EXPANDED = 220.dp
 
-// How the sidebar's items curve away from whichever one currently has D-pad focus - the item at
-// distance 0 sits at full size/brightness and flush against the rail; farther items shrink, dim,
-// and recede, like they're riding the rim of a wheel bowing back past the focused one. Distance is
-// measured in list positions (Home, each library, then Account, in traversal order), not pixels -
-// it curves the same way a focus move does, one step at a time.
-private const val WHEEL_CURVE_STEPS = 3
-private const val WHEEL_MIN_SCALE = 0.86f
-private const val WHEEL_MIN_ALPHA = 0.55f
-private val WHEEL_MAX_RECEDE = 14.dp
+// A frosted glass pill bar - not a literal WebGL "gooey" blob-morph (see React Bits' GooeyNav,
+// a raw shader with no DOM/JS equivalent here): one accent-colored pill slides smoothly between
+// items to track whichever one has D-pad focus, standing in for the droplet-particle morph with
+// a single animated shape instead of hundreds of simulated blobs. The frame itself is a plain
+// translucent fill plus a 1px highlight border, not a real backdrop blur - see this app's other
+// "glass" surfaces for why (RenderEffect needs API 31+, well above this app's target hardware).
+private val NAV_BAR_CORNER = RoundedCornerShape(999.dp)
+private val NAV_BAR_FRAME_PADDING = 8.dp
+private val NAV_BAR_ITEM_PADDING_H = 20.dp
+private val NAV_BAR_ITEM_PADDING_V = 12.dp
+private const val NAV_BAR_FRAME_ALPHA = 0.45f
+private const val NAV_PILL_ANIMATION_MS = 260
 
-// A safe-zone margin so the backdrop's top edge doesn't land flush against the physical top of
-// the screen - many TVs overscan (crop) a few percent off every edge, which was cutting off the
-// top of the hero image entirely.
+// A safe-zone margin so the nav bar and hero backdrop don't land flush against the physical top
+// of the screen - many TVs overscan (crop) a few percent off every edge, which was cutting off
+// the top of the content entirely.
 private val HERO_TOP_SAFE_MARGIN = 32.dp
 
 // Boxes the hero backdrop in from the screen edges with rounded corners, rather than having it
@@ -145,14 +153,10 @@ private data class HomeUiState(
 
 /**
  * Ground-up rewrite in Jetpack Compose for TV, replacing the Leanback [androidx.leanback.app
- * .BrowseSupportFragment]-based Home screen entirely. A depth-carousel of trending movies/shows
- * sits up top - D-pad focus brings a card to the front of the stack, see
- * [HeroDepthCarousel] - one poster row per library, then a Continue Watching row last.
- * [HomeSidebar] is a plain hand-built nav rail (not androidx.tv.material3's NavigationDrawer/
- * ModalNavigationDrawer - both turned out to have real, hard-to-verify quirks around measuring
- * collapsed-vs-expanded width that cost two rounds of bugs): no background of its own, icon-only
- * until D-pad focus actually lands on it, then it expands to show labels and curves its items
- * around whichever one is focused.
+ * .BrowseSupportFragment]-based Home screen entirely. A frosted-glass nav bar sits fixed across
+ * the top (Home, one item per library, Account) - see [TopNavBar] - above a depth-carousel of
+ * trending movies/shows, D-pad focus bringing a card to the front of the stack (see
+ * [HeroDepthCarousel]), one poster row per library, then a Continue Watching row last.
  */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
@@ -223,101 +227,103 @@ fun HomeScreen(
     // recomposition of this screen (e.g. every D-pad hero page), causing real, visible input lag.
     val heroHeight = LocalConfiguration.current.screenHeightDp.dp * 0.62f
 
-    // A FocusRequester on the sidebar's own focus group, not one specific item inside it: Compose
+    // A FocusRequester on the nav bar's own focus group, not one specific item inside it: Compose
     // remembers whichever child was last focused within a focus group, so requesting focus on the
     // group itself re-enters at that item (Home the first time, whatever the user last landed on
     // after that) instead of always snapping back to a fixed spot.
-    val sidebarFocusRequester = remember { FocusRequester() }
+    val navBarFocusRequester = remember { FocusRequester() }
 
     TreeHouseTheme {
         Box(Modifier.fillMaxSize()) {
             // A field of flat glass shards drifting slowly across the screen at a few depths,
             // instead of a flat color fill - see AeroShardsBackground.kt.
             AeroShardsBackground(modifier = Modifier.fillMaxSize())
-            Row(Modifier.fillMaxSize()) {
-            HomeSidebar(
-                libraries = state.libraries,
-                onLibrary = onOpenLibrary,
-                onSettings = { showAccountMenu = true },
-                modifier = Modifier.fillMaxHeight(),
-                focusRequester = sidebarFocusRequester,
-            )
+            Column(Modifier.fillMaxSize()) {
+                TopNavBar(
+                    libraries = state.libraries,
+                    onLibrary = onOpenLibrary,
+                    onSettings = { showAccountMenu = true },
+                    focusRequester = navBarFocusRequester,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = HERO_TOP_SAFE_MARGIN, start = HERO_HORIZONTAL_MARGIN, end = HERO_HORIZONTAL_MARGIN)
+                        .padding(bottom = 20.dp),
+                )
 
-            Box(Modifier.weight(1f).fillMaxHeight()) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 48.dp),
-                    verticalArrangement = Arrangement.spacedBy(HERO_BOTTOM_GAP),
-                ) {
-                    item {
-                        // Bundled into one LazyColumn item (not a static sibling of the list) so
-                        // Compose can discard/recycle it like any other row once scrolled well
-                        // past, instead of redrawing it on every single scroll frame regardless of
-                        // position - same reasoning the old fixed backdrop was built around.
-                        HeroDepthCarousel(
-                            items = heroItems,
-                            repository = repository,
-                            height = heroHeight,
-                            firstFocusRequester = heroFocusRequester,
-                            onPlay = onPlay,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(heroHeight)
-                                .padding(top = HERO_TOP_SAFE_MARGIN, start = HERO_HORIZONTAL_MARGIN, end = HERO_HORIZONTAL_MARGIN),
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 48.dp),
+                        verticalArrangement = Arrangement.spacedBy(HERO_BOTTOM_GAP),
+                    ) {
+                        item {
+                            // Bundled into one LazyColumn item (not a static sibling of the list) so
+                            // Compose can discard/recycle it like any other row once scrolled well
+                            // past, instead of redrawing it on every single scroll frame regardless of
+                            // position - same reasoning the old fixed backdrop was built around.
+                            HeroDepthCarousel(
+                                items = heroItems,
+                                repository = repository,
+                                height = heroHeight,
+                                firstFocusRequester = heroFocusRequester,
+                                navBarFocusRequester = navBarFocusRequester,
+                                onPlay = onPlay,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(heroHeight)
+                                    .padding(start = HERO_HORIZONTAL_MARGIN, end = HERO_HORIZONTAL_MARGIN),
+                            )
+                        }
+                        items(state.libraries, key = { it.id }) { library ->
+                            val libraryItems = state.libraryItems[library.id].orEmpty()
+                            if (libraryItems.isNotEmpty()) {
+                                MediaRow(title = library.name.orEmpty()) {
+                                    itemsIndexed(libraryItems, key = { _, item -> item.id }) { _, mediaItem ->
+                                        PosterCard(
+                                            item = mediaItem,
+                                            repository = repository,
+                                            onClick = { onOpenDetails(mediaItem) },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        if (state.continueWatching.isNotEmpty()) {
+                            item {
+                                MediaRow(title = stringResource(R.string.home_continue_watching)) {
+                                    itemsIndexed(state.continueWatching, key = { _, item -> item.id }) { _, mediaItem ->
+                                        SpotlightCard(
+                                            item = mediaItem,
+                                            repository = repository,
+                                            onClick = { onOpenDetails(mediaItem) },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (showAccountMenu) {
+                        AccountMenu(
+                            onLogout = { showAccountMenu = false; onLogout() },
+                            onChangeServer = if (hasMultipleServers) {
+                                { showAccountMenu = false; onChangeServer() }
+                            } else {
+                                null
+                            },
+                            onScanLibrary = { showAccountMenu = false; onScanLibrary() },
+                            onInfo = { showAccountMenu = false; onShowAccountInfo() },
                         )
                     }
-                    items(state.libraries, key = { it.id }) { library ->
-                        val libraryItems = state.libraryItems[library.id].orEmpty()
-                        if (libraryItems.isNotEmpty()) {
-                            MediaRow(title = library.name.orEmpty()) {
-                                itemsIndexed(libraryItems, key = { _, item -> item.id }) { index, mediaItem ->
-                                    PosterCard(
-                                        item = mediaItem,
-                                        repository = repository,
-                                        onClick = { onOpenDetails(mediaItem) },
-                                        modifier = if (index == 0) leftEdgeModifier(sidebarFocusRequester) else Modifier,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    if (state.continueWatching.isNotEmpty()) {
-                        item {
-                            MediaRow(title = stringResource(R.string.home_continue_watching)) {
-                                itemsIndexed(state.continueWatching, key = { _, item -> item.id }) { index, mediaItem ->
-                                    SpotlightCard(
-                                        item = mediaItem,
-                                        repository = repository,
-                                        onClick = { onOpenDetails(mediaItem) },
-                                        modifier = if (index == 0) leftEdgeModifier(sidebarFocusRequester) else Modifier,
-                                    )
-                                }
-                            }
-                        }
+
+                    state.error?.let { error ->
+                        Text(
+                            "${stringResource(R.string.home_error)}\n$error",
+                            color = TreeHouseTextSecondary,
+                            modifier = Modifier.align(Alignment.Center).padding(48.dp),
+                        )
                     }
                 }
-
-                if (showAccountMenu) {
-                    AccountMenu(
-                        onLogout = { showAccountMenu = false; onLogout() },
-                        onChangeServer = if (hasMultipleServers) {
-                            { showAccountMenu = false; onChangeServer() }
-                        } else {
-                            null
-                        },
-                        onScanLibrary = { showAccountMenu = false; onScanLibrary() },
-                        onInfo = { showAccountMenu = false; onShowAccountInfo() },
-                    )
-                }
-
-                state.error?.let { error ->
-                    Text(
-                        "${stringResource(R.string.home_error)}\n$error",
-                        color = TreeHouseTextSecondary,
-                        modifier = Modifier.align(Alignment.Center).padding(48.dp),
-                    )
-                }
-            }
             }
         }
     }
@@ -330,10 +336,13 @@ private fun BoxScope.AccountMenu(
     onScanLibrary: () -> Unit,
     onInfo: () -> Unit,
 ) {
+    // Dropping down from the Account item, which now sits at the right end of the top nav bar -
+    // top-aligned, not the bottom-left corner this used to anchor to back when Account was the
+    // last item at the bottom of a left-side rail.
     Column(
         modifier = Modifier
-            .align(Alignment.BottomStart)
-            .padding(24.dp)
+            .align(Alignment.TopEnd)
+            .padding(top = 12.dp, end = 24.dp)
             .background(TreeHouseSurface, RoundedCornerShape(8.dp))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -348,112 +357,112 @@ private fun BoxScope.AccountMenu(
 }
 
 /**
- * A plain, hand-built nav rail - icon-only at rest, expanding to show labels once D-pad focus
- * actually lands somewhere inside it ([focusGroup] + [onFocusChanged] on the container reports
- * focus for the whole group, not just one item), rather than relying on a Leanback/tv-material
- * component to manage that transition itself. No background of its own - it floats directly over
- * whatever content is behind it.
+ * A frosted-glass pill bar fixed across the top of the screen - Home, one item per library, then
+ * Account pushed to the far end. A single accent-colored pill behind the Row (not a background on
+ * each item) animates its x-offset/width to match whichever item currently has D-pad focus, the
+ * same "one shape slides to the active item" idea React Bits' GooeyNav uses, just without the
+ * literal droplet-particle blob simulation that needs WebGL - see [itemBounds] below.
  */
 @Composable
-private fun HomeSidebar(
+private fun TopNavBar(
     libraries: List<BaseItemDto>,
     onLibrary: (BaseItemDto) -> Unit,
     onSettings: () -> Unit,
     focusRequester: FocusRequester,
     modifier: Modifier = Modifier,
 ) {
-    var hasFocus by remember { mutableStateOf(false) }
-    val width by animateDpAsState(if (hasFocus) SIDEBAR_WIDTH_EXPANDED else SIDEBAR_WIDTH_COLLAPSED, label = "sidebarWidth")
-
-    // Which item currently holds focus, by position in traversal order (Home, each library,
-    // Account) - every item below reads its own distance from this shared index to curve its own
-    // scale/opacity/offset, so the whole rail reflows together as focus moves through it.
     var focusedIndex by remember { mutableStateOf(0) }
     val accountIndex = libraries.size + 1
+    // Each item reports its own x-offset/width (relative to the shared Row, which the pill is
+    // also positioned relative to) once laid out, so the pill can animate straight to wherever
+    // the currently-focused item actually sits instead of needing hardcoded widths per item.
+    val itemBounds = remember { mutableStateMapOf<Int, Pair<Float, Float>>() }
 
-    Column(
+    Box(
         modifier = modifier
-            .width(width)
+            .clip(NAV_BAR_CORNER)
+            .background(TreeHouseSurface.copy(alpha = NAV_BAR_FRAME_ALPHA))
+            .border(1.dp, Color.White.copy(alpha = 0.12f), NAV_BAR_CORNER)
             .focusRequester(focusRequester)
-            .onFocusChanged { hasFocus = it.hasFocus }
             .focusGroup()
-            .padding(vertical = 24.dp, horizontal = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(NAV_BAR_FRAME_PADDING),
     ) {
-        SidebarItem(
-            icon = R.drawable.ic_nav_home,
-            label = stringResource(R.string.nav_home),
-            showLabel = hasFocus,
-            distance = -focusedIndex,
-            onFocused = { focusedIndex = 0 },
-            onClick = {},
-        )
-        libraries.forEachIndexed { i, library ->
-            val index = i + 1
-            SidebarItem(
-                icon = R.drawable.ic_nav_library,
-                label = library.name.orEmpty(),
-                showLabel = hasFocus,
-                distance = index - focusedIndex,
-                onFocused = { focusedIndex = index },
-                onClick = { onLibrary(library) },
+        itemBounds[focusedIndex]?.let { (xPx, widthPx) ->
+            val density = LocalDensity.current
+            val animX by animateDpAsState(with(density) { xPx.toDp() }, tween(NAV_PILL_ANIMATION_MS), label = "navPillX")
+            val animWidth by animateDpAsState(with(density) { widthPx.toDp() }, tween(NAV_PILL_ANIMATION_MS), label = "navPillWidth")
+            Box(
+                Modifier
+                    .offset(x = animX)
+                    .width(animWidth)
+                    .fillMaxHeight()
+                    .background(TreeHouseAccent, NAV_BAR_CORNER),
             )
         }
-        Spacer(Modifier.weight(1f))
-        SidebarItem(
-            icon = R.drawable.ic_profile,
-            label = stringResource(R.string.nav_account),
-            showLabel = hasFocus,
-            distance = accountIndex - focusedIndex,
-            onFocused = { focusedIndex = accountIndex },
-            onClick = onSettings,
-        )
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            NavBarItem(
+                icon = R.drawable.ic_nav_home,
+                label = stringResource(R.string.nav_home),
+                onFocused = { focusedIndex = 0 },
+                onClick = {},
+                onPositioned = { x, width -> itemBounds[0] = x to width },
+            )
+            libraries.forEachIndexed { i, library ->
+                val index = i + 1
+                NavBarItem(
+                    icon = R.drawable.ic_nav_library,
+                    label = library.name.orEmpty(),
+                    onFocused = { focusedIndex = index },
+                    onClick = { onLibrary(library) },
+                    onPositioned = { x, width -> itemBounds[index] = x to width },
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            NavBarItem(
+                icon = R.drawable.ic_profile,
+                label = stringResource(R.string.nav_account),
+                onFocused = { focusedIndex = accountIndex },
+                onClick = onSettings,
+                onPositioned = { x, width -> itemBounds[accountIndex] = x to width },
+            )
+        }
     }
 }
 
 @Composable
-private fun SidebarItem(icon: Int, label: String, showLabel: Boolean, distance: Int, onFocused: () -> Unit, onClick: () -> Unit) {
+private fun NavBarItem(
+    icon: Int,
+    label: String,
+    onFocused: () -> Unit,
+    onClick: () -> Unit,
+    onPositioned: (xPx: Float, widthPx: Float) -> Unit,
+) {
     var isFocused by remember { mutableStateOf(false) }
-    val proximity = 1f - (abs(distance).coerceAtMost(WHEEL_CURVE_STEPS) / WHEEL_CURVE_STEPS.toFloat())
-    val scale by animateFloatAsState(WHEEL_MIN_SCALE + (1f - WHEEL_MIN_SCALE) * proximity, label = "wheelScale")
-    val curveAlpha by animateFloatAsState(WHEEL_MIN_ALPHA + (1f - WHEEL_MIN_ALPHA) * proximity, label = "wheelAlpha")
-    val recede by animateDpAsState(WHEEL_MAX_RECEDE * (1f - proximity), label = "wheelRecede")
+    // Dark text reads better once the bright accent pill is sitting behind it.
+    val textColor by animateColorAsState(if (isFocused) TreeHouseBackground else TreeHouseTextPrimary, label = "navItemTextColor")
 
-    // clickable() already makes this focusable on its own - a separate .focusable() here stacked
-    // two focus targets on top of each other, so the first D-pad press only moved focus onto the
-    // inner one and a second press was needed to actually register as a click.
     Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .offset(x = -recede)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                alpha = curveAlpha
+            .onGloballyPositioned { coordinates ->
+                onPositioned(coordinates.positionInParent().x, coordinates.size.width.toFloat())
             }
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isFocused) TreeHouseAccent.copy(alpha = 0.3f) else Color.Transparent)
+            .clip(NAV_BAR_CORNER)
             .onFocusChanged {
                 isFocused = it.isFocused
                 if (it.isFocused) onFocused()
             }
             .clickable(onClick = onClick)
-            .padding(12.dp),
+            .padding(horizontal = NAV_BAR_ITEM_PADDING_H, vertical = NAV_BAR_ITEM_PADDING_V),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = ImageVector.vectorResource(id = icon),
-            contentDescription = if (showLabel) null else label,
+            contentDescription = null,
             tint = Color.Unspecified,
-            // Explicit, uniform size regardless of each drawable's own declared intrinsic size -
-            // ic_profile.xml in particular is authored bigger (for the profile picker's tiles) and
-            // would otherwise render larger than the other sidebar icons.
-            modifier = Modifier.size(24.dp),
+            modifier = Modifier.size(22.dp),
         )
-        if (showLabel) {
-            Spacer(Modifier.width(12.dp))
-            Text(label, color = TreeHouseTextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
+        Spacer(Modifier.width(10.dp))
+        Text(label, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -474,6 +483,7 @@ private fun HeroDepthCarousel(
     repository: JellyfinRepository,
     height: Dp,
     firstFocusRequester: FocusRequester,
+    navBarFocusRequester: FocusRequester,
     onPlay: (BaseItemDto) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -522,7 +532,8 @@ private fun HeroDepthCarousel(
                     onClick = { onPlay(item) },
                     modifier = Modifier
                         .height(height)
-                        .then(if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier),
+                        .then(if (index == 0) Modifier.focusRequester(firstFocusRequester) else Modifier)
+                        .then(topEdgeModifier(navBarFocusRequester)),
                 )
             }
         }
@@ -641,14 +652,12 @@ private fun HeroDepthInfo(item: BaseItemDto, modifier: Modifier = Modifier) {
 }
 
 /**
- * Overrides D-pad Left from a row's first card to always re-enter the sidebar, instead of relying
- * on Compose's default geometry-based focus search - which picked the hero's Play button instead
- * of the sidebar from the very first row (Movies), since that button was still nearby in the
- * layout tree and won out on the distance heuristic, while it happened to resolve correctly one
- * row further down (Shows) purely by coincidence of vertical alignment.
+ * Overrides D-pad Up from the hero stack to always re-enter the nav bar, instead of relying on
+ * Compose's default geometry-based focus search - the same kind of cross-section jump that needed
+ * an explicit override for Left-to-sidebar back when the nav rail lived on the left edge.
  */
-private fun leftEdgeModifier(sidebarFocusRequester: FocusRequester): Modifier =
-    Modifier.focusProperties { left = sidebarFocusRequester }
+private fun topEdgeModifier(navBarFocusRequester: FocusRequester): Modifier =
+    Modifier.focusProperties { up = navBarFocusRequester }
 
 private fun buildMetaLine(item: BaseItemDto): String {
     val parts = mutableListOf<String>()
@@ -727,7 +736,7 @@ private fun SpotlightCard(
     }
 
     Column(modifier = Modifier.width(280.dp)) {
-        // The focus-relevant modifier (e.g. leftEdgeModifier's override) has to land on
+        // Any focus-relevant modifier (e.g. a focusProperties() override) has to land on
         // FocusableCard itself, not this wrapping Column - focusProperties only reaches a focus
         // target further down the same modifier chain, and the Column and the Card's actual focus
         // node are separate composables, not links in one chain.
