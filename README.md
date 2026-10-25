@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.8.22** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.9.0** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
@@ -82,9 +82,11 @@ If you'd rather install from a machine on the same network via ADB, see
 - **Server health monitoring**: a background check every five minutes against the same no-auth
   endpoint the saved-server name comes from (`ServerHealthMonitor`), independent of whatever screen
   is open - starts the moment a session connects, stops on sign-out. The Account menu's Server
-  Status row shows the live result as a colored dot and opens a scrollable log of every check
-  (timestamp, OK/unreachable, response time). The same log is also written to a durable file
-  alongside the existing crash log, pullable via `adb pull
+  Status row shows the live result as a colored dot and opens a glanceable status card - a simple
+  flat server-rack graphic with a pulsing status light, "Server Online"/"Server Unreachable", the
+  last response time, and the server's address - instead of a scrollable log meant to be read line
+  by line. Every check is still written to a durable log file alongside the existing crash log, for
+  deeper digging, pullable via `adb pull
   /sdcard/Android/data/io.github.rt993.firetvjellyfin/files/server_health.log`.
 - **Details screen**: a split layout - full-bleed backdrop on the right, gradient-masked into a
   poster/title/metadata panel on the left. The backdrop loads "blur-up" style - a near-instant,

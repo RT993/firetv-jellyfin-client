@@ -3,7 +3,7 @@
     <string name="app_name">TreeHouse</string>
 
     <!-- Splash -->
-    <string name="splash_version">Version 0.8.22</string>
+    <string name="splash_version">Version 0.9.0</string>
 
     <!-- Login -->
     <string name="login_step_welcome_subtitle">Let\'s get connected</string>
@@ -48,7 +48,10 @@
     <string name="user_menu_info_format">Signed in as %1$s\n%2$s</string>
     <string name="library_scan_started">Library scan started</string>
     <string name="library_scan_failed">Could not start a library scan</string>
-    <string name="server_status_empty">No checks logged yet - the first one runs shortly after sign-in.</string>
+    <string name="server_status_healthy">Server Online</string>
+    <string name="server_status_unreachable">Server Unreachable</string>
+    <string name="server_status_checking">Checking…</string>
+    <string name="server_status_ping_format">%1$d ms response time</string>
     <string name="server_status_close">Close</string>
 
     <!-- Details -->

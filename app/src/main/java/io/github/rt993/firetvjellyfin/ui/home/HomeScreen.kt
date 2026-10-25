@@ -2,8 +2,12 @@ package io.github.rt993.firetvjellyfin.ui.home
 
 import android.util.Log
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,7 +25,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -71,6 +74,7 @@ import androidx.tv.material3.Text
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import io.github.rt993.firetvjellyfin.R
+import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.data.ServerHealth
 import io.github.rt993.firetvjellyfin.data.ServerHealthMonitor
@@ -235,12 +239,7 @@ fun HomeScreen(
     }
 
     var showAccountMenu by remember { mutableStateOf(false) }
-
-    var showServerStatusLog by remember { mutableStateOf(false) }
-    var serverStatusLines by remember { mutableStateOf<List<String>>(emptyList()) }
-    LaunchedEffect(showServerStatusLog) {
-        if (showServerStatusLog) serverStatusLines = ServerHealthMonitor.recentLines()
-    }
+    var showServerStatusDialog by remember { mutableStateOf(false) }
 
     // Computed once from screen configuration rather than via BoxWithConstraints, which disables
     // Compose's recomposition-skipping for its entire content - on this app's low-end Fire Stick
@@ -334,12 +333,12 @@ fun HomeScreen(
                             },
                             onScanLibrary = { showAccountMenu = false; onScanLibrary() },
                             onInfo = { showAccountMenu = false; onShowAccountInfo() },
-                            onShowServerStatus = { showAccountMenu = false; showServerStatusLog = true },
+                            onShowServerStatus = { showAccountMenu = false; showServerStatusDialog = true },
                         )
                     }
 
-                    if (showServerStatusLog) {
-                        ServerStatusLog(lines = serverStatusLines, onDismiss = { showServerStatusLog = false })
+                    if (showServerStatusDialog) {
+                        ServerStatusDialog(onDismiss = { showServerStatusDialog = false })
                     }
 
                     state.error?.let { error ->
@@ -403,12 +402,13 @@ private fun healthColor(health: ServerHealth): Color = when (health) {
 }
 
 /**
- * A scrollable readout of [ServerHealthMonitor]'s last checks (one line every five minutes) -
- * opened from the Account menu's status row, not auto-shown, since this is diagnostic detail
- * most sessions will never need to look at.
+ * A visual readout of [ServerHealthMonitor]'s current state - opened from the Account menu's
+ * status row, not auto-shown, since this is diagnostic detail most sessions will never need to
+ * look at. Replaced an earlier, plainer version that just listed raw log lines: this is meant to
+ * be glanceable at a distance on a TV, not read line by line.
  */
 @Composable
-private fun BoxScope.ServerStatusLog(lines: List<String>, onDismiss: () -> Unit) {
+private fun BoxScope.ServerStatusDialog(onDismiss: () -> Unit) {
     // The Account menu's own button held D-pad focus right up until this dialog replaces it in
     // the same click handler - nothing automatically carries focus over to a composable that
     // only now entered composition, so without this the remote's input kept going to whatever
@@ -416,28 +416,85 @@ private fun BoxScope.ServerStatusLog(lines: List<String>, onDismiss: () -> Unit)
     val closeFocusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { closeFocusRequester.requestFocus() }
 
+    val health by ServerHealthMonitor.status.collectAsState()
+    val pingMs by ServerHealthMonitor.lastPingMs.collectAsState()
+    val serverUrl = remember { JellyfinClientHolder.currentServerUrl() }
+
+    val headline = when (health) {
+        ServerHealth.HEALTHY -> stringResource(R.string.server_status_healthy)
+        ServerHealth.UNREACHABLE -> stringResource(R.string.server_status_unreachable)
+        ServerHealth.UNKNOWN -> stringResource(R.string.server_status_checking)
+    }
+
     Column(
         modifier = Modifier
             .align(Alignment.Center)
-            .fillMaxWidth(0.55f)
-            .heightIn(max = 480.dp)
-            .background(TreeHouseSurface, RoundedCornerShape(12.dp))
-            .padding(20.dp),
+            .widthIn(min = 360.dp)
+            .background(TreeHouseSurface, RoundedCornerShape(16.dp))
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(stringResource(R.string.user_menu_server_status), style = MaterialTheme.typography.titleMedium, color = TreeHouseTextPrimary)
-        Spacer(Modifier.height(12.dp))
-        if (lines.isEmpty()) {
-            Text(stringResource(R.string.server_status_empty), color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodySmall)
-        } else {
-            LazyColumn(modifier = Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                items(lines.asReversed()) { line ->
-                    Text(line, color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodySmall)
-                }
-            }
+        ServerRackIcon(health = health, modifier = Modifier.width(140.dp))
+        Spacer(Modifier.height(24.dp))
+        Text(headline, style = MaterialTheme.typography.headlineSmall, color = TreeHouseTextPrimary)
+        if (pingMs != null) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.server_status_ping_format, pingMs ?: 0L),
+                style = MaterialTheme.typography.bodyMedium,
+                color = TreeHouseAccent,
+            )
         }
-        Spacer(Modifier.height(16.dp))
+        if (!serverUrl.isNullOrBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Text(serverUrl, style = MaterialTheme.typography.bodySmall, color = TreeHouseTextSecondary)
+        }
+        Spacer(Modifier.height(28.dp))
         Button(onClick = onDismiss, modifier = Modifier.focusRequester(closeFocusRequester)) {
             Text(stringResource(R.string.server_status_close))
+        }
+    }
+}
+
+/**
+ * A simple flat server-rack graphic - three bars with status lights, the top one pulsing in the
+ * current [ServerHealth] color - standing in for a glanceable "is the server up" visual instead
+ * of raw log text. Built from plain shapes rather than an imported icon asset, to avoid pulling in
+ * a third-party icon library for one graphic.
+ */
+@Composable
+private fun ServerRackIcon(health: ServerHealth, modifier: Modifier = Modifier) {
+    val color = healthColor(health)
+    val infiniteTransition = rememberInfiniteTransition(label = "serverStatusPulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(animation = tween(900), repeatMode = RepeatMode.Reverse),
+        label = "serverStatusPulseAlpha",
+    )
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        repeat(3) { index ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(20.dp)
+                    .background(TreeHouseTextSecondary.copy(alpha = 0.16f), RoundedCornerShape(5.dp))
+                    .padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(4.dp)
+                        .background(TreeHouseTextSecondary.copy(alpha = 0.28f), RoundedCornerShape(2.dp)),
+                )
+                Spacer(Modifier.width(8.dp))
+                Box(
+                    Modifier
+                        .size(8.dp)
+                        .background(color.copy(alpha = if (index == 0) pulseAlpha else 0.5f), CircleShape),
+                )
+            }
         }
     }
 }

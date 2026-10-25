@@ -49,6 +49,12 @@ object ServerHealthMonitor {
     private val _status = MutableStateFlow(ServerHealth.UNKNOWN)
     val status: StateFlow<ServerHealth> = _status.asStateFlow()
 
+    // How long the most recent check took to get a response (or to give up) - exposed as its own
+    // piece of state rather than making the Server Status screen parse it back out of a log line,
+    // since that's the number the visual redesign wants front and center, not buried in log text.
+    private val _lastPingMs = MutableStateFlow<Long?>(null)
+    val lastPingMs: StateFlow<Long?> = _lastPingMs.asStateFlow()
+
     // A process-lifetime scope, not one tied to any particular screen - the whole point is that
     // this keeps checking in the background regardless of which Activity happens to be in front.
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -59,6 +65,7 @@ object ServerHealthMonitor {
     fun start(context: Context, repository: JellyfinRepository) {
         job?.cancel()
         _status.value = ServerHealth.UNKNOWN
+        _lastPingMs.value = null
         val dir = context.applicationContext.getExternalFilesDir(null) ?: context.applicationContext.filesDir
         logFile = File(dir, LOG_FILE_NAME)
         job = scope.launch {
@@ -74,6 +81,7 @@ object ServerHealthMonitor {
         job?.cancel()
         job = null
         _status.value = ServerHealth.UNKNOWN
+        _lastPingMs.value = null
     }
 
     private suspend fun checkOnce(repository: JellyfinRepository) {
@@ -84,6 +92,7 @@ object ServerHealthMonitor {
         val elapsedMs = System.currentTimeMillis() - startedAt
         val healthy = serverName != null
         _status.value = if (healthy) ServerHealth.HEALTHY else ServerHealth.UNREACHABLE
+        _lastPingMs.value = elapsedMs
 
         val line = "${timestampFormat.format(Date())}  ${if (healthy) "OK" else "UNREACHABLE"}  responded in ${elapsedMs}ms"
         Log.i(TAG, line)
