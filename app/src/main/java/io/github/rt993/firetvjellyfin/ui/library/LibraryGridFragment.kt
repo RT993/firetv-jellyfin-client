@@ -23,10 +23,10 @@ import java.util.UUID
 /**
  * A full poster grid for one library - the Apple-TV-style "Movies"/"TV Shows" tab destination,
  * replacing the single horizontal shelf that nav tap used to just scroll to on the Home screen.
- * Reuses [CardPresenter] as-is: its own focus animation (scale, elevation, 3D tilt, a border, and
- * a parallax scale on the art itself - the same treatment the Compose poster cards elsewhere in
- * the app use, just built with plain View properties instead of Compose) is the only per-item
- * highlight here, so the grid's own zoom is explicitly turned off to avoid stacking both.
+ * Reuses [CardPresenter] as-is: its own focus animation (scale, elevation, 3D tilt, and a border -
+ * the same treatment the Compose poster cards elsewhere in the app use, just built with plain View
+ * properties instead of Compose) is the only per-item highlight here, so the grid's own zoom is
+ * explicitly turned off to avoid stacking both.
  */
 class LibraryGridFragment : VerticalGridSupportFragment() {
 

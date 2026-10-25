@@ -35,16 +35,15 @@ private const val FOCUS_IN_ANIM_MS = 220L
 private const val FOCUS_OUT_ANIM_MS = 150L
 private const val FOCUS_OVERSHOOT_TENSION = 2.5f
 
-// Same 3D tilt and inner-image parallax as the Compose poster cards elsewhere in the app (see
-// FocusableCard/Modifier.focusParallax) - rotationY and scaleX/Y are plain View properties too, so
-// the same tasteful tilt-on-focus treatment doesn't need Compose to work here. Left at the
-// platform's default camera distance (not a custom, exaggerated one like the Compose version's)
-// since that default already reads as a natural tilt for angles this small. Y-axis only, not X:
-// tipping the top edge back made the elevation shadow (cast from the flat, untilted outline, never
-// reprojected in 3D) stop lining up with the foreshortened top edge, leaving a sliver of square
-// shadow corner visible above the rounded card - see TvCard.kt's FocusableCard for the same fix.
+// Same 3D tilt as the Compose poster cards elsewhere in the app (see FocusableCard) - rotationY is
+// a plain View property too, so the same tasteful tilt-on-focus treatment doesn't need Compose to
+// work here. Left at the platform's default camera distance (not a custom, exaggerated one like the
+// Compose version's) since that default already reads as a natural tilt for angles this small.
+// Y-axis only, not X: tipping the top edge back made the elevation shadow (cast from the flat,
+// untilted outline, never reprojected in 3D) stop lining up with the foreshortened top edge, leaving
+// a sliver of square shadow corner visible above the rounded card - see TvCard.kt's FocusableCard
+// for the same fix.
 private const val TILT_ROTATION_Y = 10f
-private const val PARALLAX_SCALE = 1.06f
 private const val FOCUS_BORDER_WIDTH_DP = 2
 
 /** Renders a single [BaseItemDto] as a poster card inside a leanback row. */
@@ -82,15 +81,17 @@ class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
                     .setDuration(animationSpec)
                     .setInterpolator(interpolator)
                     .start()
-                // A separate, slightly larger scale on just the art itself, clipped to the card's
-                // own rounded-rect outline - the same "poster drifting closer" parallax layered
-                // under the card-level tilt that the Compose cards use (Modifier.focusParallax).
-                (view as? ImageCardView)?.mainImageView?.animate()
-                    ?.scaleX(if (hasFocus) PARALLAX_SCALE else 1f)
-                    ?.scaleY(if (hasFocus) PARALLAX_SCALE else 1f)
-                    ?.setDuration(animationSpec)
-                    ?.setInterpolator(interpolator)
-                    ?.start()
+                // No separate parallax scale on mainImageView itself (unlike the Compose cards'
+                // Modifier.focusParallax) - an independent ViewPropertyAnimator scale on the child,
+                // stacked on top of the card's own scale, doesn't have the same clip-correctness
+                // guarantee Compose's nested clip gets for free, and was the one thing structurally
+                // different about this card vs every other place cards round correctly. It was the
+                // actual cause of the square-corner artifact surviving every other fix tried here
+                // (rotationX removal, disabling Leanback's auto-shadow, baking rounding into both
+                // the real artwork's and the placeholder's bitmaps) - all real, legitimate fixes for
+                // the mechanisms they addressed, but this compounding extra scale was still enough
+                // to push the baked-in rounding out of alignment with the card's own border. The
+                // card-level FOCUS_SCALE pop is enough focus feedback on its own without it.
                 view.foreground?.alpha = if (hasFocus) 255 else 0
             }
         }
