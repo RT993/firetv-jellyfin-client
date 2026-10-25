@@ -48,7 +48,6 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.bumptech.glide.Glide
 import com.bumptech.glide.integration.compose.CrossFade
-import com.bumptech.glide.load.DecodeFormat
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import io.github.rt993.firetvjellyfin.R
@@ -275,12 +274,8 @@ private fun DetailsBackdrop(item: BaseItemDto, repository: JellyfinRepository) {
                 // A blurred, near-instant low-res thumbnail shows first and crossfades into the
                 // full-resolution backdrop as it loads, instead of the art popping in abruptly
                 // over the plain background once the (much larger) full image is fully decoded.
-                // RGB_565 on both - backdrop art never needs an alpha channel, and at the full
-                // 1920px width this is the single biggest image decode in the app.
                 requestBuilderTransform = { requestBuilder ->
-                    requestBuilder
-                        .format(DecodeFormat.PREFER_RGB_565)
-                        .thumbnail(Glide.with(context).load(thumbnailUrl).format(DecodeFormat.PREFER_RGB_565).transform(BoxBlurTransformation()))
+                    requestBuilder.thumbnail(Glide.with(context).load(thumbnailUrl).transform(BoxBlurTransformation()))
                 },
             )
         }
@@ -325,7 +320,6 @@ private fun DetailsInfoPanel(
                     .aspectRatio(POSTER_ASPECT_RATIO)
                     .clip(RoundedCornerShape(12.dp)),
                 contentScale = ContentScale.Crop,
-                requestBuilderTransform = { it.format(DecodeFormat.PREFER_RGB_565) },
             )
         }
         Spacer(Modifier.width(28.dp))
@@ -558,7 +552,6 @@ private fun EpisodeCard(episode: BaseItemDto, repository: JellyfinRepository, on
                 contentDescription = episode.name,
                 modifier = Modifier.fillMaxWidth().aspectRatio(EPISODE_ASPECT_RATIO).focusParallax(isFocused),
                 contentScale = ContentScale.Crop,
-                requestBuilderTransform = { it.format(DecodeFormat.PREFER_RGB_565) },
             )
         }
         Spacer(Modifier.height(6.dp))
@@ -609,7 +602,6 @@ private fun BoxSetMovieCard(movie: BaseItemDto, repository: JellyfinRepository, 
                 contentDescription = movie.name,
                 modifier = Modifier.fillMaxWidth().aspectRatio(POSTER_ASPECT_RATIO).focusParallax(isFocused),
                 contentScale = ContentScale.Crop,
-                requestBuilderTransform = { it.format(DecodeFormat.PREFER_RGB_565) },
             )
         }
         Spacer(Modifier.height(6.dp))
