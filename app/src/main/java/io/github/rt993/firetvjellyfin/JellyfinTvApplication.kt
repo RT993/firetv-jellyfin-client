@@ -6,8 +6,6 @@ import com.bumptech.glide.integration.okhttp3.OkHttpUrlLoader
 import com.bumptech.glide.load.model.GlideUrl
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.util.CrashLogger
-import io.github.rt993.firetvjellyfin.util.GlideTimingEventListenerFactory
-import okhttp3.OkHttpClient
 import java.io.InputStream
 
 class JellyfinTvApplication : Application() {
@@ -23,18 +21,10 @@ class JellyfinTvApplication : Application() {
         // earlier - no startup-timing dependency, no "already initialized" failure mode), so this
         // just swaps the loader on the singleton Glide already creates for itself.
         //
-        // Switching to OkHttp cut the delay from ~60s to ~10s. A second timing capture after
-        // raising OkHttp's per-host connection cap (tried here briefly, since the first capture
-        // showed later requests queued behind the default cap of 5) showed that change made no
-        // real difference - total time was about the same, sometimes worse. That rules out
-        // connection queueing as the bottleneck: it's genuinely slow TCP connect (1.4-2.7s to a
-        // LAN device, which should normally be single-digit ms) and slow server response time on
-        // every request, consistent with something server/network-side (a blocking reverse-DNS
-        // lookup on accept is the classic cause of exactly this symptom) rather than anything
-        // fixable from this client - reverted to OkHttp's own default dispatcher accordingly.
-        // GlideTimingLogger stays in; still useful if this needs another look later.
-        val okHttpClient = OkHttpClient.Builder().eventListenerFactory(GlideTimingEventListenerFactory).build()
-        Glide.get(this).registry.replace(GlideUrl::class.java, InputStream::class.java, OkHttpUrlLoader.Factory(okHttpClient))
+        // The remaining delay after this (confirmed via a logged timing capture, since multiple
+        // guesses at client-side causes didn't pan out) turned out to be a stale cache on the
+        // router, not anything in this app - resolved by a router restart, nothing left to fix here.
+        Glide.get(this).registry.replace(GlideUrl::class.java, InputStream::class.java, OkHttpUrlLoader.Factory())
         CrashLogger.install(this)
         JellyfinClientHolder.initialize(this)
     }
