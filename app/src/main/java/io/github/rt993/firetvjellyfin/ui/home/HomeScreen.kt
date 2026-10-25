@@ -444,6 +444,13 @@ private fun TopNavBar(
     // also positioned relative to) once laid out, so the pill can animate straight to wherever
     // the currently-focused item actually sits instead of needing hardcoded widths per item.
     val itemBounds = remember { mutableStateMapOf<Int, Pair<Float, Float>>() }
+    // The bar's own Box has no height of its own - it's meant to wrap the Row of nav items. A
+    // fillMaxHeight() pill inside it used to blow that up to the full remaining screen height
+    // instead (Box sizes itself to the largest child, and fillMaxHeight() greedily claims
+    // whatever loose height the Column above hands down), so the pill measures the Row's actual
+    // height itself and uses that directly rather than fillMaxHeight().
+    var rowHeightPx by remember { mutableStateOf(0f) }
+    val density = LocalDensity.current
 
     Box(
         modifier = modifier
@@ -455,18 +462,22 @@ private fun TopNavBar(
             .padding(NAV_BAR_FRAME_PADDING),
     ) {
         itemBounds[focusedIndex]?.let { (xPx, widthPx) ->
-            val density = LocalDensity.current
             val animX by animateDpAsState(with(density) { xPx.toDp() }, tween(NAV_PILL_ANIMATION_MS), label = "navPillX")
             val animWidth by animateDpAsState(with(density) { widthPx.toDp() }, tween(NAV_PILL_ANIMATION_MS), label = "navPillWidth")
             Box(
                 Modifier
                     .offset(x = animX)
                     .width(animWidth)
-                    .fillMaxHeight()
+                    .height(with(density) { rowHeightPx.toDp() })
                     .background(TreeHouseAccent, NAV_BAR_CORNER),
             )
         }
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { coordinates -> rowHeightPx = coordinates.size.height.toFloat() },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             NavBarItem(
                 icon = R.drawable.ic_nav_home,
                 label = stringResource(R.string.nav_home),
