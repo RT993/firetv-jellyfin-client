@@ -85,8 +85,8 @@ import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextSecondary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTheme
 import io.github.rt993.firetvjellyfin.util.formatRuntimeTicks
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
@@ -196,27 +196,30 @@ fun HomeScreen(
         val trending = trendingDeferred.await().getOrDefault(emptyList()).shuffled()
         val continueWatching = continueWatchingDeferred.await().getOrDefault(emptyList())
 
-        // Same idea for the per-library item fetches - one network call per library, all
-        // independent of each other, so they run concurrently instead of queued back to back.
-        val libraryItems = libraries
-            .map { library ->
-                async {
-                    library.id to runCatching { repository.getItems(userId, library.id) }
-                        .onFailure { Log.e(TAG, "getItems failed for library ${library.name}", it) }
-                        .getOrDefault(emptyList())
-                }
-            }
-            .awaitAll()
-            .toMap()
-
-        state = HomeUiState(
+        // Unblocks the hero carousel and Continue Watching row as soon as this first batch
+        // resolves, instead of making them wait on every library's own item fetch too - those
+        // previously all had to finish (via awaitAll) before ANY part of Home could render, so the
+        // whole screen sat on a loading spinner for the combined latency of two sequential network
+        // round trips (this batch, then whichever library happened to be slowest) instead of one.
+        state = state.copy(
             isLoading = false,
             error = librariesResult.exceptionOrNull()?.let { "${it.javaClass.simpleName}: ${it.message}" },
             continueWatching = continueWatching,
             libraries = libraries,
-            libraryItems = libraryItems,
             trending = trending,
         )
+
+        // Each library's own poster row now appears as soon as its own fetch resolves - launched
+        // independently (not awaited together) so one slow library's row filling in doesn't hold
+        // up any of the others.
+        libraries.forEach { library ->
+            launch {
+                val items = runCatching { repository.getItems(userId, library.id) }
+                    .onFailure { Log.e(TAG, "getItems failed for library ${library.name}", it) }
+                    .getOrDefault(emptyList())
+                state = state.copy(libraryItems = state.libraryItems + (library.id to items))
+            }
+        }
     }
 
     // Falls back to Continue Watching items if there's no trending data yet, so the gallery isn't
