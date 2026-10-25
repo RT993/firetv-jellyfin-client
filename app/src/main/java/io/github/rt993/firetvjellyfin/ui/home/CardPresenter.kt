@@ -14,6 +14,8 @@ import android.view.animation.OvershootInterpolator
 import androidx.leanback.widget.ImageCardView
 import androidx.leanback.widget.Presenter
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.CenterCrop
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import org.jellyfin.sdk.model.api.BaseItemDto
@@ -92,9 +94,18 @@ class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
         cardView.titleText = baseItem.name
         cardView.contentText = baseItem.productionYear?.toString().orEmpty()
 
+        // Rounded via a Glide bitmap transform, not just the View-level clipToOutline below - the
+        // parallax scale animation on this ImageView (see onCreateViewHolder) promotes it to its
+        // own hardware layer while animating, which can render outside its parent's clip region
+        // regardless of clipToOutline, leaving the image's actual square corners visible past the
+        // rounded white border. Baking the rounding into the decoded bitmap itself sidesteps that
+        // entirely - the pixels outside the rounded shape are simply gone before they ever reach
+        // the ImageView.
+        val radiusPx = dpToPx(cardView.context, CARD_CORNER_RADIUS_DP).toInt()
         val imageUrl = repository.buildImageUrl(baseItem.id)
         Glide.with(cardView.context)
             .load(imageUrl)
+            .transform(CenterCrop(), RoundedCorners(radiusPx))
             .placeholder(R.drawable.card_placeholder)
             .error(R.drawable.card_placeholder)
             .into(imageView)
