@@ -285,6 +285,18 @@ it's safe to turn on.
    adb shell monkey -p io.github.rt993.firetvjellyfin -c android.intent.category.LEANBACK_LAUNCHER 1
    ```
 
+## Planned next
+
+- **Skip Outro**: Skip Intro already exists (`PlaybackActivity`'s `introSegment`/`btnSkipIntro`,
+  via the server's Media Segments API - only populated if the server has a plugin like Intro
+  Skipper tagging segments). Add the equivalent for the outro/credits segment the same API can
+  also return, so a credits-skip button shows up the same way near the end of an episode.
+- **Play from the beginning**: Details' Play/Resume button (`PlayButton` in `DetailsScreen.kt`)
+  always resumes from the saved position once one exists - there's no way to restart an
+  in-progress item from 0:00 without first clearing progress server-side. Add a second action
+  (a separate button, or an option alongside Resume) that explicitly starts playback from the
+  beginning while leaving the saved resume position untouched for next time.
+
 ## Known gaps / next steps
 
 - No automated tests yet.
