@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Shown by CardPresenter (library grid) both while an image is loading and on load failure.
+    Glide's RoundedCorners transform there only rounds the actually-loaded network bitmap, never
+    this static placeholder - so unlike the real artwork, this still depends entirely on the card
+    view's own clipToOutline, which has a known bug: a focused card's scale/parallax animation can
+    promote its ImageView to its own hardware layer that escapes the parent's rounded clip, exposing
+    square corners. Baking the rounding into this drawable itself sidesteps that the same way the
+    real artwork's fix does. Radius must match CARD_CORNER_RADIUS_DP in CardPresenter.kt.
+-->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <solid android:color="@color/card_default" />
+    <corners android:radius="14dp" />
 </shape>
