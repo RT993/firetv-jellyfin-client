@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.7.0** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.8.0** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
@@ -75,9 +75,17 @@ If you'd rather install from a machine on the same network via ADB, see
   fixed across the top of the screen, always visible - a single accent-colored pill slides smoothly
   to track whichever item has D-pad focus (`TopNavBar`, a native take on React Bits' GooeyNav - one
   animated shape instead of a WebGL droplet-particle simulation). The Account item opens a menu with
-  Logout, Change Server (only shown once more than one server is saved), Scan Library (kicks off the
-  same full library scan as the server dashboard's own "Scan All Libraries" button, for picking up
-  newly added files without leaving the couch), and Info.
+  a Server Status row (a green/red/grey dot for the live result of the last health check - see
+  below), Logout, Change Server (only shown once more than one server is saved), Scan Library
+  (kicks off the same full library scan as the server dashboard's own "Scan All Libraries" button,
+  for picking up newly added files without leaving the couch), and Info.
+- **Server health monitoring**: a background check every five minutes against the same no-auth
+  endpoint the saved-server name comes from (`ServerHealthMonitor`), independent of whatever screen
+  is open - starts the moment a session connects, stops on sign-out. The Account menu's Server
+  Status row shows the live result as a colored dot and opens a scrollable log of every check
+  (timestamp, OK/unreachable, response time). The same log is also written to a durable file
+  alongside the existing crash log, pullable via `adb pull
+  /sdcard/Android/data/io.github.rt993.firetvjellyfin/files/server_health.log`.
 - **Details screen**: a split layout - full-bleed backdrop on the right, gradient-masked into a
   poster/title/metadata panel on the left. The backdrop loads "blur-up" style - a near-instant,
   hand-blurred thumbnail (`BoxBlurTransformation`, a plain box blur, no new dependency) crossfades

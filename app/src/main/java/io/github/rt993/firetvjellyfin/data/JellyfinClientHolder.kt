@@ -18,6 +18,7 @@ object JellyfinClientHolder {
 
     private lateinit var jellyfin: Jellyfin
     private lateinit var credentialStore: CredentialStore
+    private lateinit var appContext: Context
 
     var api: ApiClient? = null
         private set
@@ -31,6 +32,7 @@ object JellyfinClientHolder {
         private set
 
     fun initialize(context: Context) {
+        appContext = context.applicationContext
         credentialStore = CredentialStore(context)
         jellyfin = createJellyfin {
             this.context = context
@@ -64,8 +66,10 @@ object JellyfinClientHolder {
             httpClientOptions = HttpClientOptions(requestTimeout = 2.minutes, socketTimeout = 2.minutes),
         )
         api = client
-        repository = JellyfinRepository(client)
+        val newRepository = JellyfinRepository(client)
+        repository = newRepository
         credentialStore.serverUrl = normalizedUrl
+        ServerHealthMonitor.start(appContext, newRepository)
         return client
     }
 
@@ -129,6 +133,7 @@ object JellyfinClientHolder {
         credentialStore.clearCurrentSession()
         api = null
         repository = null
+        ServerHealthMonitor.stop()
     }
 
     private fun normalizeServerUrl(input: String): String {
@@ -142,5 +147,5 @@ object JellyfinClientHolder {
 
     // Kept separate from BuildConfig.VERSION_NAME so this file has no Gradle-generated dependency -
     // which means it has to be bumped by hand alongside app/build.gradle.kts's versionName.
-    private const val BuildConfigVersion = "0.7.0"
+    private const val BuildConfigVersion = "0.8.0"
 }

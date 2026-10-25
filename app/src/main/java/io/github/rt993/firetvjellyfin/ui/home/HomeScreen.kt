@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,9 +32,11 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -68,6 +71,8 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
+import io.github.rt993.firetvjellyfin.data.ServerHealth
+import io.github.rt993.firetvjellyfin.data.ServerHealthMonitor
 import io.github.rt993.firetvjellyfin.ui.theme.AeroShardsBackground
 import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
 import io.github.rt993.firetvjellyfin.ui.theme.focusParallax
@@ -221,6 +226,12 @@ fun HomeScreen(
 
     var showAccountMenu by remember { mutableStateOf(false) }
 
+    var showServerStatusLog by remember { mutableStateOf(false) }
+    var serverStatusLines by remember { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(showServerStatusLog) {
+        if (showServerStatusLog) serverStatusLines = ServerHealthMonitor.recentLines()
+    }
+
     // Computed once from screen configuration rather than via BoxWithConstraints, which disables
     // Compose's recomposition-skipping for its entire content - on this app's low-end Fire Stick
     // target that meant the whole LazyColumn (every row, every card) re-executed on every
@@ -313,7 +324,12 @@ fun HomeScreen(
                             },
                             onScanLibrary = { showAccountMenu = false; onScanLibrary() },
                             onInfo = { showAccountMenu = false; onShowAccountInfo() },
+                            onShowServerStatus = { showAccountMenu = false; showServerStatusLog = true },
                         )
+                    }
+
+                    if (showServerStatusLog) {
+                        ServerStatusLog(lines = serverStatusLines, onDismiss = { showServerStatusLog = false })
                     }
 
                     state.error?.let { error ->
@@ -335,6 +351,7 @@ private fun BoxScope.AccountMenu(
     onChangeServer: (() -> Unit)?,
     onScanLibrary: () -> Unit,
     onInfo: () -> Unit,
+    onShowServerStatus: () -> Unit,
 ) {
     // Dropping down from the Account item, which now sits at the right end of the top nav bar -
     // top-aligned, not the bottom-left corner this used to anchor to back when Account was the
@@ -347,12 +364,62 @@ private fun BoxScope.AccountMenu(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        Button(onClick = onShowServerStatus) {
+            val health by ServerHealthMonitor.status.collectAsState()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(10.dp)
+                        .background(healthColor(health), CircleShape),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.user_menu_server_status))
+            }
+        }
         Button(onClick = onLogout) { Text(stringResource(R.string.user_menu_logout)) }
         if (onChangeServer != null) {
             Button(onClick = onChangeServer) { Text(stringResource(R.string.user_menu_change_server)) }
         }
         Button(onClick = onScanLibrary) { Text(stringResource(R.string.user_menu_scan_library)) }
         Button(onClick = onInfo) { Text(stringResource(R.string.user_menu_info)) }
+    }
+}
+
+/** Green/red/grey dot colors for [ServerHealth], shared by the Account menu's status row. */
+private fun healthColor(health: ServerHealth): Color = when (health) {
+    ServerHealth.HEALTHY -> Color(0xFF4CAF50)
+    ServerHealth.UNREACHABLE -> Color(0xFFE53935)
+    ServerHealth.UNKNOWN -> TreeHouseTextSecondary
+}
+
+/**
+ * A scrollable readout of [ServerHealthMonitor]'s last checks (one line every five minutes) -
+ * opened from the Account menu's status row, not auto-shown, since this is diagnostic detail
+ * most sessions will never need to look at.
+ */
+@Composable
+private fun BoxScope.ServerStatusLog(lines: List<String>, onDismiss: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .align(Alignment.Center)
+            .fillMaxWidth(0.55f)
+            .heightIn(max = 480.dp)
+            .background(TreeHouseSurface, RoundedCornerShape(12.dp))
+            .padding(20.dp),
+    ) {
+        Text(stringResource(R.string.user_menu_server_status), style = MaterialTheme.typography.titleMedium, color = TreeHouseTextPrimary)
+        Spacer(Modifier.height(12.dp))
+        if (lines.isEmpty()) {
+            Text(stringResource(R.string.server_status_empty), color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodySmall)
+        } else {
+            LazyColumn(modifier = Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                items(lines.asReversed()) { line ->
+                    Text(line, color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Button(onClick = onDismiss) { Text(stringResource(R.string.server_status_close)) }
     }
 }
 
