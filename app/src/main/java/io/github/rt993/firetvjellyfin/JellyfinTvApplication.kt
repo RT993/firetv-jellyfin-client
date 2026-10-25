@@ -7,19 +7,8 @@ import com.bumptech.glide.load.model.GlideUrl
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.util.CrashLogger
 import io.github.rt993.firetvjellyfin.util.GlideTimingEventListenerFactory
-import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import java.io.InputStream
-
-// A logged timing capture showed TCP connect (~1.4s) and server response (~1.6s) are each slow but
-// unavoidable from here - what actually compounded that into a 12s+ total was OkHttp's default
-// per-host connection cap (5): with a whole screen's worth of poster rows wanting images at once,
-// only the first 5 could even start connecting, and everything past that queued, each later batch
-// paying its own ~1.4s connect tax serially instead of all of them paying it at once. This is a
-// local, single-server connection with no reason to hold back - letting far more requests through
-// at once means the whole visible screen's worth of images finishes around the same ~3s mark
-// instead of stretching out as later ones wait their turn.
-private const val MAX_CONCURRENT_IMAGE_REQUESTS = 24
 
 class JellyfinTvApplication : Application() {
 
@@ -34,17 +23,17 @@ class JellyfinTvApplication : Application() {
         // earlier - no startup-timing dependency, no "already initialized" failure mode), so this
         // just swaps the loader on the singleton Glide already creates for itself.
         //
-        // Switching to OkHttp cut the delay from ~60s to ~10s, not to zero - GlideTimingLogger is
-        // temporary instrumentation (kept in for now to confirm this next change actually helps)
-        // that showed exactly where that remaining time goes - see MAX_CONCURRENT_IMAGE_REQUESTS.
-        val dispatcher = Dispatcher().apply {
-            maxRequests = MAX_CONCURRENT_IMAGE_REQUESTS
-            maxRequestsPerHost = MAX_CONCURRENT_IMAGE_REQUESTS
-        }
-        val okHttpClient = OkHttpClient.Builder()
-            .dispatcher(dispatcher)
-            .eventListenerFactory(GlideTimingEventListenerFactory)
-            .build()
+        // Switching to OkHttp cut the delay from ~60s to ~10s. A second timing capture after
+        // raising OkHttp's per-host connection cap (tried here briefly, since the first capture
+        // showed later requests queued behind the default cap of 5) showed that change made no
+        // real difference - total time was about the same, sometimes worse. That rules out
+        // connection queueing as the bottleneck: it's genuinely slow TCP connect (1.4-2.7s to a
+        // LAN device, which should normally be single-digit ms) and slow server response time on
+        // every request, consistent with something server/network-side (a blocking reverse-DNS
+        // lookup on accept is the classic cause of exactly this symptom) rather than anything
+        // fixable from this client - reverted to OkHttp's own default dispatcher accordingly.
+        // GlideTimingLogger stays in; still useful if this needs another look later.
+        val okHttpClient = OkHttpClient.Builder().eventListenerFactory(GlideTimingEventListenerFactory).build()
         Glide.get(this).registry.replace(GlideUrl::class.java, InputStream::class.java, OkHttpUrlLoader.Factory(okHttpClient))
         CrashLogger.install(this)
         JellyfinClientHolder.initialize(this)
