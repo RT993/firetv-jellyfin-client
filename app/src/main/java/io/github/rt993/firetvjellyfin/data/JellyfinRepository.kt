@@ -204,7 +204,10 @@ class JellyfinRepository(private val api: ApiClient) {
             includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES),
             sortBy = listOf(ItemSortBy.DATE_CREATED),
             sortOrder = listOf(SortOrder.DESCENDING),
-            fields = listOf(ItemFields.OVERVIEW, ItemFields.GENRES),
+            // Just overview - the hero banner doesn't show genres. This is the one call gating
+            // Home's first paint (see HomeScreen's initial LaunchedEffect), so keeping its response
+            // as lean as the server can make it actually matters here.
+            fields = listOf(ItemFields.OVERVIEW),
             enableUserData = true,
             limit = limit,
         )

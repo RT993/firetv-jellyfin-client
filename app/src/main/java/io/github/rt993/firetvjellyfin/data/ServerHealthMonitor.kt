@@ -22,6 +22,14 @@ enum class ServerHealth { UNKNOWN, HEALTHY, UNREACHABLE }
 
 private const val TAG = "ServerHealthMonitor"
 private const val CHECK_INTERVAL_MS = 5 * 60 * 1000L
+// start() is called from JellyfinClientHolder.connect(), at the exact moment Home's own screen is
+// about to fire off its first batch of requests to the same server - checking immediately meant
+// this added one more concurrent request competing for bandwidth on the one connection that
+// mattered most for how fast Home's first paint felt. A short grace period lets Home's own fetches
+// get there first, while still keeping the "first check runs shortly after sign-in" promise the
+// Account menu's status row makes (see server_status_empty in strings.xml) rather than waiting out
+// a full CHECK_INTERVAL_MS before the first one.
+private const val INITIAL_CHECK_DELAY_MS = 8_000L
 private const val LOG_FILE_NAME = "server_health.log"
 private const val MAX_LOG_BYTES = 200_000L
 
@@ -54,6 +62,7 @@ object ServerHealthMonitor {
         val dir = context.applicationContext.getExternalFilesDir(null) ?: context.applicationContext.filesDir
         logFile = File(dir, LOG_FILE_NAME)
         job = scope.launch {
+            delay(INITIAL_CHECK_DELAY_MS)
             while (isActive) {
                 checkOnce(repository)
                 delay(CHECK_INTERVAL_MS)
