@@ -1,9 +1,15 @@
 package io.github.rt993.firetvjellyfin.ui.home
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Outline
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
 import android.view.View
@@ -43,6 +49,11 @@ private const val FOCUS_BORDER_WIDTH_DP = 2
 
 /** Renders a single [BaseItemDto] as a poster card inside a leanback row. */
 class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
+
+    // Built once and reused for every card (same size/color every time, no reason to redraw it on
+    // every single bind/recycle) - see placeholderDrawable() for why this exists as a real Bitmap
+    // rather than an XML shape drawable.
+    private var cachedPlaceholder: Drawable? = null
 
     override fun onCreateViewHolder(parent: ViewGroup): ViewHolder {
         val cardView = ImageCardView(parent.context).apply {
@@ -102,12 +113,13 @@ class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
         // entirely - the pixels outside the rounded shape are simply gone before they ever reach
         // the ImageView.
         val radiusPx = dpToPx(cardView.context, CARD_CORNER_RADIUS_DP).toInt()
+        val placeholder = placeholderDrawable(cardView.context)
         val imageUrl = repository.buildImageUrl(baseItem.id)
         Glide.with(cardView.context)
             .load(imageUrl)
             .transform(CenterCrop(), RoundedCorners(radiusPx))
-            .placeholder(R.drawable.card_placeholder)
-            .error(R.drawable.card_placeholder)
+            .placeholder(placeholder)
+            .error(placeholder)
             .into(imageView)
     }
 
@@ -122,6 +134,28 @@ class CardPresenter(private val repository: JellyfinRepository) : Presenter() {
             cardView.mainImageView?.let { Glide.with(cardView.context).clear(it) }
         }
         cardView.mainImage = null
+    }
+
+    /**
+     * A solid-color rounded-rect, shown while an image is loading and on load failure - a real
+     * Bitmap, not an XML shape drawable. A plain shape drawable reports -1 for its intrinsic
+     * width/height, and ImageView's CENTER_CROP scaling math (used to position mainImageView's
+     * content) relies on that intrinsic size to compute how to scale/position whatever it's
+     * given; with no real size to work from, that produced a bogus scale factor that pushed the
+     * rounded corners outside the visible frame entirely - tried fixing that by giving the shape
+     * drawable an explicit <size>, which didn't hold up either. A genuine Bitmap sidesteps the
+     * question entirely: it has a real, unambiguous intrinsic size (its own pixel dimensions), the
+     * exact same way the actually-loaded artwork does once RoundedCorners bakes its rounding in.
+     */
+    private fun placeholderDrawable(context: Context): Drawable {
+        cachedPlaceholder?.let { return it }
+        val widthPx = dpToPx(context, CARD_WIDTH_DP).toInt()
+        val heightPx = dpToPx(context, CARD_HEIGHT_DP).toInt()
+        val radiusPx = dpToPx(context, CARD_CORNER_RADIUS_DP)
+        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = context.getColor(R.color.card_default) }
+        Canvas(bitmap).drawRoundRect(RectF(0f, 0f, widthPx.toFloat(), heightPx.toFloat()), radiusPx, radiusPx, paint)
+        return BitmapDrawable(context.resources, bitmap).also { cachedPlaceholder = it }
     }
 
     /** A white rounded-rect outline, same width/corner radius as the Compose cards' focus border
