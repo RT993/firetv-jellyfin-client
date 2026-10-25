@@ -49,6 +49,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -78,7 +79,6 @@ import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
 import io.github.rt993.firetvjellyfin.ui.theme.focusParallax
 import io.github.rt993.firetvjellyfin.ui.theme.kenBurnsDrift
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseAccent
-import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseBackground
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseSurface
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextPrimary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextSecondary
@@ -107,7 +107,9 @@ private val NAV_BAR_FRAME_PADDING = 8.dp
 private val NAV_BAR_ITEM_PADDING_H = 20.dp
 private val NAV_BAR_ITEM_PADDING_V = 12.dp
 private const val NAV_BAR_FRAME_ALPHA = 0.45f
-private const val NAV_PILL_ALPHA = 0.5f
+private const val NAV_PILL_ALPHA_TOP = 0.32f
+private const val NAV_PILL_ALPHA_BOTTOM = 0.1f
+private const val NAV_PILL_BORDER_ALPHA = 0.5f
 private const val NAV_PILL_ANIMATION_MS = 260
 
 // A safe-zone margin so the nav bar and hero backdrop don't land flush against the physical top
@@ -486,7 +488,17 @@ private fun TopNavBar(
                     .offset(x = animX)
                     .width(animWidth)
                     .height(with(density) { rowHeightPx.toDp() })
-                    .background(TreeHouseAccent.copy(alpha = NAV_PILL_ALPHA), NAV_BAR_CORNER),
+                    // A flat low-alpha fill still reads as "solid color, just dimmer" - a vertical
+                    // gradient sheen (brighter at the top, fading out toward the bottom) plus a
+                    // thin bright rim border is what actually reads as glass rather than tinted
+                    // plastic, the same highlight-and-edge cue the nav bar's own frosted frame uses.
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(TreeHouseAccent.copy(alpha = NAV_PILL_ALPHA_TOP), TreeHouseAccent.copy(alpha = NAV_PILL_ALPHA_BOTTOM)),
+                        ),
+                        NAV_BAR_CORNER,
+                    )
+                    .border(1.dp, Color.White.copy(alpha = NAV_PILL_BORDER_ALPHA), NAV_BAR_CORNER),
             )
         }
         Row(
@@ -529,8 +541,10 @@ private fun NavBarItem(
     onPositioned: (xPx: Float, widthPx: Float) -> Unit,
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    // Dark text reads better once the bright accent pill is sitting behind it.
-    val textColor by animateColorAsState(if (isFocused) TreeHouseBackground else TreeHouseTextPrimary, label = "navItemTextColor")
+    // The pill behind a focused item is a translucent glass highlight now, not a solid fill -
+    // dark text doesn't have enough contrast against it anymore, so the label itself picks up the
+    // accent color instead to show which item is focused.
+    val textColor by animateColorAsState(if (isFocused) TreeHouseAccent else TreeHouseTextPrimary, label = "navItemTextColor")
 
     Row(
         modifier = Modifier
