@@ -6,6 +6,8 @@ import com.bumptech.glide.integration.okhttp3.OkHttpUrlLoader
 import com.bumptech.glide.load.model.GlideUrl
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.util.CrashLogger
+import io.github.rt993.firetvjellyfin.util.GlideTimingEventListenerFactory
+import okhttp3.OkHttpClient
 import java.io.InputStream
 
 class JellyfinTvApplication : Application() {
@@ -20,7 +22,12 @@ class JellyfinTvApplication : Application() {
         // Glide.get() is the normal, safe lazy-init call (unlike the Glide.init() approach tried
         // earlier - no startup-timing dependency, no "already initialized" failure mode), so this
         // just swaps the loader on the singleton Glide already creates for itself.
-        Glide.get(this).registry.replace(GlideUrl::class.java, InputStream::class.java, OkHttpUrlLoader.Factory())
+        //
+        // Switching to OkHttp cut the delay from ~60s to ~10s, not to zero - GlideTimingLogger is
+        // temporary instrumentation to find out which exact phase (DNS, TCP connect, TLS, server
+        // response) that remaining ~10s actually belongs to, instead of guessing at a sixth fix.
+        val okHttpClient = OkHttpClient.Builder().eventListenerFactory(GlideTimingEventListenerFactory).build()
+        Glide.get(this).registry.replace(GlideUrl::class.java, InputStream::class.java, OkHttpUrlLoader.Factory(okHttpClient))
         CrashLogger.install(this)
         JellyfinClientHolder.initialize(this)
     }
