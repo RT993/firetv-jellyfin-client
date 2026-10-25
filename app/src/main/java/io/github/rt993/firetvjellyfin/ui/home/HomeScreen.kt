@@ -189,7 +189,11 @@ fun HomeScreen(
 
         val librariesResult = librariesDeferred.await()
         val libraries = librariesResult.getOrDefault(emptyList())
-        val trending = trendingDeferred.await().getOrDefault(emptyList())
+        // Jellyfin has no real "trending" concept to query - this is actually the most recently
+        // added pool, sorted newest-first by the repository. Shuffled once here (not recomputed on
+        // every recomposition - that would reshuffle mid-browse) so the hero carousel reads as a
+        // varied selection instead of just whatever was downloaded last.
+        val trending = trendingDeferred.await().getOrDefault(emptyList()).shuffled()
         val continueWatching = continueWatchingDeferred.await().getOrDefault(emptyList())
 
         // Same idea for the per-library item fetches - one network call per library, all
