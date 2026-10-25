@@ -18,8 +18,8 @@ android {
         // device (Fire OS 7.7.1.5 / Android 9, API 28).
         minSdk = 23
         targetSdk = 36
-        versionCode = 75
-        versionName = "0.8.15"
+        versionCode = 76
+        versionName = "0.8.16"
 
         // Vector drawable gradients (aapt:attr fillColor) render natively from API 24; the
         // support library backports them down to minSdk 23.
@@ -132,8 +132,15 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
 
-    // Poster/backdrop image loading for leanback card and details views
+    // Poster/backdrop image loading for leanback card and details views. Glide's own default
+    // network stack is a plain HttpURLConnection-based loader, completely separate from the
+    // OkHttp-backed Ktor engine the Jellyfin SDK already uses for every other API call (OkHttp is
+    // already pulled in transitively via jellyfin-core - no new networking library here, just
+    // wiring Glide to use the one already in the dependency graph) - see JellyfinTvApplication for
+    // where this actually gets registered.
     implementation(libs.glide)
+    implementation(libs.glide.okhttp3)
+    implementation(libs.okhttp)
 
     // Compose for TV (Home and Details screens) - plain compose-foundation LazyRow/Column (not
     // androidx.tv:tv-foundation's - that artifact turned out to contain no usable TvLazyRow/Column
