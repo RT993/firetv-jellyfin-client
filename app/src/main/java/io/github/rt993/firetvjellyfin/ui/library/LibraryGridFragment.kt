@@ -35,6 +35,15 @@ class LibraryGridFragment : VerticalGridSupportFragment() {
 
         val gridPresenter = VerticalGridPresenter(FocusHighlight.ZOOM_FACTOR_NONE, false)
         gridPresenter.numberOfColumns = GRID_COLUMNS
+        // VerticalGridPresenter wraps every child in its own ShadowOverlayContainer and casts a
+        // drop shadow for it by default (shadowEnabled = true out of the box) - a plain rectangular
+        // shadow, with no idea CardPresenter's cards are rounded. That square shadow sits behind
+        // our own rounded, bordered card and was poking out past the rounded corners at all four
+        // corners. CardPresenter already draws its own full elevation/shadow treatment (translationZ
+        // + a rounded outlineProvider) on focus, so Leanback's automatic one is pure redundant
+        // double-shadow - turned off rather than reconciled with enableChildRoundedCorners(true),
+        // since we don't want a second shadow stacking under ours regardless of its shape.
+        gridPresenter.shadowEnabled = false
         setGridPresenter(gridPresenter)
         onItemViewClickedListener = ItemClickedListener()
 

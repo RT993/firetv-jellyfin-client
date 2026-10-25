@@ -399,6 +399,13 @@ private fun healthColor(health: ServerHealth): Color = when (health) {
  */
 @Composable
 private fun BoxScope.ServerStatusLog(lines: List<String>, onDismiss: () -> Unit) {
+    // The Account menu's own button held D-pad focus right up until this dialog replaces it in
+    // the same click handler - nothing automatically carries focus over to a composable that
+    // only now entered composition, so without this the remote's input kept going to whatever
+    // was left focused underneath, and Close was unreachable.
+    val closeFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { closeFocusRequester.requestFocus() }
+
     Column(
         modifier = Modifier
             .align(Alignment.Center)
@@ -419,7 +426,9 @@ private fun BoxScope.ServerStatusLog(lines: List<String>, onDismiss: () -> Unit)
             }
         }
         Spacer(Modifier.height(16.dp))
-        Button(onClick = onDismiss) { Text(stringResource(R.string.server_status_close)) }
+        Button(onClick = onDismiss, modifier = Modifier.focusRequester(closeFocusRequester)) {
+            Text(stringResource(R.string.server_status_close))
+        }
     }
 }
 
