@@ -70,6 +70,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
+import com.bumptech.glide.load.DecodeFormat
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.data.ServerHealth
@@ -705,6 +706,11 @@ private fun HeroDepthCard(
             // every other card is already being scaled/dimmed/tilted back for the stack itself.
             modifier = if (isFront) Modifier.fillMaxSize().kenBurnsDrift() else Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
+            // Poster/backdrop art never needs an alpha channel - decoding at 2 bytes/pixel instead
+            // of the default 4 roughly halves the memory (and decode time) every one of these costs,
+            // with no visible quality loss on a TV at normal viewing distance. Worth it everywhere
+            // this app loads art, on hardware this memory-constrained.
+            requestBuilderTransform = { it.format(DecodeFormat.PREFER_RGB_565) },
         )
         if (dimAlpha > 0f) {
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = dimAlpha)))
@@ -798,6 +804,7 @@ private fun PosterCard(
             contentDescription = item.name,
             modifier = Modifier.fillMaxWidth().aspectRatio(POSTER_ASPECT_RATIO).focusParallax(isFocused),
             contentScale = ContentScale.Crop,
+            requestBuilderTransform = { it.format(DecodeFormat.PREFER_RGB_565) },
         )
     }
 }
@@ -845,6 +852,7 @@ private fun SpotlightCard(
                     contentDescription = item.name,
                     modifier = Modifier.fillMaxWidth().aspectRatio(SPOTLIGHT_ASPECT_RATIO).focusParallax(isFocused),
                     contentScale = ContentScale.Crop,
+                    requestBuilderTransform = { it.format(DecodeFormat.PREFER_RGB_565) },
                 )
                 if (percent > 0f) {
                     Box(Modifier.fillMaxWidth().height(4.dp).background(Color.Black.copy(alpha = 0.4f)))
