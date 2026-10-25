@@ -83,10 +83,12 @@ import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
 import io.github.rt993.firetvjellyfin.ui.theme.focusParallax
 import io.github.rt993.firetvjellyfin.ui.theme.kenBurnsDrift
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseAccent
+import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseHealthy
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseSurface
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextPrimary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextSecondary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTheme
+import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseUnreachable
 import io.github.rt993.firetvjellyfin.util.formatRuntimeTicks
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -396,8 +398,8 @@ private fun BoxScope.AccountMenu(
 
 /** Green/red/grey dot colors for [ServerHealth], shared by the Account menu's status row. */
 private fun healthColor(health: ServerHealth): Color = when (health) {
-    ServerHealth.HEALTHY -> Color(0xFF4CAF50)
-    ServerHealth.UNREACHABLE -> Color(0xFFE53935)
+    ServerHealth.HEALTHY -> TreeHouseHealthy
+    ServerHealth.UNREACHABLE -> TreeHouseUnreachable
     ServerHealth.UNKNOWN -> TreeHouseTextSecondary
 }
 

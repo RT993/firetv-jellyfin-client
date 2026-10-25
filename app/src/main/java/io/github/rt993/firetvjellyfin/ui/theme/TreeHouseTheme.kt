@@ -13,6 +13,12 @@ val TreeHouseAccent = Color(0xFF00A4DC)
 val TreeHouseTextPrimary = Color(0xFFFFFFFF)
 val TreeHouseTextSecondary = Color(0xFFB0B8C0)
 
+// Shared between every server-health visual (Home's Server Status card, the Change Server list's
+// per-row status light) so they always read as the same color language, not just coincidentally
+// matching hexes defined twice.
+val TreeHouseHealthy = Color(0xFF4CAF50)
+val TreeHouseUnreachable = Color(0xFFE53935)
+
 @Composable
 fun TreeHouseTheme(content: @Composable () -> Unit) {
     MaterialTheme(

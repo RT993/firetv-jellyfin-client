@@ -4,6 +4,11 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,9 +25,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,27 +40,27 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.SavedServer
+import io.github.rt993.firetvjellyfin.data.ServerHealth
+import io.github.rt993.firetvjellyfin.data.ServerHealthMonitor
 import io.github.rt993.firetvjellyfin.ui.login.LoginActivity
 import io.github.rt993.firetvjellyfin.ui.splash.SplashActivity
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseAccent
 import io.github.rt993.firetvjellyfin.ui.theme.fadeToNextScreen
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseBackground
+import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseHealthy
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseSurface
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextPrimary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextSecondary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTheme
+import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseUnreachable
 
 /**
  * Every server this device has ever connected to, reached from the profile picker's server icon.
@@ -167,20 +174,23 @@ private fun ServerRow(server: SavedServer?, isCurrent: Boolean, onClick: () -> U
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(if (isFocused) TreeHouseAccent.copy(alpha = 0.3f) else TreeHouseSurface)
             .onFocusChanged { isFocused = it.isFocused }
             .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = ImageVector.vectorResource(id = if (server == null) R.drawable.ic_add else R.drawable.ic_server),
-            contentDescription = null,
-            tint = Color.Unspecified,
-            modifier = Modifier.size(28.dp),
-        )
-        Spacer(Modifier.width(16.dp))
+        if (server == null) {
+            AddServerTile()
+        } else {
+            // Only the currently-connected server has a live health check running (see
+            // ServerHealthMonitor) - every other saved server is just a stored URL nobody's
+            // actively pinging, so only this row's light actually pulses with real status.
+            val health by ServerHealthMonitor.status.collectAsState()
+            ServerRackTile(isCurrent = isCurrent, health = health)
+        }
+        Spacer(Modifier.width(20.dp))
         Column {
             Text(
                 server?.name?.takeIf { it.isNotBlank() } ?: server?.url ?: stringResource(R.string.server_add),
@@ -197,5 +207,71 @@ private fun ServerRow(server: SavedServer?, isCurrent: Boolean, onClick: () -> U
             Spacer(Modifier.weight(1f))
             Text(stringResource(R.string.server_current), color = TreeHouseAccent, style = MaterialTheme.typography.labelSmall)
         }
+    }
+}
+
+/**
+ * A compact version of Home's Server Status rack graphic (see HomeScreen's ServerRackIcon) sized
+ * for a list row - two bars instead of three, the top one's light pulsing only when [isCurrent],
+ * colored by the live [health] check. A non-current row has no live health to show, so its lights
+ * stay a static, dim grey rather than pulsing with a status nobody's actually checking.
+ */
+@Composable
+private fun ServerRackTile(isCurrent: Boolean, health: ServerHealth, modifier: Modifier = Modifier) {
+    val dotColor = if (!isCurrent) {
+        TreeHouseTextSecondary
+    } else {
+        when (health) {
+            ServerHealth.HEALTHY -> TreeHouseHealthy
+            ServerHealth.UNREACHABLE -> TreeHouseUnreachable
+            ServerHealth.UNKNOWN -> TreeHouseTextSecondary
+        }
+    }
+    val infiniteTransition = rememberInfiniteTransition(label = "serverListPulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(animation = tween(900), repeatMode = RepeatMode.Reverse),
+        label = "serverListPulseAlpha",
+    )
+    Column(modifier = modifier.width(52.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        repeat(2) { index ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(14.dp)
+                    .background(TreeHouseTextSecondary.copy(alpha = 0.16f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(3.dp)
+                        .background(TreeHouseTextSecondary.copy(alpha = 0.28f), RoundedCornerShape(1.5.dp)),
+                )
+                Spacer(Modifier.width(5.dp))
+                val dotAlpha = when {
+                    isCurrent && index == 0 -> pulseAlpha
+                    isCurrent -> 0.5f
+                    else -> 0.35f
+                }
+                Box(Modifier.size(5.dp).background(dotColor.copy(alpha = dotAlpha), CircleShape))
+            }
+        }
+    }
+}
+
+/** A "+" in the same rounded tile shape as [ServerRackTile], for the add-a-new-server row. */
+@Composable
+private fun AddServerTile(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .width(52.dp)
+            .height(32.dp)
+            .background(TreeHouseTextSecondary.copy(alpha = 0.16f), RoundedCornerShape(8.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("+", color = TreeHouseAccent, style = MaterialTheme.typography.headlineSmall)
     }
 }
