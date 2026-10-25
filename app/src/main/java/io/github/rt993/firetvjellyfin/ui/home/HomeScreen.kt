@@ -107,6 +107,7 @@ private val NAV_BAR_FRAME_PADDING = 8.dp
 private val NAV_BAR_ITEM_PADDING_H = 20.dp
 private val NAV_BAR_ITEM_PADDING_V = 12.dp
 private const val NAV_BAR_FRAME_ALPHA = 0.45f
+private const val NAV_PILL_ALPHA = 0.5f
 private const val NAV_PILL_ANIMATION_MS = 260
 
 // A safe-zone margin so the nav bar and hero backdrop don't land flush against the physical top
@@ -485,7 +486,7 @@ private fun TopNavBar(
                     .offset(x = animX)
                     .width(animWidth)
                     .height(with(density) { rowHeightPx.toDp() })
-                    .background(TreeHouseAccent, NAV_BAR_CORNER),
+                    .background(TreeHouseAccent.copy(alpha = NAV_PILL_ALPHA), NAV_BAR_CORNER),
             )
         }
         Row(
@@ -495,7 +496,6 @@ private fun TopNavBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             NavBarItem(
-                icon = R.drawable.ic_nav_home,
                 label = stringResource(R.string.nav_home),
                 onFocused = { focusedIndex = 0 },
                 onClick = {},
@@ -504,7 +504,6 @@ private fun TopNavBar(
             libraries.forEachIndexed { i, library ->
                 val index = i + 1
                 NavBarItem(
-                    icon = R.drawable.ic_nav_library,
                     label = library.name.orEmpty(),
                     onFocused = { focusedIndex = index },
                     onClick = { onLibrary(library) },
@@ -513,7 +512,6 @@ private fun TopNavBar(
             }
             Spacer(Modifier.weight(1f))
             NavBarItem(
-                icon = R.drawable.ic_profile,
                 label = stringResource(R.string.nav_account),
                 onFocused = { focusedIndex = accountIndex },
                 onClick = onSettings,
@@ -525,7 +523,6 @@ private fun TopNavBar(
 
 @Composable
 private fun NavBarItem(
-    icon: Int,
     label: String,
     onFocused: () -> Unit,
     onClick: () -> Unit,
@@ -549,13 +546,6 @@ private fun NavBarItem(
             .padding(horizontal = NAV_BAR_ITEM_PADDING_H, vertical = NAV_BAR_ITEM_PADDING_V),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = ImageVector.vectorResource(id = icon),
-            contentDescription = null,
-            tint = Color.Unspecified,
-            modifier = Modifier.size(22.dp),
-        )
-        Spacer(Modifier.width(10.dp))
         Text(label, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
