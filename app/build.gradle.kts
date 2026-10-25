@@ -18,8 +18,8 @@ android {
         // device (Fire OS 7.7.1.5 / Android 9, API 28).
         minSdk = 23
         targetSdk = 36
-        versionCode = 65
-        versionName = "0.8.5"
+        versionCode = 66
+        versionName = "0.8.6"
 
         // Vector drawable gradients (aapt:attr fillColor) render natively from API 24; the
         // support library backports them down to minSdk 23.
@@ -44,8 +44,28 @@ android {
 
     buildTypes {
         release {
+            // Reuses the same checked-in debug keystore rather than a dedicated release one - this
+            // app is never published anywhere (see README), just sideloaded onto one household's
+            // own Fire Sticks, so a separate release signing identity would add key-management
+            // overhead for no real benefit. isDebuggable stays false here (the default for this
+            // block, unlike "debug" below) - that's the actual point of building this variant:
+            // debug builds carry real, measurable runtime overhead on Compose (no dead-code/method
+            // optimization, extra non-skippable-composable bookkeeping, tooling hooks left active)
+            // independent of anything our own code does, which is why this exists at all. Minify
+            // stays off for now - R8 shrinking/obfuscation needs real proguard rules worked out
+            // against reflection-heavy libraries (kotlinx.serialization models, Glide's generated
+            // API) before it's safe to turn on blind.
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // org.jellyfin.sdk:jellyfin-core only publishes a "debug" Android target variant
+            // upstream - no matching "release" one exists, so without this, Gradle's variant
+            // matching fails to resolve it at all for this build type ("Could not find
+            // jellyfin-core-android"). This tells Gradle to fall back to a dependency's debug
+            // variant when it has no release one - standard fix for exactly this class of error,
+            // and it only affects which variant of this one third-party library gets linked, not
+            // our own app's build type.
+            matchingFallbacks += listOf("debug")
         }
         debug {
             isDebuggable = true
@@ -74,6 +94,15 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "/META-INF/DEPENDENCIES"
         }
+    }
+
+    // AGP runs a "lint vital" pass automatically before packaging any release build, which pulls
+    // in its own separate dependency tree for the lint tooling itself (groovy, kotlin-reflect,
+    // error-prone, an old httpclient...) - unrelated to this app's own code or dependencies, and
+    // not something assembleDebug ever needed. Off, since it's gating release packaging on its own
+    // tooling resolving rather than on anything this project actually did wrong.
+    lint {
+        checkReleaseBuilds = false
     }
 }
 

@@ -1,6 +1,6 @@
 # TreeHouse
 
-**Version 0.8.5** · a personal project, built for one household's own Fire TV Sticks and one
+**Version 0.8.6** · a personal project, built for one household's own Fire TV Sticks and one
 Jellyfin server - not published to any app store, not intended for general distribution.
 
 A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
@@ -253,6 +253,18 @@ The debug APK lands at `app/build/outputs/apk/debug/app-debug.apk`. Every push o
 builds this via [`.github/workflows/release.yml`](.github/workflows/release.yml) and publishes it
 as a [GitHub release](https://github.com/RT993/firetv-jellyfin-client/releases) - that's what the
 Downloader link above points at, and it can also be triggered manually from the Actions tab.
+
+For performance testing on the actual (low-spec) target hardware, prefer `./gradlew assembleRelease`
+instead - debug builds carry real runtime overhead independent of anything this app's own code does
+(no dead-code/method optimization, extra non-skippable-composable bookkeeping from the Compose
+compiler, debug tooling hooks left active), which can read as "laggy" on a weak Fire Stick even when
+nothing is actually wrong. The release build signs with the same checked-in debug keystore (see
+`signingConfigs` in `app/build.gradle.kts` - this app is never published anywhere, just sideloaded,
+so a separate release signing identity isn't worth the key-management overhead), so it installs
+right over an existing debug install with no uninstall/signature-mismatch step needed. R8
+minification stays off in `release` for now; it needs real proguard rules worked out against this
+app's reflection-heavy dependencies (`kotlinx.serialization` models, Glide's generated API) before
+it's safe to turn on.
 
 ### Installing via ADB instead
 
