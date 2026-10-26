@@ -16,16 +16,6 @@ the Compose cards' `Modifier.focusParallax()` - an independently-animated child 
 Compose's nested-clip guarantee was the actual cause of a square-corner artifact that survived
 several other fixes; simpler won out over the extra flourish.)
 
-## Screenshots
-
-| | |
-|---|---|
-| ![Splash screen](screenshots/splash.png) | ![Connect to server](screenshots/login-server.png) |
-| ![Quick Connect sign-in](screenshots/login-quick-connect.png) | ![Home screen](screenshots/home.png) |
-| ![Movies library](screenshots/movies.png) | |
-
-*(Screenshot files pending - see note below.)*
-
 ## Installing on your Fire TV Stick
 
 The easiest way, with no computer required:
