@@ -9,9 +9,12 @@ TV (`androidx.tv.material3`); the Movies/TV Shows library grid and playback scre
 Leanback + a hand-rolled, Apple-TV-inspired transport UI - Leanback stays where its boxier defaults
 don't matter (a dense poster grid) and where Compose for TV would have added weight for no visual
 benefit, on hardware where that weight is a real cost, not just a style preference. The grid's own
-`CardPresenter` still gets the same 3D tilt/border/parallax focus treatment as the Compose poster
+`CardPresenter` still gets the same 3D tilt/border/scale focus treatment as the Compose poster
 cards elsewhere (`ui/home/CardPresenter.kt`) - plain `View` properties (`rotationY`/`scaleX`/etc.)
-give the same result without needing Compose at all.
+give the same result without needing Compose at all. (No inner-image parallax scale here, unlike
+the Compose cards' `Modifier.focusParallax()` - an independently-animated child `View` without
+Compose's nested-clip guarantee was the actual cause of a square-corner artifact that survived
+several other fixes; simpler won out over the extra flourish.)
 
 ## Screenshots
 
@@ -76,9 +79,12 @@ If you'd rather install from a machine on the same network via ADB, see
   to track whichever item has D-pad focus (`TopNavBar`, a native take on React Bits' GooeyNav - one
   animated shape instead of a WebGL droplet-particle simulation). The Account item opens a menu with
   a Server Status row (a green/red/grey dot for the live result of the last health check - see
-  below), Logout, Change Server (only shown once more than one server is saved), Scan Library
-  (kicks off the same full library scan as the server dashboard's own "Scan All Libraries" button,
-  for picking up newly added files without leaving the couch), and Info.
+  below), Logout, Change Server (only shown once more than one server is saved - every saved
+  server gets a compact version of the same server-rack graphic as Server Status, with only the
+  currently-connected one's light actually pulsing, since that's the only one with a live health
+  check running), Scan Library (kicks off the same full library scan as the server dashboard's
+  own "Scan All Libraries" button, for picking up newly added files without leaving the couch),
+  and Info.
 - **Server health monitoring**: a background check every five minutes against the same no-auth
   endpoint the saved-server name comes from (`ServerHealthMonitor`), independent of whatever screen
   is open - starts the moment a session connects, stops on sign-out. The Account menu's Server
@@ -147,7 +153,11 @@ two UI toolkits below fits it better, not the same one everywhere:
   construction. No hand-rolled REST calls.
 - **Images**: Glide - `com.github.bumptech.glide:glide` into Leanback's `ImageCardView` on the
   Leanback screens, `com.github.bumptech.glide:compose`'s `GlideImage` on the Compose ones. One
-  loader, one disk/memory cache, across both toolkits.
+  loader, one disk/memory cache, across both toolkits. Wired onto OkHttp
+  (`com.github.bumptech.glide:okhttp3-integration`, registered in `JellyfinTvApplication`) instead
+  of Glide's own default `HttpURLConnection`-based loader, so image requests share the same modern
+  networking stack the Jellyfin SDK's own API calls already use via Ktor - OkHttp was already a
+  transitive dependency either way.
 - **`androidx.palette`**: extracts a dominant/vibrant color from a poster for the Details screen's
   ambient glow.
 - **Coroutines** (`kotlinx-coroutines-android`) for async server calls, **kotlinx-serialization**
@@ -157,7 +167,8 @@ two UI toolkits below fits it better, not the same one everywhere:
 
 ```
 app/src/main/java/io/github/rt993/firetvjellyfin/
-├── JellyfinTvApplication.kt        Application entry point; boots JellyfinClientHolder
+├── JellyfinTvApplication.kt        Application entry point; boots JellyfinClientHolder, wires
+│                                    Glide onto OkHttp
 ├── data/
 │   ├── JellyfinClientHolder.kt     Process-wide Jellyfin SDK instance + current ApiClient
 │   ├── CredentialStore.kt          SharedPreferences: server URL, access token, user id
