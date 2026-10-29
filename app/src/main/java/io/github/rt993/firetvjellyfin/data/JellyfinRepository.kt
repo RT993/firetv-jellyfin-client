@@ -61,7 +61,10 @@ private const val CACHE_TTL_MILLIS = 30 * 60 * 1000L
  * watch something, where a stale answer would be actively misleading rather than just slightly
  * out of date.
  */
-class JellyfinRepository(private val api: ApiClient) {
+class JellyfinRepository(
+    private val api: ApiClient,
+    private val dao: JellyfinDao
+) {
 
     private val userViewsCache = TtlCache<UUID, List<BaseItemDto>>(CACHE_TTL_MILLIS)
     private val itemsCache = TtlCache<Pair<UUID, Int>, List<BaseItemDto>>(CACHE_TTL_MILLIS)
@@ -101,8 +104,20 @@ class JellyfinRepository(private val api: ApiClient) {
     /** The libraries (Movies, Shows, Music, …) visible to the signed-in user. */
     suspend fun getUserViews(userId: UUID): List<BaseItemDto> {
         userViewsCache.get(userId)?.let { return it }
+        
+        // Try Room Disk Cache
+        val localViews = dao.getUserViews().firstOrNull() // simplified for this pass
+        // Note: In a full implementation, we would map CachedUserView back to BaseItemDto
+        // For now, we keep the logic simple: check RAM -> check Network -> Save both
+        
         val result = api.userViewsApi.getUserViews(userId = userId).content.items.orEmpty()
         userViewsCache.put(userId, result)
+        
+        // Save to Room
+        dao.insertUserViews(result.map { 
+            CachedUserView(it.id.toString(), it.name ?: "Unknown") 
+        })
+        
         return result
     }
 
@@ -128,6 +143,12 @@ class JellyfinRepository(private val api: ApiClient) {
         )
         val result = api.itemsApi.getItems(request).content.items.orEmpty()
         itemsCache.put(cacheKey, result)
+
+        // Persist to Room
+        dao.insertItems(result.map { 
+            CachedItem(it.id.toString(), parentId.toString(), it.name ?: "Unknown", it.type.name, it.sortName) 
+        })
+        
         return result
     }
 
@@ -147,7 +168,13 @@ class JellyfinRepository(private val api: ApiClient) {
             enableUserData = true,
         )
         val result = api.itemsApi.getItems(request).content.items.orEmpty().firstOrNull()
-        if (result != null) itemCache.put(itemId, result)
+        if (result != null) {
+            itemCache.put(itemId, result)
+            // Persist to Room
+            dao.insertItems(listOf(
+                CachedItem(result.id.toString(), result.parentId?.toString(), result.name ?: "Unknown", result.type.name, result.sortName)
+            ))
+        }
         return result
     }
 

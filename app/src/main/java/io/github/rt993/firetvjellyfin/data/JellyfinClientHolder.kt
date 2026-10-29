@@ -66,7 +66,10 @@ object JellyfinClientHolder {
             httpClientOptions = HttpClientOptions(requestTimeout = 2.minutes, socketTimeout = 2.minutes),
         )
         api = client
-        val newRepository = JellyfinRepository(client)
+        
+        val database = AppDatabase.getDatabase(appContext)
+        val newRepository = JellyfinRepository(client, database.jellyfinDao())
+        
         repository = newRepository
         credentialStore.serverUrl = normalizedUrl
         ServerHealthMonitor.start(appContext, newRepository)
