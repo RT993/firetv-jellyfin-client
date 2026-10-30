@@ -1,6 +1,7 @@
 package io.github.rt993.firetvjellyfin.data
 
 import android.content.Context
+import io.github.rt993.firetvjellyfin.data.local.AppDatabase
 import org.jellyfin.sdk.Jellyfin
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.HttpClientOptions

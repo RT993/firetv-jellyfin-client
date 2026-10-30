@@ -1,5 +1,8 @@
 package io.github.rt993.firetvjellyfin.data
 
+import io.github.rt993.firetvjellyfin.data.local.CachedItem
+import io.github.rt993.firetvjellyfin.data.local.CachedUserView
+import io.github.rt993.firetvjellyfin.data.local.JellyfinDao
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.authenticateUserByName
 import org.jellyfin.sdk.api.client.extensions.authenticateWithQuickConnect
@@ -104,12 +107,7 @@ class JellyfinRepository(
     /** The libraries (Movies, Shows, Music, …) visible to the signed-in user. */
     suspend fun getUserViews(userId: UUID): List<BaseItemDto> {
         userViewsCache.get(userId)?.let { return it }
-        
-        // Try Room Disk Cache
-        val localViews = dao.getUserViews().firstOrNull() // simplified for this pass
-        // Note: In a full implementation, we would map CachedUserView back to BaseItemDto
-        // For now, we keep the logic simple: check RAM -> check Network -> Save both
-        
+
         val result = api.userViewsApi.getUserViews(userId = userId).content.items.orEmpty()
         userViewsCache.put(userId, result)
         

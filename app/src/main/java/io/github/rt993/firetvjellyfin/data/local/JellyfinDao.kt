@@ -22,8 +22,8 @@ interface JellyfinDao {
     suspend fun insertUserViews(views: List<CachedUserView>)
 
     @Query("DELETE FROM items WHERE lastUpdated < :threshold")
-    suspend fun clearExpiredItems(threshold: Long)
+    suspend fun clearExpiredItems(threshold: Long): Int
 
     @Query("DELETE FROM user_views WHERE lastUpdated < :threshold")
-    suspend fun clearExpiredViews(threshold: Long)
+    suspend fun clearExpiredViews(threshold: Long): Int
 }
