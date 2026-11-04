@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
@@ -30,7 +29,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -38,6 +36,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
@@ -52,7 +51,6 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
-import io.github.rt993.firetvjellyfin.ui.theme.AmbientGlow
 import io.github.rt993.firetvjellyfin.ui.theme.BoxBlurTransformation
 import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
 import io.github.rt993.firetvjellyfin.ui.theme.focusParallax
@@ -61,7 +59,6 @@ import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseBackground
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextPrimary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextSecondary
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTheme
-import io.github.rt993.firetvjellyfin.ui.theme.ambientColorFor
 import io.github.rt993.firetvjellyfin.util.formatRuntimeTicks
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -81,11 +78,9 @@ private const val BOX_SET_MOVIE_CARD_WIDTH_DP = 150
 private const val POSTER_ASPECT_RATIO = 2f / 3f
 private const val MAX_CAST_SHOWN = 6
 
-// Matches where DetailsMetadata's title/text actually starts (DetailsInfoPanel's 48dp start
-// padding + the 320dp AmbientGlow poster box + the 28dp spacer after it) - the season picker used
-// to start flush at the screen's own 48dp edge instead, landing it underneath the poster itself
-// whenever the poster overflowed its allotted row height, instead of under the title text above it.
-private val SEASON_ROW_START = 396.dp
+// Matches DetailsMetadata's own left inset, so the season/episode row lines up under the title
+// above it instead of starting flush at the screen edge.
+private val SEASON_ROW_START = 48.dp
 
 // A shared "frosted glass" pill style - translucent white fill plus a thin lighter border - used
 // for the season picker, Play, and Watchlist buttons instead of a solid color fill.
@@ -95,11 +90,11 @@ private val GlassBorder = Color.White.copy(alpha = 0.35f)
 private val GlassShape = RoundedCornerShape(20.dp)
 
 /**
- * Split-layout details screen, replacing the old Leanback [androidx.leanback.app
- * .DetailsSupportFragment]/[FullWidthDetailsOverviewRowPresenter] one entirely: full-bleed
- * backdrop on the right, a poster with a per-title [AmbientGlow] plus metadata/technical
- * badges/actions on the left (the "trakt.tv show page" look), and - for a series - an inline row
- * of seasons that swaps the episode row below it, instead of a separate season pick screen.
+ * Full-bleed-hero details screen, replacing the old Leanback [androidx.leanback.app
+ * .DetailsSupportFragment]/[FullWidthDetailsOverviewRowPresenter] one entirely: the backdrop art
+ * fills the whole screen with a bottom gradient, title/metadata/actions sit bottom-left over it
+ * and the cast list bottom-right (the Apple TV title-page look), and - for a series - an inline
+ * row of seasons that swaps the episode row below it, instead of a separate season pick screen.
  */
 @Composable
 fun DetailsScreen(
@@ -115,9 +110,7 @@ fun DetailsScreen(
     var seasons by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     var boxSetMovies by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     var isFavorite by remember { mutableStateOf(false) }
-    var ambientColor by remember { mutableStateOf<Color?>(null) }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
 
     LaunchedEffect(itemId) {
         val loaded = runCatching { repository.getItem(userId, itemId) }
@@ -130,10 +123,10 @@ fun DetailsScreen(
         item = loaded
         isFavorite = loaded.userData?.isFavorite ?: false
 
-        // playTarget/seasons/boxSetMovies/ambientColor are all independent of each other -
-        // awaiting them one after another (as before) meant up to four sequential network round
-        // trips before the screen was fully interactive. Running them concurrently cuts that to
-        // roughly the slowest single one.
+        // playTarget/seasons/boxSetMovies are all independent of each other - awaiting them one
+        // after another (as before) meant up to three sequential network round trips before the
+        // screen was fully interactive. Running them concurrently cuts that to roughly the
+        // slowest single one.
         val seasonsDeferred = async {
             if (loaded.type != BaseItemKind.SERIES) {
                 emptyList()
@@ -157,10 +150,6 @@ fun DetailsScreen(
                     .sortedBy { it.productionYear ?: Int.MAX_VALUE }
             }
         }
-        // The "trakt.tv show page" ambient glow behind the poster - one extraction per screen
-        // open, not per focus/frame, so it's cheap enough even on the low-end Fire Stick hardware
-        // this app targets.
-        val ambientColorDeferred = async { ambientColorFor(context, repository.buildImageUrl(loaded.id, maxWidth = 200)) }
         // A Box Set's own Play button starts the first movie in it (awaiting boxSetMoviesDeferred,
         // already running concurrently above), rather than being a no-op or requiring a click into
         // a nested item first - the collection itself has no video stream of its own.
@@ -175,7 +164,6 @@ fun DetailsScreen(
         seasons = seasonsDeferred.await()
         boxSetMovies = boxSetMoviesDeferred.await()
         playTarget = playTargetDeferred.await()
-        ambientColor = ambientColorDeferred.await()
     }
 
     val currentItem = item
@@ -198,7 +186,6 @@ fun DetailsScreen(
                 DetailsInfoPanel(
                     item = currentItem,
                     repository = repository,
-                    ambientColor = ambientColor,
                     playTarget = playTarget,
                     isFavorite = isFavorite,
                     onPlay = { playTarget?.let(onPlay) },
@@ -279,64 +266,41 @@ private fun DetailsBackdrop(item: BaseItemDto, repository: JellyfinRepository) {
                 },
             )
         }
-        // Left-to-right mask so the info panel stays readable against the art; the backdrop
-        // itself stays visible further right, per the "split layout" brief.
+        // Bottom-up fade so the full backdrop stays visible top-to-bottom edge-to-edge, per the
+        // Apple TV title-page brief, darkening only where the metadata/cast text sits.
         Box(
             Modifier.fillMaxSize().background(
-                Brush.horizontalGradient(
-                    0f to TreeHouseBackground,
-                    0.45f to TreeHouseBackground.copy(alpha = 0.8f),
-                    0.75f to Color.Transparent,
+                Brush.verticalGradient(
+                    0f to Color.Transparent,
+                    0.45f to Color.Transparent,
+                    0.75f to TreeHouseBackground.copy(alpha = 0.85f),
+                    1f to TreeHouseBackground,
                 ),
-            ),
-        )
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(0f to Color.Transparent, 0.65f to Color.Transparent, 1f to TreeHouseBackground),
             ),
         )
     }
 }
 
-@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 private fun DetailsInfoPanel(
     item: BaseItemDto,
     repository: JellyfinRepository,
-    ambientColor: Color?,
     playTarget: BaseItemDto?,
     isFavorite: Boolean,
     onPlay: () -> Unit,
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier.padding(start = 48.dp, top = 64.dp, end = 24.dp)) {
-        AmbientGlow(color = ambientColor, modifier = Modifier.size(width = 320.dp, height = 420.dp)) {
-            GlideImage(
-                model = repository.buildImageUrl(item.id, maxWidth = 400),
-                contentDescription = null,
-                modifier = Modifier
-                    .width(200.dp)
-                    .aspectRatio(POSTER_ASPECT_RATIO)
-                    .clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Crop,
-            )
-        }
-        Spacer(Modifier.width(28.dp))
-        // A capped max width, not weight(1f) - the latter stretched this column across whatever
-        // was left of the row's full width (previously squeezed narrow by a sibling Spacer that
-        // split the screen in half, then widened to the full remaining width once that Spacer was
-        // removed) - either way, every Text inside ends up as wide as this Modifier says, and an
-        // unconstrained weight(1f) here doesn't reserve room for the backdrop art on the right
-        // (too wide) or wraps almost every word onto its own line (too narrow, "vertical" text).
+    Box(modifier.padding(start = 48.dp, end = 48.dp, bottom = 40.dp)) {
         DetailsMetadata(
             item = item,
             playTarget = playTarget,
             isFavorite = isFavorite,
             onPlay = onPlay,
             onToggleFavorite = onToggleFavorite,
-            modifier = Modifier.widthIn(max = 560.dp),
+            modifier = Modifier.align(Alignment.BottomStart).widthIn(max = 720.dp),
         )
+        DetailsCast(item = item, modifier = Modifier.align(Alignment.BottomEnd).widthIn(max = 300.dp))
     }
 }
 
@@ -350,49 +314,38 @@ private fun DetailsMetadata(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier) {
-        Text(item.name.orEmpty(), style = MaterialTheme.typography.headlineLarge, color = TreeHouseTextPrimary)
-        Spacer(Modifier.height(12.dp))
-        Text(buildMetaLine(item), color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodyMedium)
+        Text(item.name.orEmpty(), style = MaterialTheme.typography.displaySmall, color = TreeHouseTextPrimary)
 
+        typeGenreLine(item).takeIf { it.isNotBlank() }?.let { line ->
+            Spacer(Modifier.height(8.dp))
+            Text(line, color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodyMedium)
+        }
+
+        item.overview?.takeIf { it.isNotBlank() }?.let { overview ->
+            Spacer(Modifier.height(14.dp))
+            Text(
+                overview,
+                color = TreeHouseTextSecondary,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.widthIn(max = 640.dp),
+            )
+        }
+
+        val metaLine = buildMetaLine(item)
         val badges = buildTechnicalBadges(item)
-        if (badges.isNotEmpty()) {
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (metaLine.isNotBlank() || badges.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (metaLine.isNotBlank()) {
+                    Text(metaLine, color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodyMedium)
+                }
                 badges.forEach { TechnicalBadge(it) }
             }
         }
 
-        item.genres?.takeIf { it.isNotEmpty() }?.let { genres ->
-            Spacer(Modifier.height(12.dp))
-            Text(genres.joinToString("  •  "), color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodyMedium)
-        }
-
-        item.overview?.takeIf { it.isNotBlank() }?.let { overview ->
-            Spacer(Modifier.height(16.dp))
-            Text(
-                overview,
-                color = TreeHouseTextSecondary,
-                maxLines = 4,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.widthIn(max = 520.dp),
-            )
-        }
-
-        val cast = item.people?.filter { it.type == PersonKind.ACTOR }?.take(MAX_CAST_SHOWN)?.mapNotNull { it.name }
-        if (!cast.isNullOrEmpty()) {
-            Spacer(Modifier.height(12.dp))
-            Text(
-                stringResource(R.string.details_starring_format, cast.joinToString(", ")),
-                color = TreeHouseTextSecondary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.widthIn(max = 520.dp),
-            )
-        }
-
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(20.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (playTarget != null) {
                 val isResume = (playTarget.userData?.playbackPositionTicks ?: 0L) > 0L
@@ -429,6 +382,22 @@ private fun DetailsMetadata(
     }
 }
 
+/** The cast list pinned to the hero's bottom-right, at the same baseline as the action buttons. */
+@Composable
+private fun DetailsCast(item: BaseItemDto, modifier: Modifier = Modifier) {
+    val cast = item.people?.filter { it.type == PersonKind.ACTOR }?.take(MAX_CAST_SHOWN)?.mapNotNull { it.name }
+    if (cast.isNullOrEmpty()) return
+    Text(
+        stringResource(R.string.details_starring_format, cast.joinToString(", ")),
+        color = TreeHouseTextSecondary,
+        maxLines = 3,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = TextAlign.End,
+        style = MaterialTheme.typography.bodySmall,
+        modifier = modifier,
+    )
+}
+
 @Composable
 private fun TechnicalBadge(text: String) {
     Box(
@@ -439,6 +408,20 @@ private fun TechnicalBadge(text: String) {
         Text(text, color = TreeHouseTextPrimary, style = MaterialTheme.typography.labelSmall)
     }
 }
+
+private fun typeLabel(item: BaseItemDto): String = when (item.type) {
+    BaseItemKind.SERIES -> "TV Show"
+    BaseItemKind.MOVIE -> "Movie"
+    BaseItemKind.BOX_SET -> "Collection"
+    else -> ""
+}
+
+/** "TV Show · Thriller · Drama" - the item's kind plus its genres, shown right under the title. */
+private fun typeGenreLine(item: BaseItemDto): String =
+    listOfNotNull(
+        typeLabel(item).takeIf { it.isNotBlank() },
+        item.genres?.takeIf { it.isNotEmpty() }?.joinToString(" · "),
+    ).joinToString(" · ")
 
 private fun buildMetaLine(item: BaseItemDto): String {
     val parts = mutableListOf<String>()
