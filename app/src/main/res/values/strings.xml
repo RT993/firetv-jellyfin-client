@@ -70,6 +70,8 @@
     <string name="playback_pause">Pause</string>
     <string name="playback_rewind">Rewind 10 seconds</string>
     <string name="playback_forward">Forward 10 seconds</string>
+    <string name="playback_skip_amount_label">10s</string>
+    <string name="playback_now_playing_label">Now Playing</string>
     <string name="playback_next_episode">Next episode</string>
     <string name="playback_skip_intro">Skip Intro</string>
     <string name="playback_skip_recap">Skip Recap</string>

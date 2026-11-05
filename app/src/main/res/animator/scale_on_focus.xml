@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A small "pop" on D-pad focus for the playback control buttons, matching the Glass Player
+     design's ringPlay/ringBack/ringFwd scale(1.08) focus state - the same focus-grows idea
+     FocusableCard already uses elsewhere in the app, just via a View stateListAnimator instead
+     of a Compose graphicsLayer since this screen is plain XML/Views, not Compose. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <set>
+            <objectAnimator
+                android:propertyName="scaleX"
+                android:valueTo="1.08"
+                android:valueType="floatType"
+                android:duration="150" />
+            <objectAnimator
+                android:propertyName="scaleY"
+                android:valueTo="1.08"
+                android:valueType="floatType"
+                android:duration="150" />
+        </set>
+    </item>
+    <item>
+        <set>
+            <objectAnimator
+                android:propertyName="scaleX"
+                android:valueTo="1.0"
+                android:valueType="floatType"
+                android:duration="150" />
+            <objectAnimator
+                android:propertyName="scaleY"
+                android:valueTo="1.0"
+                android:valueType="floatType"
+                android:duration="150" />
+        </set>
+    </item>
+</selector>

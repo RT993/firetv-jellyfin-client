@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The frosted-glass control card background from the Glass Player redesign - a flat
+     translucent fill standing in for the design's backdrop-filter:blur(24px), which real-time
+     blur (RenderEffect, API 31+) can't do cheaply on this app's target Fire Stick hardware; see
+     BoxBlurTransformation.kt for the same tradeoff made elsewhere in the app. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#7314161E" />
+    <corners android:radius="24dp" />
+    <stroke android:width="1dp" android:color="#24FFFFFF" />
+</shape>
