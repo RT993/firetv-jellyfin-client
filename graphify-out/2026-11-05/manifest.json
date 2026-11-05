@@ -1,0 +1,242 @@
+{
+  ".github/workflows/release.yml": {
+    "mtime": 1793899356.986597,
+    "seen": 1793899368.9209344,
+    "ast_hash": "f7cc2ccf041d4a7b5a87482c4c60542a",
+    "semantic_hash": "f7cc2ccf041d4a7b5a87482c4c60542a"
+  },
+  "app/build.gradle.kts": {
+    "mtime": 1793899356.986597,
+    "seen": 1793899368.9209428,
+    "ast_hash": "b19184f09cce669c8562e2da4e30ad6c",
+    "semantic_hash": "b19184f09cce669c8562e2da4e30ad6c"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/JellyfinTvApplication.kt": {
+    "mtime": 1793899356.987078,
+    "seen": 1793899368.9209468,
+    "ast_hash": "2e1cc02299a175fc8f08fe18d9b9b182",
+    "semantic_hash": "2e1cc02299a175fc8f08fe18d9b9b182"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/data/CredentialStore.kt": {
+    "mtime": 1793899356.9871688,
+    "seen": 1793899368.920949,
+    "ast_hash": "26fea0eeef280f638868d8665707eea4",
+    "semantic_hash": "26fea0eeef280f638868d8665707eea4"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/data/JellyfinClientHolder.kt": {
+    "mtime": 1793899356.9872208,
+    "seen": 1793899368.9209504,
+    "ast_hash": "a11b011dc84848c586805d3750ffef4f",
+    "semantic_hash": "a11b011dc84848c586805d3750ffef4f"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/data/JellyfinRepository.kt": {
+    "mtime": 1793899356.9872208,
+    "seen": 1793899368.9209516,
+    "ast_hash": "ae0ac913194eeeda13663733b1e59fba",
+    "semantic_hash": "ae0ac913194eeeda13663733b1e59fba"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/data/ServerHealthMonitor.kt": {
+    "mtime": 1793899356.9872208,
+    "seen": 1793899368.9209528,
+    "ast_hash": "30919d0e1e349f8a052eb1b41c352683",
+    "semantic_hash": "30919d0e1e349f8a052eb1b41c352683"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/data/TtlCache.kt": {
+    "mtime": 1793899356.9872208,
+    "seen": 1793899368.9209538,
+    "ast_hash": "d637ec59659575adec21e8815cef1c43",
+    "semantic_hash": "d637ec59659575adec21e8815cef1c43"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/data/local/AppDatabase.kt": {
+    "mtime": 1793899356.9872208,
+    "seen": 1793899368.9209552,
+    "ast_hash": "44e6b91d4b64016b4fdbbba2adbf6324",
+    "semantic_hash": "44e6b91d4b64016b4fdbbba2adbf6324"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/data/local/CachedItem.kt": {
+    "mtime": 1793899356.9874349,
+    "seen": 1793899368.920956,
+    "ast_hash": "15df9c8af4e38bd5250a7b3e9b753248",
+    "semantic_hash": "15df9c8af4e38bd5250a7b3e9b753248"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/data/local/CachedUserView.kt": {
+    "mtime": 1793899356.9874349,
+    "seen": 1793899368.9209569,
+    "ast_hash": "a59b7ace97ad3c799944e57c854081ff",
+    "semantic_hash": "a59b7ace97ad3c799944e57c854081ff"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/data/local/JellyfinDao.kt": {
+    "mtime": 1793899356.9874349,
+    "seen": 1793899368.9209583,
+    "ast_hash": "543a3175e8ee7982c3f534ab3f1c05aa",
+    "semantic_hash": "543a3175e8ee7982c3f534ab3f1c05aa"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/playback/DeviceProfileFactory.kt": {
+    "mtime": 1793899356.9874349,
+    "seen": 1793899368.9209592,
+    "ast_hash": "c54aa310c1a093003a9d6d1b5f3e44b9",
+    "semantic_hash": "c54aa310c1a093003a9d6d1b5f3e44b9"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/playback/PlaybackDecisionMaker.kt": {
+    "mtime": 1793899356.9875572,
+    "seen": 1793899368.9209602,
+    "ast_hash": "abf2ec8a597c4607638467e144091e5e",
+    "semantic_hash": "abf2ec8a597c4607638467e144091e5e"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/details/DetailsScreen.kt": {
+    "mtime": 1793899356.987599,
+    "seen": 1793899368.9209611,
+    "ast_hash": "ba540b7d3162bca7defe32e58a1e9907",
+    "semantic_hash": "ba540b7d3162bca7defe32e58a1e9907"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/details/ItemDetailsActivity.kt": {
+    "mtime": 1793899356.9876766,
+    "seen": 1793899368.920962,
+    "ast_hash": "30b8c44a2efae29179cf55a1e01f3e72",
+    "semantic_hash": "30b8c44a2efae29179cf55a1e01f3e72"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/home/CardPresenter.kt": {
+    "mtime": 1793899356.9876766,
+    "seen": 1793899368.9209628,
+    "ast_hash": "30111ec34cd86fa865dc6da863554e96",
+    "semantic_hash": "30111ec34cd86fa865dc6da863554e96"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/home/HomeActivity.kt": {
+    "mtime": 1793899356.987749,
+    "seen": 1793899368.9209638,
+    "ast_hash": "2f301d35087229da117b9f53fafd96c4",
+    "semantic_hash": "2f301d35087229da117b9f53fafd96c4"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/home/HomeScreen.kt": {
+    "mtime": 1793899356.987749,
+    "seen": 1793899368.920965,
+    "ast_hash": "fdeca07e163b03cb8ab93e3979935212",
+    "semantic_hash": "fdeca07e163b03cb8ab93e3979935212"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/library/LibraryGridActivity.kt": {
+    "mtime": 1793899356.987749,
+    "seen": 1793899368.920966,
+    "ast_hash": "68babd691936664e0237936d25c9c787",
+    "semantic_hash": "68babd691936664e0237936d25c9c787"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/library/LibraryGridFragment.kt": {
+    "mtime": 1793899356.9879699,
+    "seen": 1793899368.9209669,
+    "ast_hash": "ad7d5b18c60ee78518d814d3e1a60acd",
+    "semantic_hash": "ad7d5b18c60ee78518d814d3e1a60acd"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/login/LoginActivity.kt": {
+    "mtime": 1793899356.9879699,
+    "seen": 1793899368.9209678,
+    "ast_hash": "a9905d86684c33d3d11a79e7d4e05b2c",
+    "semantic_hash": "a9905d86684c33d3d11a79e7d4e05b2c"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/playback/PlaybackActivity.kt": {
+    "mtime": 1793899356.9879699,
+    "seen": 1793899368.9209692,
+    "ast_hash": "432d306697cf9e8f15b3ea2fec2ebbab",
+    "semantic_hash": "432d306697cf9e8f15b3ea2fec2ebbab"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/profile/ProfileSelectActivity.kt": {
+    "mtime": 1793899356.9879699,
+    "seen": 1793899368.9209702,
+    "ast_hash": "b9d870716a8ddbf245774f3a29f56eca",
+    "semantic_hash": "b9d870716a8ddbf245774f3a29f56eca"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/profile/ServerListActivity.kt": {
+    "mtime": 1793899356.9885952,
+    "seen": 1793899368.9209712,
+    "ast_hash": "eac978a737dbac79a44981dfa4e1e442",
+    "semantic_hash": "eac978a737dbac79a44981dfa4e1e442"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/splash/SplashActivity.kt": {
+    "mtime": 1793899356.9885952,
+    "seen": 1793899368.920972,
+    "ast_hash": "df01a6e789bdf25f033ea3ef14a8b9e2",
+    "semantic_hash": "df01a6e789bdf25f033ea3ef14a8b9e2"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/theme/ActivityTransitions.kt": {
+    "mtime": 1793899356.9885952,
+    "seen": 1793899368.920973,
+    "ast_hash": "715053aafdfb3e191c846ae0ff122943",
+    "semantic_hash": "715053aafdfb3e191c846ae0ff122943"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/theme/AeroShardsBackground.kt": {
+    "mtime": 1793899356.9886718,
+    "seen": 1793899368.920974,
+    "ast_hash": "7da59a2f6db25ce18d14c11ef542a0dc",
+    "semantic_hash": "7da59a2f6db25ce18d14c11ef542a0dc"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/theme/BoxBlurTransformation.kt": {
+    "mtime": 1793899356.9886718,
+    "seen": 1793899368.9209747,
+    "ast_hash": "4573ed93034304ad9455c3df5088c3de",
+    "semantic_hash": "4573ed93034304ad9455c3df5088c3de"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/theme/DynamicBackground.kt": {
+    "mtime": 1793899356.9886718,
+    "seen": 1793899368.920976,
+    "ast_hash": "2f1ab627b7704f710ef4201d475314e5",
+    "semantic_hash": "2f1ab627b7704f710ef4201d475314e5"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/theme/KenBurns.kt": {
+    "mtime": 1793899356.9886718,
+    "seen": 1793899368.9209769,
+    "ast_hash": "838fda31cd6511b59a7093c5ec54bccd",
+    "semantic_hash": "838fda31cd6511b59a7093c5ec54bccd"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/theme/MagicRingsBackground.kt": {
+    "mtime": 1793899356.9886718,
+    "seen": 1793899368.9209778,
+    "ast_hash": "8724780369889703720ef18dcd92d5eb",
+    "semantic_hash": "8724780369889703720ef18dcd92d5eb"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/theme/ProfileGlowOrb.kt": {
+    "mtime": 1793899356.9886718,
+    "seen": 1793899368.920979,
+    "ast_hash": "5ed2b2e601c4c0af688db2e89958ac55",
+    "semantic_hash": "5ed2b2e601c4c0af688db2e89958ac55"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/theme/TreeHouseTheme.kt": {
+    "mtime": 1793899356.9886718,
+    "seen": 1793899368.92098,
+    "ast_hash": "b53245b5746731635e74025ff7b5a496",
+    "semantic_hash": "b53245b5746731635e74025ff7b5a496"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/ui/theme/TvCard.kt": {
+    "mtime": 1793899356.9886718,
+    "seen": 1793899368.920981,
+    "ast_hash": "a71813b9cf2996a96de313f2f1b4b63c",
+    "semantic_hash": "a71813b9cf2996a96de313f2f1b4b63c"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/util/CrashLogger.kt": {
+    "mtime": 1793899356.9886718,
+    "seen": 1793899368.9209816,
+    "ast_hash": "61d8bae6bd0d93cdf46227aa627992bd",
+    "semantic_hash": "61d8bae6bd0d93cdf46227aa627992bd"
+  },
+  "app/src/main/java/io/github/rt993/firetvjellyfin/util/Formatting.kt": {
+    "mtime": 1793899356.988928,
+    "seen": 1793899368.9209828,
+    "ast_hash": "04d1dfc1307ab13c3f15bea906310b17",
+    "semantic_hash": "04d1dfc1307ab13c3f15bea906310b17"
+  },
+  "build.gradle.kts": {
+    "mtime": 1793899356.994834,
+    "seen": 1793899368.9209838,
+    "ast_hash": "473cc1973cff840c8e2d4217b6afc5e6",
+    "semantic_hash": "473cc1973cff840c8e2d4217b6afc5e6"
+  },
+  "gradlew": {
+    "mtime": 1793899356.9951677,
+    "seen": 1793899368.9209847,
+    "ast_hash": "794669d78aef1dd5c7d889ef618b311a",
+    "semantic_hash": "794669d78aef1dd5c7d889ef618b311a"
+  },
+  "settings.gradle.kts": {
+    "mtime": 1793899356.9951677,
+    "seen": 1793899368.9209862,
+    "ast_hash": "e0658a6d948fe09f68b08668f5c57eba",
+    "semantic_hash": "e0658a6d948fe09f68b08668f5c57eba"
+  }
+}
