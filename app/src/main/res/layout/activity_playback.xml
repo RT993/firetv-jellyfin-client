@@ -27,6 +27,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
+        android:clipChildren="false"
+        android:clipToPadding="false"
         android:orientation="vertical"
         android:background="@drawable/hero_gradient_scrim"
         android:paddingStart="60dp"
@@ -68,6 +70,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:orientation="vertical"
             android:background="@drawable/glass_panel_bg"
             android:paddingStart="28dp"
@@ -94,13 +98,14 @@
                     android:layout_width="0dp"
                     android:layout_height="12dp"
                     android:layout_weight="1"
+                    android:clipChildren="false"
                     android:layout_marginStart="20dp"
                     android:layout_marginEnd="20dp">
 
                     <View
                         android:id="@+id/playback_progress_track"
                         android:layout_width="match_parent"
-                        android:layout_height="4dp"
+                        android:layout_height="2dp"
                         android:layout_gravity="center_vertical"
                         android:background="@drawable/glass_track_bg" />
 
@@ -113,7 +118,7 @@
 
                         <View
                             android:layout_width="match_parent"
-                            android:layout_height="4dp"
+                            android:layout_height="2dp"
                             android:layout_gravity="center_vertical"
                             android:background="@drawable/glass_track_fill_bg" />
 
@@ -142,12 +147,16 @@
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="18dp">
+                android:layout_marginTop="18dp"
+                android:clipChildren="false"
+                android:clipToPadding="false">
 
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
