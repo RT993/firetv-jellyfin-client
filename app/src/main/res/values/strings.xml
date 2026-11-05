@@ -72,7 +72,9 @@
     <string name="playback_forward">Forward 10 seconds</string>
     <string name="playback_next_episode">Next episode</string>
     <string name="playback_skip_intro">Skip Intro</string>
+    <string name="playback_skip_recap">Skip Recap</string>
     <string name="playback_up_next_format">Up Next: %1$s</string>
+    <string name="playback_up_next_countdown_format">Playing in %1$ds</string>
     <string name="playback_play_now">Play Now</string>
     <string name="playback_audio_track">Audio</string>
     <string name="playback_subtitle_track">Subtitles</string>

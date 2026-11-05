@@ -63,10 +63,12 @@ import java.util.UUID
  * [AspectRatioFrameLayout] (the one piece pulled from media3-ui) is what keeps the video itself
  * letterboxed/pillarboxed correctly instead of stretched to fill the screen.
  *
- * Also drives Skip Intro (via the server's Media Segments API - only populated if the server has
- * a plugin, e.g. Intro Skipper, that actually detects and tags intros; this app only reads that
- * data) and Play Next (auto-computed sibling episode, with both a manual button and an auto-shown
- * "Up Next" prompt in the closing seconds that also auto-advances if playback runs to the end).
+ * Also drives Skip Intro and Skip Recap (via the server's Media Segments API - only populated if
+ * the server has a plugin, e.g. Intro Skipper, that actually detects and tags them; this app only
+ * reads that data, it does no audio/video analysis of its own) and Play Next (auto-computed
+ * sibling episode, with both a manual button and an auto-shown "Up Next" prompt with a live
+ * countdown that auto-advances once it hits zero - timed off the server's tagged OUTRO segment
+ * when there is one, or a fixed window before the file's own end when there isn't).
  */
 @OptIn(UnstableApi::class)
 class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
@@ -79,6 +81,8 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
     private var itemId: UUID? = null
     private var userId: UUID? = null
     private var introSegment: MediaSegmentDto? = null
+    private var recapSegment: MediaSegmentDto? = null
+    private var outroSegment: MediaSegmentDto? = null
     private var nextEpisode: BaseItemDto? = null
     private var nextEpisodeStarted = false
 
@@ -121,8 +125,10 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
     private lateinit var btnAudioTrack: ImageButton
     private lateinit var btnSubtitleTrack: ImageButton
     private lateinit var btnSkipIntro: View
+    private lateinit var btnSkipRecap: View
     private lateinit var upNextOverlay: View
     private lateinit var upNextTitle: TextView
+    private lateinit var upNextCountdown: TextView
     private lateinit var btnUpNextPlay: View
 
     private val hideControlsRunnable = Runnable { controls.visibility = View.GONE }
@@ -165,8 +171,10 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         btnAudioTrack = findViewById(R.id.btn_audio_track)
         btnSubtitleTrack = findViewById(R.id.btn_subtitle_track)
         btnSkipIntro = findViewById(R.id.btn_skip_intro)
+        btnSkipRecap = findViewById(R.id.btn_skip_recap)
         upNextOverlay = findViewById(R.id.up_next_overlay)
         upNextTitle = findViewById(R.id.up_next_title)
+        upNextCountdown = findViewById(R.id.up_next_countdown)
         btnUpNextPlay = findViewById(R.id.btn_up_next_play)
 
         btnRewind.setOnClickListener { handleSeekPress(-1) }
@@ -177,6 +185,7 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         btnSubtitleTrack.setOnClickListener { showSubtitleTrackPicker() }
         btnUpNextPlay.setOnClickListener { playNextEpisodeIfAvailable() }
         btnSkipIntro.setOnClickListener { skipIntro() }
+        btnSkipRecap.setOnClickListener { skipRecap() }
 
         val resolvedApi = JellyfinClientHolder.api ?: return finishWithError("no ApiClient (session lost?)")
         api = resolvedApi
@@ -197,9 +206,12 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
 
         lifecycleScope.launch {
             // Kicked off alongside the essential playback-info call, not after it, so fetching the
-            // full item (for Play Next) and its intro segment doesn't delay when the video starts.
+            // full item (for Play Next) and its intro/recap/outro segments doesn't delay when the
+            // video starts.
             val itemDeferred = async { runCatching { repo.getItem(resolvedUserId, resolvedItemId) }.getOrNull() }
             val introDeferred = async { runCatching { repo.getIntroSegment(resolvedItemId) }.getOrNull() }
+            val recapDeferred = async { runCatching { repo.getRecapSegment(resolvedItemId) }.getOrNull() }
+            val outroDeferred = async { runCatching { repo.getOutroSegment(resolvedItemId) }.getOrNull() }
 
             // The server only applies our audioStreamIndex/subtitleStreamIndex overrides when
             // mediaSourceId names an actual media source of the item (see JellyfinRepository.
@@ -234,6 +246,8 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
             setupTrackButtons()
 
             introSegment = introDeferred.await()?.takeIf { it.endTicks > it.startTicks }
+            recapSegment = recapDeferred.await()?.takeIf { it.endTicks > it.startTicks }
+            outroSegment = outroDeferred.await()?.takeIf { it.endTicks > it.startTicks }
             val item = itemDeferred.await()
             if (item?.type == BaseItemKind.EPISODE) {
                 nextEpisode = runCatching { repo.getNextEpisode(resolvedUserId, item) }.getOrNull()
@@ -560,6 +574,13 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         updateProgress()
     }
 
+    private fun skipRecap() {
+        val segment = recapSegment ?: return
+        player?.seekTo(segment.endTicks / 10_000L)
+        hideSkipRecap()
+        updateProgress()
+    }
+
     /**
      * Starts the next episode (if one was found) in a fresh instance of this same screen. Guarded
      * against firing twice - the manual buttons and the auto-advance-on-end listener could
@@ -596,6 +617,7 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         }
 
         updateSkipIntroVisibility(position)
+        updateSkipRecapVisibility(position)
         updateUpNextVisibility(position, duration)
     }
 
@@ -617,17 +639,50 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         btnSkipIntro.visibility = View.GONE
     }
 
+    private fun updateSkipRecapVisibility(positionMs: Long) {
+        val segment = recapSegment ?: return hideSkipRecap()
+        val startMs = segment.startTicks / 10_000L
+        val endMs = segment.endTicks / 10_000L
+        if (positionMs in startMs until endMs) {
+            if (btnSkipRecap.visibility != View.VISIBLE) {
+                btnSkipRecap.visibility = View.VISIBLE
+                btnSkipRecap.requestFocus()
+            }
+        } else {
+            hideSkipRecap()
+        }
+    }
+
+    private fun hideSkipRecap() {
+        btnSkipRecap.visibility = View.GONE
+    }
+
+    /**
+     * Shows the Up Next prompt, with a live countdown, once playback enters the outro/credits
+     * window - preferring the server's tagged OUTRO segment (exact start/end of the credits) and
+     * falling back to a fixed "last [UP_NEXT_THRESHOLD_MS] of the file" guess when the server
+     * hasn't tagged one, the same "only if a plugin populated it" caveat as Skip Intro/Skip Recap.
+     * Auto-starts the next episode the moment the countdown reaches zero, so with a real OUTRO
+     * segment the user never has to sit through the actual credits unless they want to - the
+     * STATE_ENDED listener (see onPlaybackStateChanged) remains as a fallback for the no-segment
+     * case, where this same condition and that one land at the same instant anyway.
+     */
     private fun updateUpNextVisibility(positionMs: Long, durationMs: Long) {
         val next = nextEpisode ?: return
-        val remaining = durationMs - positionMs
-        if (remaining in 0..UP_NEXT_THRESHOLD_MS) {
+        val triggerAtMs = outroSegment?.let { it.startTicks / 10_000L } ?: (durationMs - UP_NEXT_THRESHOLD_MS)
+        val autoPlayAtMs = outroSegment?.let { it.endTicks / 10_000L } ?: durationMs
+
+        if (positionMs in triggerAtMs until autoPlayAtMs) {
             if (upNextOverlay.visibility != View.VISIBLE) {
                 upNextTitle.text = getString(R.string.playback_up_next_format, next.name)
                 upNextOverlay.visibility = View.VISIBLE
                 btnUpNextPlay.requestFocus()
             }
+            val secondsLeft = (autoPlayAtMs - positionMs) / 1000L
+            upNextCountdown.text = getString(R.string.playback_up_next_countdown_format, secondsLeft)
         } else {
             upNextOverlay.visibility = View.GONE
+            if (positionMs >= autoPlayAtMs) playNextEpisodeIfAvailable()
         }
     }
 

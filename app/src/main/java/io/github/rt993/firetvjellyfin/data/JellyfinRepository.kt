@@ -257,14 +257,26 @@ class JellyfinRepository(
     }
 
     /**
-     * The Intro segment for an item, for the Skip Intro button - null if the item has none, which
-     * is expected unless the server has a plugin (e.g. Intro Skipper) that actually detects and
-     * tags them; this app only reads that data, it doesn't do any detection of its own.
+     * The Intro/Recap/Outro segment for an item - null if the server has none tagged for that
+     * type, which is expected unless it has a plugin (e.g. Intro Skipper) that actually detects
+     * and tags them; this app only reads that data, it doesn't do any detection of its own.
      */
-    suspend fun getIntroSegment(itemId: UUID): MediaSegmentDto? {
+    suspend fun getIntroSegment(itemId: UUID): MediaSegmentDto? = getSegment(itemId, MediaSegmentType.INTRO)
+
+    /** The "Previously on..." recap segment for an item, for the Skip Recap button. */
+    suspend fun getRecapSegment(itemId: UUID): MediaSegmentDto? = getSegment(itemId, MediaSegmentType.RECAP)
+
+    /**
+     * The closing-credits segment for an item, used to know exactly when an episode's content
+     * ends (and credits/the next episode's Up Next prompt should start) instead of guessing off
+     * a fixed "last N seconds of the file" window.
+     */
+    suspend fun getOutroSegment(itemId: UUID): MediaSegmentDto? = getSegment(itemId, MediaSegmentType.OUTRO)
+
+    private suspend fun getSegment(itemId: UUID, type: MediaSegmentType): MediaSegmentDto? {
         val request = api.mediaSegmentsApi.getItemSegments(
             itemId = itemId,
-            includeSegmentTypes = listOf(MediaSegmentType.INTRO),
+            includeSegmentTypes = listOf(type),
         )
         return request.content.items.orEmpty().firstOrNull()
     }

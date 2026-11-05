@@ -207,6 +207,30 @@
         android:visibility="gone"
         tools:visibility="visible" />
 
+    <!-- Same position/behavior as btn_skip_intro, for the "Previously on..." recap segment - the
+         two never show at once since a recap segment always precedes an intro segment in time. -->
+    <TextView
+        android:id="@+id/btn_skip_recap"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="56dp"
+        android:layout_marginBottom="56dp"
+        android:background="@drawable/login_button_primary_bg"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="14dp"
+        android:paddingBottom="14dp"
+        android:text="@string/playback_skip_recap"
+        android:textAllCaps="false"
+        android:textColor="@color/text_primary"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        tools:visibility="visible" />
+
     <LinearLayout
         android:id="@+id/up_next_overlay"
         android:layout_width="wrap_content"
@@ -230,6 +254,15 @@
             android:textColor="@color/text_primary"
             android:textSize="15sp"
             tools:text="Up Next: The Two Towers" />
+
+        <TextView
+            android:id="@+id/up_next_countdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            tools:text="Playing in 10s" />
 
         <TextView
             android:id="@+id/btn_up_next_play"
