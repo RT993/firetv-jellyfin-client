@@ -304,7 +304,13 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
             api.deviceInfo.name,
             api.accessToken,
         )
+        // ExoPlayer's default 8s connect/read timeouts are far too short for this server: the first
+        // request for a subtitle track makes Jellyfin extract it from the container on demand, which
+        // on a large file can take well over 8s. A sideloaded subtitle that times out fails the whole
+        // playback, so the timeouts match the API client's own 2-minute allowance.
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+            .setConnectTimeoutMs(SUBTITLE_FETCH_TIMEOUT_MS)
+            .setReadTimeoutMs(SUBTITLE_FETCH_TIMEOUT_MS)
             .setDefaultRequestProperties(mapOf("Authorization" to authHeader))
         val mediaSourceFactory = DefaultMediaSourceFactory(this).setDataSourceFactory(httpDataSourceFactory)
 
@@ -779,6 +785,7 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         private const val TAG = "PlaybackActivity"
         private const val HIDE_DELAY_MS = 4000L
         private const val PROGRESS_UPDATE_MS = 500L
+        private const val SUBTITLE_FETCH_TIMEOUT_MS = 120_000
         // How often the server hears about this session's position - separate from the 500ms UI
         // progress tick above, which is purely local and far too chatty to also send over the
         // network on every one of its firings.
