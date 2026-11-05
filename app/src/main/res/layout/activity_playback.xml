@@ -17,6 +17,11 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
+        <androidx.media3.ui.SubtitleView
+            android:id="@+id/player_subtitles"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
     </androidx.media3.ui.AspectRatioFrameLayout>
 
     <!-- "Glass Player" redesign: a floating frosted control card (scrubber + buttons) instead of

@@ -25,11 +25,13 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.VideoSize
+import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.SubtitleView
 import io.github.rt993.firetvjellyfin.R
 import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
@@ -111,6 +113,7 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
 
     private lateinit var aspectContainer: AspectRatioFrameLayout
     private lateinit var playerSurface: SurfaceView
+    private lateinit var subtitleView: SubtitleView
     private lateinit var controls: View
     private lateinit var titleText: TextView
     private lateinit var subtitleText: TextView
@@ -157,6 +160,7 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
 
         aspectContainer = findViewById(R.id.player_aspect_container)
         playerSurface = findViewById(R.id.player_surface)
+        subtitleView = findViewById(R.id.player_subtitles)
         controls = findViewById(R.id.playback_controls)
         titleText = findViewById(R.id.playback_title)
         subtitleText = findViewById(R.id.playback_subtitle)
@@ -320,6 +324,10 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
             override fun onVideoSizeChanged(videoSize: VideoSize) {
                 if (videoSize.width == 0 || videoSize.height == 0) return
                 aspectContainer.setAspectRatio(videoSize.width * videoSize.pixelWidthHeightRatio / videoSize.height)
+            }
+
+            override fun onCues(cueGroup: CueGroup) {
+                subtitleView.setCues(cueGroup.cues)
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
