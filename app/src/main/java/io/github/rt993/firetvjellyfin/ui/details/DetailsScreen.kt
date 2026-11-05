@@ -30,8 +30,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -89,6 +91,11 @@ private val GlassContainer = Color.White.copy(alpha = 0.12f)
 private val GlassContainerActive = Color.White.copy(alpha = 0.24f)
 private val GlassBorder = Color.White.copy(alpha = 0.35f)
 private val GlassShape = RoundedCornerShape(20.dp)
+
+// A soft drop shadow applied to every text overlaid on the backdrop art - keeps it legible
+// regardless of how bright/busy that specific part of a given backdrop image is, rather than
+// relying solely on the gradient scrim behind it.
+private val TextShadow = Shadow(color = Color.Black.copy(alpha = 0.75f), offset = Offset(0f, 2f), blurRadius = 8f)
 
 /**
  * Full-bleed-hero details screen, replacing the old Leanback [androidx.leanback.app
@@ -268,13 +275,17 @@ private fun DetailsBackdrop(item: BaseItemDto, repository: JellyfinRepository) {
             )
         }
         // Bottom-up fade so the full backdrop stays visible top-to-bottom edge-to-edge, per the
-        // Apple TV title-page brief, darkening only where the metadata/cast text sits.
+        // Apple TV title-page brief, while still reliably darkening the lower portion where the
+        // metadata/cast text sits regardless of how bright or busy that part of the backdrop is -
+        // a slight dim even near the top, ramping up earlier and reaching full opacity sooner than
+        // a pure bottom-only fade would, since legibility there can't depend on a given image.
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
-                    0f to Color.Transparent,
-                    0.45f to Color.Transparent,
-                    0.75f to TreeHouseBackground.copy(alpha = 0.85f),
+                    0f to Color.Black.copy(alpha = 0.1f),
+                    0.3f to Color.Black.copy(alpha = 0.25f),
+                    0.55f to TreeHouseBackground.copy(alpha = 0.8f),
+                    0.8f to TreeHouseBackground.copy(alpha = 0.97f),
                     1f to TreeHouseBackground,
                 ),
             ),
@@ -331,12 +342,12 @@ private fun DetailsMetadata(
                 alignment = Alignment.CenterStart,
             )
         } else {
-            Text(item.name.orEmpty(), style = MaterialTheme.typography.displaySmall, color = TreeHouseTextPrimary)
+            Text(item.name.orEmpty(), style = MaterialTheme.typography.displaySmall.copy(shadow = TextShadow), color = TreeHouseTextPrimary)
         }
 
         typeGenreLine(item).takeIf { it.isNotBlank() }?.let { line ->
             Spacer(Modifier.height(8.dp))
-            Text(line, color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodyMedium)
+            Text(line, color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodyMedium.copy(shadow = TextShadow))
         }
 
         item.overview?.takeIf { it.isNotBlank() }?.let { overview ->
@@ -346,7 +357,7 @@ private fun DetailsMetadata(
                 color = TreeHouseTextSecondary,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium.copy(shadow = TextShadow),
                 modifier = Modifier.widthIn(max = 640.dp),
             )
         }
@@ -357,7 +368,7 @@ private fun DetailsMetadata(
             Spacer(Modifier.height(14.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (metaLine.isNotBlank()) {
-                    Text(metaLine, color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodyMedium)
+                    Text(metaLine, color = TreeHouseTextSecondary, style = MaterialTheme.typography.bodyMedium.copy(shadow = TextShadow))
                 }
                 badges.forEach { TechnicalBadge(it) }
             }
@@ -411,7 +422,7 @@ private fun DetailsCast(item: BaseItemDto, modifier: Modifier = Modifier) {
         maxLines = 3,
         overflow = TextOverflow.Ellipsis,
         textAlign = TextAlign.End,
-        style = MaterialTheme.typography.bodySmall,
+        style = MaterialTheme.typography.bodySmall.copy(shadow = TextShadow),
         modifier = modifier,
     )
 }
