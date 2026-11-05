@@ -286,6 +286,14 @@ it's safe to turn on.
    adb shell monkey -p io.github.rt993.firetvjellyfin -c android.intent.category.LEANBACK_LAUNCHER 1
    ```
 
+## Code graph
+
+`graphify-out/` holds a [Graphify](https://github.com/Graphify-Labs/graphify) knowledge graph of the
+Kotlin source (674 nodes, 1,509 edges, 30 communities), built code-only (no LLM extraction, no docs
+or config files). Open `graphify-out/graph.html` in a browser to explore it, or read
+`graphify-out/GRAPH_REPORT.md` for the summary. Regenerate with `graphify extract . --code-only`
+followed by `graphify cluster-only .`.
+
 ## Planned next
 
 - **Skip Outro**: Skip Intro already exists (`PlaybackActivity`'s `introSegment`/`btnSkipIntro`,
