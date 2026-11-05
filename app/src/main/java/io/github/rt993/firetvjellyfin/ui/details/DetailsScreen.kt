@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -294,6 +295,7 @@ private fun DetailsInfoPanel(
     Box(modifier.padding(start = 48.dp, end = 48.dp, bottom = 40.dp)) {
         DetailsMetadata(
             item = item,
+            repository = repository,
             playTarget = playTarget,
             isFavorite = isFavorite,
             onPlay = onPlay,
@@ -304,9 +306,11 @@ private fun DetailsInfoPanel(
     }
 }
 
+@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 private fun DetailsMetadata(
     item: BaseItemDto,
+    repository: JellyfinRepository,
     playTarget: BaseItemDto?,
     isFavorite: Boolean,
     onPlay: () -> Unit,
@@ -314,7 +318,21 @@ private fun DetailsMetadata(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier) {
-        Text(item.name.orEmpty(), style = MaterialTheme.typography.displaySmall, color = TreeHouseTextPrimary)
+        // Apple TV doesn't apply a special font to the title text at all - it shows the title's
+        // own official title-treatment artwork (a transparent PNG from the metadata provider).
+        // Jellyfin exposes the same thing as ImageType.LOGO when a provider supplied one; fall
+        // back to plain text for the (common) case where it didn't.
+        if (item.imageTags?.containsKey(ImageType.LOGO) == true) {
+            GlideImage(
+                model = repository.buildImageUrl(item.id, imageType = ImageType.LOGO, maxWidth = 800),
+                contentDescription = item.name,
+                modifier = Modifier.heightIn(max = 96.dp).widthIn(max = 480.dp),
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.CenterStart,
+            )
+        } else {
+            Text(item.name.orEmpty(), style = MaterialTheme.typography.displaySmall, color = TreeHouseTextPrimary)
+        }
 
         typeGenreLine(item).takeIf { it.isNotBlank() }?.let { line ->
             Spacer(Modifier.height(8.dp))
