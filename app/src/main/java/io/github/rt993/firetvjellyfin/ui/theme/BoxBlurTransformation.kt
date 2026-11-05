@@ -12,8 +12,9 @@ private val ID_BYTES = ID.toByteArray(StandardCharsets.UTF_8)
 
 /**
  * A plain, dependency-free box blur (repeated a couple of times, which approximates a Gaussian
- * closely enough for a blur-up placeholder - see [DynamicBlueBackground]'s own reasoning for why
- * this app avoids real-time/RenderEffect-based blur entirely). Meant to run only on the tiny
+ * closely enough for a blur-up placeholder - real-time/RenderEffect-based blur needs API 31+,
+ * well above this app's minSdk 23, and would be too costly on the target Fire Stick hardware
+ * anyway). Meant to run only on the tiny
  * thumbnail request backing a screen's blur-up placeholder (see DetailsScreen's DetailsBackdrop),
  * never on a full-resolution image - at thumbnail size its O(width*height*radius) cost is trivial,
  * and it runs on Glide's own background decode thread, not the UI thread.

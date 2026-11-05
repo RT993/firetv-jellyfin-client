@@ -78,11 +78,11 @@ import io.github.rt993.firetvjellyfin.data.JellyfinClientHolder
 import io.github.rt993.firetvjellyfin.data.JellyfinRepository
 import io.github.rt993.firetvjellyfin.data.ServerHealth
 import io.github.rt993.firetvjellyfin.data.ServerHealthMonitor
-import io.github.rt993.firetvjellyfin.ui.theme.AeroShardsBackground
 import io.github.rt993.firetvjellyfin.ui.theme.FocusableCard
 import io.github.rt993.firetvjellyfin.ui.theme.focusParallax
 import io.github.rt993.firetvjellyfin.ui.theme.kenBurnsDrift
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseAccent
+import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseBackground
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseHealthy
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseSurface
 import io.github.rt993.firetvjellyfin.ui.theme.TreeHouseTextPrimary
@@ -256,10 +256,7 @@ fun HomeScreen(
     val navBarFocusRequester = remember { FocusRequester() }
 
     TreeHouseTheme {
-        Box(Modifier.fillMaxSize()) {
-            // A field of flat glass shards drifting slowly across the screen at a few depths,
-            // instead of a flat color fill - see AeroShardsBackground.kt.
-            AeroShardsBackground(modifier = Modifier.fillMaxSize())
+        Box(Modifier.fillMaxSize().background(TreeHouseBackground)) {
             Column(Modifier.fillMaxSize()) {
                 TopNavBar(
                     libraries = state.libraries,
