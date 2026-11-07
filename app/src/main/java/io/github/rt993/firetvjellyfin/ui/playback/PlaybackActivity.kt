@@ -72,6 +72,11 @@ import java.util.UUID
  * countdown that auto-advances once it hits zero - timed off the server's tagged OUTRO segment
  * when there is one, or a fixed window before the file's own end when there isn't).
  */
+private data class Segment(val startMs: Long, val endMs: Long)
+
+private fun MediaSegmentDto.toSegment(): Segment? =
+    Segment(startTicks / 10_000L, endTicks / 10_000L).takeIf { it.endMs > it.startMs }
+
 @OptIn(UnstableApi::class)
 class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
 
@@ -82,9 +87,9 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
     private var repository: JellyfinRepository? = null
     private var itemId: UUID? = null
     private var userId: UUID? = null
-    private var introSegment: MediaSegmentDto? = null
-    private var recapSegment: MediaSegmentDto? = null
-    private var outroSegment: MediaSegmentDto? = null
+    private var introSegment: Segment? = null
+    private var recapSegment: Segment? = null
+    private var outroSegment: Segment? = null
     private var nextEpisode: BaseItemDto? = null
     private var nextEpisodeStarted = false
 
@@ -249,10 +254,13 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
             startPlayback(resolvedApi, startPositionTicks)
             setupTrackButtons()
 
-            introSegment = introDeferred.await()?.takeIf { it.endTicks > it.startTicks }
-            recapSegment = recapDeferred.await()?.takeIf { it.endTicks > it.startTicks }
-            outroSegment = outroDeferred.await()?.takeIf { it.endTicks > it.startTicks }
+            val serverIntro = introDeferred.await()?.toSegment()
+            val serverRecap = recapDeferred.await()?.toSegment()
+            val serverOutro = outroDeferred.await()?.toSegment()
             val item = itemDeferred.await()
+            introSegment = serverIntro ?: item?.let { chapterSegment(it, INTRO_CHAPTER) }
+            recapSegment = serverRecap ?: item?.let { chapterSegment(it, RECAP_CHAPTER) }
+            outroSegment = serverOutro ?: item?.let { chapterSegment(it, OUTRO_CHAPTER) }
             if (item?.type == BaseItemKind.EPISODE) {
                 nextEpisode = runCatching { repo.getNextEpisode(resolvedUserId, item) }.getOrNull()
                 btnNextEpisode.visibility = if (nextEpisode != null) View.VISIBLE else View.GONE
@@ -583,14 +591,14 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
 
     private fun skipIntro() {
         val segment = introSegment ?: return
-        player?.seekTo(segment.endTicks / 10_000L)
+        player?.seekTo(segment.endMs)
         hideSkipIntro()
         updateProgress()
     }
 
     private fun skipRecap() {
         val segment = recapSegment ?: return
-        player?.seekTo(segment.endTicks / 10_000L)
+        player?.seekTo(segment.endMs)
         hideSkipRecap()
         updateProgress()
     }
@@ -637,8 +645,8 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
 
     private fun updateSkipIntroVisibility(positionMs: Long) {
         val segment = introSegment ?: return hideSkipIntro()
-        val startMs = segment.startTicks / 10_000L
-        val endMs = segment.endTicks / 10_000L
+        val startMs = segment.startMs
+        val endMs = segment.endMs
         if (positionMs in startMs until endMs) {
             if (btnSkipIntro.visibility != View.VISIBLE) {
                 btnSkipIntro.visibility = View.VISIBLE
@@ -655,8 +663,8 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
 
     private fun updateSkipRecapVisibility(positionMs: Long) {
         val segment = recapSegment ?: return hideSkipRecap()
-        val startMs = segment.startTicks / 10_000L
-        val endMs = segment.endTicks / 10_000L
+        val startMs = segment.startMs
+        val endMs = segment.endMs
         if (positionMs in startMs until endMs) {
             if (btnSkipRecap.visibility != View.VISIBLE) {
                 btnSkipRecap.visibility = View.VISIBLE
@@ -683,8 +691,8 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
      */
     private fun updateUpNextVisibility(positionMs: Long, durationMs: Long) {
         val next = nextEpisode ?: return
-        val triggerAtMs = outroSegment?.let { it.startTicks / 10_000L } ?: (durationMs - UP_NEXT_THRESHOLD_MS)
-        val autoPlayAtMs = outroSegment?.let { it.endTicks / 10_000L } ?: durationMs
+        val triggerAtMs = outroSegment?.startMs ?: (durationMs - UP_NEXT_THRESHOLD_MS)
+        val autoPlayAtMs = outroSegment?.endMs ?: durationMs
 
         if (positionMs in triggerAtMs until autoPlayAtMs) {
             if (upNextOverlay.visibility != View.VISIBLE) {
@@ -698,6 +706,20 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
             upNextOverlay.visibility = View.GONE
             if (positionMs >= autoPlayAtMs) playNextEpisodeIfAvailable()
         }
+    }
+
+    /**
+     * A segment built from the item's own chapter markers: from the matching chapter's start to
+     * the next chapter's start, or to the end of the file if it's the last chapter. Null if no
+     * chapter matches, or the file has no chapters at all.
+     */
+    private fun chapterSegment(item: BaseItemDto, pattern: Regex): Segment? {
+        val chapters = item.chapters.orEmpty().sortedBy { it.startPositionTicks }
+        val index = chapters.indexOfFirst { chapter -> chapter.name?.let { pattern.containsMatchIn(it) } == true }
+        if (index == -1) return null
+        val startMs = chapters[index].startPositionTicks / 10_000L
+        val endTicks = chapters.getOrNull(index + 1)?.startPositionTicks ?: item.runTimeTicks ?: return null
+        return Segment(startMs, endTicks / 10_000L).takeIf { it.endMs > it.startMs }
     }
 
     private fun formatTime(ms: Long): String {
@@ -794,6 +816,12 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         private const val HIDE_DELAY_MS = 4000L
         private const val PROGRESS_UPDATE_MS = 500L
         private const val SUBTITLE_FETCH_TIMEOUT_MS = 120_000
+
+        // Chapter names are free text from whoever made the file, so these match loosely. "Opening
+        // Credits" counts as an intro, not an outro, which is why the outro pattern excludes it.
+        private val INTRO_CHAPTER = Regex("(?i)(intro|opening|theme|title sequence)")
+        private val RECAP_CHAPTER = Regex("(?i)(recap|previously)")
+        private val OUTRO_CHAPTER = Regex("(?i)^(?!.*opening)(?=.*(credit|outro|ending|closing))")
         // How often the server hears about this session's position - separate from the 500ms UI
         // progress tick above, which is purely local and far too chatty to also send over the
         // network on every one of its firings.
