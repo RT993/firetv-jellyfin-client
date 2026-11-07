@@ -124,9 +124,9 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
     private lateinit var btnRewind: View
     private lateinit var btnPlayPause: ImageButton
     private lateinit var btnForward: View
-    private lateinit var btnNextEpisode: ImageButton
-    private lateinit var btnAudioTrack: ImageButton
-    private lateinit var btnSubtitleTrack: ImageButton
+    private lateinit var btnNextEpisode: View
+    private lateinit var btnAudioTrack: View
+    private lateinit var btnSubtitleTrack: View
     private lateinit var btnSkipIntro: View
     private lateinit var btnSkipRecap: View
     private lateinit var upNextOverlay: View
