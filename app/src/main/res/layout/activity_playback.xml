@@ -221,10 +221,10 @@
                             android:background="@drawable/glass_track_fill_bg" />
 
                         <View
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
+                            android:layout_width="10dp"
+                            android:layout_height="10dp"
                             android:layout_gravity="end|center_vertical"
-                            android:layout_marginEnd="-8dp"
+                            android:layout_marginEnd="-5dp"
                             android:background="@drawable/glass_progress_thumb_bg" />
 
                     </FrameLayout>
