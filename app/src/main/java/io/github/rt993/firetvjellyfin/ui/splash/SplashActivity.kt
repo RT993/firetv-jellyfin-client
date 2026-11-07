@@ -1,8 +1,11 @@
 package io.github.rt993.firetvjellyfin.ui.splash
 
+import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import androidx.fragment.app.FragmentActivity
@@ -20,6 +23,8 @@ import io.github.rt993.firetvjellyfin.ui.theme.fadeToNextScreen
  */
 class SplashActivity : FragmentActivity(R.layout.activity_splash) {
 
+    private var pulse: ObjectAnimator? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         playIntro(findViewById(R.id.splash_logo))
@@ -32,6 +37,7 @@ class SplashActivity : FragmentActivity(R.layout.activity_splash) {
             .setDuration(FADE_IN_MS)
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
+                startPulse(logo)
                 logo.animate()
                     .alpha(1f)
                     .setStartDelay(HOLD_MS)
@@ -42,7 +48,24 @@ class SplashActivity : FragmentActivity(R.layout.activity_splash) {
             .start()
     }
 
+    private fun startPulse(logo: View) {
+        pulse = ObjectAnimator.ofPropertyValuesHolder(
+            logo,
+            PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, PULSE_SCALE),
+            PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, PULSE_SCALE),
+        ).apply {
+            duration = PULSE_MS
+            repeatCount = ObjectAnimator.INFINITE
+            repeatMode = ObjectAnimator.REVERSE
+            interpolator = AccelerateDecelerateInterpolator()
+            start()
+        }
+    }
+
     private fun fadeOut(logo: View) {
+        pulse?.cancel()
+        logo.scaleX = 1f
+        logo.scaleY = 1f
         logo.animate()
             .alpha(0f)
             .setDuration(FADE_OUT_MS)
@@ -72,5 +95,7 @@ class SplashActivity : FragmentActivity(R.layout.activity_splash) {
         private const val FADE_IN_MS = 700L
         private const val HOLD_MS = 3600L
         private const val FADE_OUT_MS = 700L
+        private const val PULSE_SCALE = 1.05f
+        private const val PULSE_MS = 1200L
     }
 }
