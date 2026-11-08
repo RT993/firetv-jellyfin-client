@@ -16,6 +16,15 @@ the Compose cards' `Modifier.focusParallax()` - an independently-animated child 
 Compose's nested-clip guarantee was the actual cause of a square-corner artifact that survived
 several other fixes; simpler won out over the extra flourish.)
 
+<h2 style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">Screens</h2>
+
+<ol style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <li><strong>Login & setup</strong> — server connection, account sign-in, Quick Connect, and profile selection.</li>
+  <li><strong>Home</strong> — trending queue, continue watching, and library navigation in a TV-first layout.</li>
+  <li><strong>Details</strong> — poster view, metadata, season picker, watchlist controls, and rich media details.</li>
+  <li><strong>Playback</strong> — direct play, direct stream, or transcode handoff with a custom transport UI.</li>
+</ol>
+
 ## Installing on your Fire TV Stick
 
 The easiest way, with no computer required:
