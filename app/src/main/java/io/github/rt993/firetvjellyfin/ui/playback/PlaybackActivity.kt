@@ -1,17 +1,22 @@
 package io.github.rt993.firetvjellyfin.ui.playback
 
-import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.SurfaceView
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.ImageButton
+import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.OptIn
@@ -190,8 +195,8 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
         btnForward.setOnClickListener { handleSeekPress(1) }
         btnPlayPause.setOnClickListener { togglePlayPause() }
         btnNextEpisode.setOnClickListener { playNextEpisodeIfAvailable() }
-        btnAudioTrack.setOnClickListener { showAudioTrackPicker() }
-        btnSubtitleTrack.setOnClickListener { showSubtitleTrackPicker() }
+        btnAudioTrack.setOnClickListener { showTrackPopup() }
+        btnSubtitleTrack.setOnClickListener { showTrackPopup() }
         btnUpNextPlay.setOnClickListener { playNextEpisodeIfAvailable() }
         btnSkipIntro.setOnClickListener { skipIntro() }
         btnSkipRecap.setOnClickListener { skipRecap() }
@@ -466,31 +471,55 @@ class PlaybackActivity : FragmentActivity(R.layout.activity_playback) {
             ?: listOfNotNull(stream.language, stream.codec).joinToString(" · ").takeIf { it.isNotBlank() }
             ?: "Track ${stream.index}"
 
-    private fun showAudioTrackPicker() {
+    /**
+     * A small anchored popup listing the audio tracks and the text subtitle tracks together, so
+     * either button opens the same list. The current selection is marked with a check.
+     */
+    private fun showTrackPopup() {
         val audioStreams = mediaStreams.filter { it.type == MediaStreamType.AUDIO }.sortedBy { it.index }
-        if (audioStreams.size < 2) return
-        val checkedIndex = audioStreams.indexOfFirst { it.index == currentAudioStreamIndex }.coerceAtLeast(0)
-        AlertDialog.Builder(this)
-            .setTitle(R.string.playback_audio_track)
-            .setSingleChoiceItems(audioStreams.map { trackLabel(it) }.toTypedArray(), checkedIndex) { dialog, which ->
-                dialog.dismiss()
-                selectAudioTrack(audioStreams[which])
+        val subtitleStreams = mediaStreams.filter { it.type == MediaStreamType.SUBTITLE && it.isTextSubtitleStream }.sortedBy { it.index }
+        val content = layoutInflater.inflate(R.layout.popup_track_picker, null)
+        val audioList = content.findViewById<LinearLayout>(R.id.track_audio_list)
+        val subtitleList = content.findViewById<LinearLayout>(R.id.track_subtitle_list)
+        val popup = PopupWindow(content, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true).apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            isOutsideTouchable = true
+        }
+
+        var firstSelected: View? = null
+        fun addRow(list: LinearLayout, label: String, selected: Boolean, onPick: () -> Unit) {
+            val row = TextView(this).apply {
+                text = if (selected) "✓  $label" else label
+                setTextColor(getColor(R.color.text_primary))
+                textSize = 16f
+                setBackgroundResource(R.drawable.glass_pill_button_bg)
+                setPadding(dp(16), dp(12), dp(16), dp(12))
+                isFocusable = true
+                isClickable = true
+                setOnClickListener {
+                    popup.dismiss()
+                    onPick()
+                }
             }
-            .show()
+            list.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(6)
+            })
+            if (selected && firstSelected == null) firstSelected = row
+        }
+
+        audioStreams.forEach { stream ->
+            addRow(audioList, trackLabel(stream), stream.index == currentAudioStreamIndex) { selectAudioTrack(stream) }
+        }
+        addRow(subtitleList, getString(R.string.playback_subtitles_off), currentSubtitleStreamIndex == null) { selectSubtitleTrack(null) }
+        subtitleStreams.forEach { stream ->
+            addRow(subtitleList, trackLabel(stream), stream.index == currentSubtitleStreamIndex) { selectSubtitleTrack(stream) }
+        }
+
+        popup.showAtLocation(btnSubtitleTrack.rootView, Gravity.BOTTOM or Gravity.END, dp(56), dp(140))
+        (firstSelected ?: audioList.getChildAt(0) ?: subtitleList.getChildAt(0))?.requestFocus()
     }
 
-    private fun showSubtitleTrackPicker() {
-        val subtitleStreams = mediaStreams.filter { it.type == MediaStreamType.SUBTITLE && it.isTextSubtitleStream }.sortedBy { it.index }
-        val labels = (listOf(getString(R.string.playback_subtitles_off)) + subtitleStreams.map { trackLabel(it) }).toTypedArray()
-        val checkedIndex = subtitleStreams.indexOfFirst { it.index == currentSubtitleStreamIndex }.let { if (it == -1) 0 else it + 1 }
-        AlertDialog.Builder(this)
-            .setTitle(R.string.playback_subtitle_track)
-            .setSingleChoiceItems(labels, checkedIndex) { dialog, which ->
-                dialog.dismiss()
-                selectSubtitleTrack(if (which == 0) null else subtitleStreams[which - 1])
-            }
-            .show()
-    }
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun selectSubtitleTrack(stream: MediaStream?) {
         val exoPlayer = player ?: return
