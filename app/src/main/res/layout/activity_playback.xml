@@ -80,17 +80,17 @@
 
             <FrameLayout
                 android:id="@+id/btn_rewind"
-                android:layout_width="80dp"
-                android:layout_height="80dp"
-                android:layout_marginEnd="48dp"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:layout_marginEnd="40dp"
                 android:clickable="true"
                 android:focusable="true"
                 android:stateListAnimator="@animator/scale_on_focus"
                 android:contentDescription="@string/playback_rewind">
 
                 <ImageView
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
                     android:importantForAccessibility="no"
                     android:src="@drawable/ic_playback_replay10" />
 
@@ -100,7 +100,7 @@
                     android:layout_gravity="center"
                     android:text="@string/playback_skip_seconds"
                     android:textColor="@color/text_primary"
-                    android:textSize="18sp"
+                    android:textSize="13sp"
                     android:textStyle="bold" />
 
             </FrameLayout>
@@ -119,17 +119,17 @@
 
             <FrameLayout
                 android:id="@+id/btn_forward"
-                android:layout_width="80dp"
-                android:layout_height="80dp"
-                android:layout_marginStart="48dp"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:layout_marginStart="40dp"
                 android:clickable="true"
                 android:focusable="true"
                 android:stateListAnimator="@animator/scale_on_focus"
                 android:contentDescription="@string/playback_forward">
 
                 <ImageView
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
                     android:importantForAccessibility="no"
                     android:src="@drawable/ic_playback_forward10" />
 
@@ -139,7 +139,7 @@
                     android:layout_gravity="center"
                     android:text="@string/playback_skip_seconds"
                     android:textColor="@color/text_primary"
-                    android:textSize="18sp"
+                    android:textSize="13sp"
                     android:textStyle="bold" />
 
             </FrameLayout>
