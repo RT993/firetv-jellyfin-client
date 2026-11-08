@@ -35,6 +35,10 @@ This keeps the experience responsive on low-end hardware while still feeling mod
   <img src="Server%20Status.png" alt="Server status page" width="320" />
 </p>
 
+<p align="center">
+  <img src="Player.png" alt="Playback controls" width="640" />
+</p>
+
 ## Installing on a Fire TV Stick
 
 The easiest method needs no computer.
