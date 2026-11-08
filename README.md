@@ -1,329 +1,212 @@
 # TreeHouse
 
-**Version 0.9.1** · a personal project, built for one household's own Fire TV Sticks and one
-Jellyfin server - not published to any app store, not intended for general distribution.
+TreeHouse is a native Jellyfin client for Android TV, built to run well on older, low-spec Fire TV Stick hardware while keeping the UI polished and TV-first.
 
-A native Jellyfin client for Android TV, built specifically to run well on old, low-spec Amazon
-Fire TV Stick hardware (1-1.5GB RAM, weak quad-core CPUs). Home and Details are Jetpack Compose for
-TV (`androidx.tv.material3`); the Movies/TV Shows library grid and playback screen are still plain
-Leanback + a hand-rolled, Apple-TV-inspired transport UI - Leanback stays where its boxier defaults
-don't matter (a dense poster grid) and where Compose for TV would have added weight for no visual
-benefit, on hardware where that weight is a real cost, not just a style preference. The grid's own
-`CardPresenter` still gets the same 3D tilt/border/scale focus treatment as the Compose poster
-cards elsewhere (`ui/home/CardPresenter.kt`) - plain `View` properties (`rotationY`/`scaleX`/etc.)
-give the same result without needing Compose at all. (No inner-image parallax scale here, unlike
-the Compose cards' `Modifier.focusParallax()` - an independently-animated child `View` without
-Compose's nested-clip guarantee was the actual cause of a square-corner artifact that survived
-several other fixes; simpler won out over the extra flourish.)
+This is a personal project. It is not published to any app store and is not intended for general public distribution.
 
-## Installing on your Fire TV Stick
+## Why TreeHouse
 
-The easiest way, with no computer required:
+The app is optimized for older Fire TV hardware with limited RAM and weaker CPUs. Instead of a single heavy framework for everything, TreeHouse uses a hybrid stack:
 
-1. On the Fire TV Stick: **Settings -> My Fire TV -> Developer Options** -> turn on **Apps from
-   Unknown Sources**. (If you don't see Developer Options, first go to **Settings -> My Fire TV ->
-   About** and click on the build number a few times to unlock it.)
-2. Install **Downloader** (search for it in the Fire TV's app store - it's free, published by
-   AFTVnews).
-3. Open Downloader and enter this URL (short, easier to type with a remote):
-   ```
+- Jetpack Compose for TV for Home and Details screens
+- Leanback for the dense library grid and browse surfaces
+- Media3 / ExoPlayer for playback with a custom transport UI
+
+This keeps the experience responsive on low-end hardware while still feeling modern and cinematic.
+
+## Screens
+
+1. Login & setup — server connection, sign-in, Quick Connect, and profile selection
+2. Home — trending queue, continue watching, and library navigation in a TV-first layout
+3. Details — poster view, metadata, season picker, watchlist controls, and rich media details
+4. Playback — direct play, direct stream, or transcode handoff with a custom transport UI
+
+## Installing on a Fire TV Stick
+
+The easiest method needs no computer.
+
+1. On the Fire TV Stick, open Settings -> My Fire TV -> Developer Options.
+2. Turn on Apps from Unknown Sources.
+3. If Developer Options is not visible, go to Settings -> My Fire TV -> About and tap the build number several times to unlock it.
+4. Install Downloader from the Fire TV app store.
+5. Open Downloader and enter:
+
+   ```text
    tinyurl.com/25r4a86f
    ```
-   (Expands to `https://github.com/RT993/firetv-jellyfin-client/releases/latest/download/TreeHouse.apk`.)
-4. Downloader will fetch and install it. Launch **TreeHouse** from the Fire TV home screen.
 
-This link always points at the newest release, so re-entering the same URL in Downloader later
-gets you the latest update. See [Releases](https://github.com/RT993/firetv-jellyfin-client/releases)
-for the full version history.
+   This resolves to the latest APK:
 
-If you'd rather install from a machine on the same network via ADB, see
-[Building](#building) below.
+   ```text
+   https://github.com/RT993/firetv-jellyfin-client/releases/latest/download/TreeHouse.apk
+   ```
+
+6. Downloader will fetch and install it.
+7. Launch TreeHouse from the Fire TV home screen.
+
+This link always points to the newest release, so reusing the same URL later will install the latest update. See the Releases page for version history.
+
+If you prefer installing from a machine on the same network using ADB, see the Building section below.
 
 ## Features
 
-- **Server login**: server address entry, username/password, or Quick Connect (approve from
-  another already-signed-in Jellyfin app/web page), on a glass card over the same drifting blue
-  light-band background as Home, instead of the static photo this screen used to have.
-- **Profiles & servers**: a "Who's Watching?" picker shown after every splash intro, listing the
-  profiles saved for whichever server is currently active - each one a glowing, lightly-sparking
-  orb (`ui/theme/ProfileGlowOrb.kt`, a plain animated Canvas fill, not a literal GPU particle
-  system) in front of a few big rings lighting up one after another in a wave, drifting outward as
-  they glow then fading out, colored in a gradient from purple at the center out to indigo at the
-  rim (`MagicRingsBackground`, same stroked-circle-with-additive-glow approach as everything else
-  here). A "+" tile adds another profile to that same server, and a small server icon switches to
-  (or adds) a different Jellyfin server entirely.
-  Everything ever signed into stays saved on-device, so switching back is a couple of D-pad
-  presses, not a fresh sign-in.
-- **Home**: a field of flat, irregular glass-shard shapes drifting slowly across the screen at a
-  few depths (`ui/theme/AeroShardsBackground.kt`; a handful of tinted polygons with a brighter
-  accent-colored rim-light stroke, not real ray-traced glass), a depth-carousel of trending movies/shows up top
-  (a coverflow-style stack that auto-advances on its own - pausing the moment D-pad focus lands on
-  it, resuming once it moves on - with posters receding symmetrically either side of the front one,
-  shrinking/tilting/dimming with distance, and a synopsis column alongside - see
-  `HeroDepthCarousel`; the front poster's art also drifts in a slow, continuous "Ken Burns"
-  scale+pan - `Modifier.kenBurnsDrift()`), a "Pick up where you left off" row, and one poster row
-  per library. Poster/spotlight cards pop into a slight 3D tilt on focus (`FocusableCard`'s
-  `graphicsLayer` rotation), with the poster art itself drifting slightly closer underneath
-  (`Modifier.focusParallax()`). A frosted-glass nav bar (Home, one item per library, Account) sits
-  fixed across the top of the screen, always visible - a single accent-colored pill slides smoothly
-  to track whichever item has D-pad focus (`TopNavBar`, a native take on React Bits' GooeyNav - one
-  animated shape instead of a WebGL droplet-particle simulation). The Account item opens a menu with
-  a Server Status row (a green/red/grey dot for the live result of the last health check - see
-  below), Logout, Change Server (only shown once more than one server is saved - every saved
-  server gets a compact version of the same server-rack graphic as Server Status, with only the
-  currently-connected one's light actually pulsing, since that's the only one with a live health
-  check running), Scan Library (kicks off the same full library scan as the server dashboard's
-  own "Scan All Libraries" button, for picking up newly added files without leaving the couch),
-  and Info.
-- **Server health monitoring**: a background check every five minutes against the same no-auth
-  endpoint the saved-server name comes from (`ServerHealthMonitor`), independent of whatever screen
-  is open - starts the moment a session connects, stops on sign-out. The Account menu's Server
-  Status row shows the live result as a colored dot and opens a glanceable status card - a simple
-  flat server-rack graphic with a pulsing status light, "Server Online"/"Server Unreachable", the
-  last response time, and the server's address - instead of a scrollable log meant to be read line
-  by line. Every check is still written to a durable log file alongside the existing crash log, for
-  deeper digging, pullable via `adb pull
-  /sdcard/Android/data/io.github.rt993.firetvjellyfin/files/server_health.log`.
-- **Details screen**: a split layout - full-bleed backdrop on the right, gradient-masked into a
-  poster/title/metadata panel on the left. The backdrop loads "blur-up" style - a near-instant,
-  hand-blurred thumbnail (`BoxBlurTransformation`, a plain box blur, no new dependency) crossfades
-  into the full-resolution image as it loads - and drifts with the same slow Ken Burns scale+pan as
-  Home's hero panel. Technical badges (4K/1080p, Dolby Vision/HDR10/HLG, Dolby Atmos/surround) read
-  from the file's actual media streams, a Watchlist toggle backed by Jellyfin's own per-user
-  favorite flag, and a soft per-title ambient color glow behind the poster (extracted from the
-  poster art via `androidx.palette`).
-- **TV series get an inline season picker**: a row of seasons on the details screen swaps the
-  episode row below it on the same screen - no separate season-pick screen.
-- **Playback**: direct-play when the server says the file's compatible with this device, a
-  container remux (direct stream) or full HLS transcode otherwise (see
-  [below](#the-direct-play-vs-direct-stream-vs-transcode-decision)). A custom,
-  minimal transport UI (not Leanback's stock boxy controls) over a raw `SurfaceView` - play/pause,
-  10/30/60s skip back/forward (pressing the same button again quickly escalates to the next tier,
-  instead of crawling forward 10s at a time), a thin scrubber, auto-hiding after a few seconds
-  idle - plus **Skip Intro** (reads the server's Media Segments data, when a plugin like Intro Skipper provides it)
-  and **Play Next** (an "Up Next" prompt in an episode's last 30 seconds, and a persistent
-  next-episode button, both auto-resolving the next episode in the season/series). Reports
-  playback start/progress/stop to the server throughout (`PlayStateApi`, `JellyfinRepository`),
-  the same as any other Jellyfin client - this is what keeps "Continue Watching" and each item's
-  played/resume state on the server actually in sync with what was watched here.
-- **Splash intro**: a short floating-logo animation on launch before handing off to Home (if
-  already signed in) or the login flow.
-- **Screen transitions**: every `startActivity` navigation (Home <-> Details <-> Playback, the
-  profile/server pickers, login) fades between screens instead of the platform's default hard cut
-  (`Activity.fadeToNextScreen()`, `res/anim/fade_in.xml`/`fade_out.xml`).
+- Server login with address entry, username/password, or Quick Connect
+- Profile and server switching backed by saved device sessions
+- Home screen with a hero carousel, continue watching row, and library categories
+- Details screen with metadata, media badges, watchlist controls, and inline season switching
+- Playback decision logic that chooses direct play, direct stream, or HLS transcode
+- Custom Apple-TV-inspired playback controls with skip, scrubber, and next-episode behavior
+- Server health monitoring with persistent logs for troubleshooting
+- Splash intro and smooth screen transitions
 
 ## Tech stack
 
-This app is a deliberate hybrid, not a single-framework build - each screen uses whichever of the
-two UI toolkits below fits it better, not the same one everywhere:
+This app is intentionally a hybrid rather than a single-framework build:
 
-- **Home and Details**: Jetpack Compose for TV (`androidx.tv:tv-material`) - `Card`/`Button`/`Text`
-  for D-pad-aware focus styling (scale, glow, border on focus), plain `compose-foundation`
-  `LazyRow`/`LazyColumn` for the scrolling rows (`androidx.tv:tv-foundation` was tried first, but
-  at the pinned version it contains no usable `TvLazyRow`/`TvLazyColumn` at all - see the comment
-  in `app/build.gradle.kts`). The top nav bar is hand-built from plain Compose Foundation
-  primitives (`Modifier.focusGroup`/`onFocusChanged`, `animateDpAsState`), not
-  `NavigationDrawer`/`ModalNavigationDrawer` - both had real, hard-to-verify quirks around
-  measuring collapsed-vs-expanded width that cost two rounds of bugs when this nav was still a
-  left-side rail.
-- **Library grid and Playback**: Kotlin + [androidx.leanback](https://developer.android.com/reference/androidx/leanback/package-summary)
-  (`VerticalGridSupportFragment`) for the dense Movies/TV Shows poster grid - a plain grid has no
-  real design surface for Compose's focus-styling advantages to matter, so it stays on Leanback's
-  lighter widget layer. Playback is a hand-rolled screen (see below), not a Leanback or Compose
-  transport UI.
-- **Playback**: [Media3/ExoPlayer](https://developer.android.com/media/media3) driving a raw
-  `SurfaceView` directly (`ExoPlayer.setVideoSurfaceView`), not Leanback's
-  `VideoSupportFragment`/`PlaybackTransportControlGlue` stack - that gets Leanback's stock,
-  boxy transport UI out of the way in favor of the custom Apple-TV-style controls described above.
-  `androidx.media3.ui.AspectRatioFrameLayout` handles correct letterboxing/pillarboxing, wired
-  manually from `Player.Listener.onVideoSizeChanged` since a plain `SurfaceView` doesn't do that
-  on its own.
-- **Server API**: the official [jellyfin-sdk-kotlin](https://github.com/jellyfin/jellyfin-sdk-kotlin)
-  (`org.jellyfin.sdk:jellyfin-core`) for auth, library browsing, media info, and playback URL
-  construction. No hand-rolled REST calls.
-- **Images**: Glide - `com.github.bumptech.glide:glide` into Leanback's `ImageCardView` on the
-  Leanback screens, `com.github.bumptech.glide:compose`'s `GlideImage` on the Compose ones. One
-  loader, one disk/memory cache, across both toolkits. Wired onto OkHttp
-  (`com.github.bumptech.glide:okhttp3-integration`, registered in `JellyfinTvApplication`) instead
-  of Glide's own default `HttpURLConnection`-based loader, so image requests share the same modern
-  networking stack the Jellyfin SDK's own API calls already use via Ktor - OkHttp was already a
-  transitive dependency either way.
-- **`androidx.palette`**: extracts a dominant/vibrant color from a poster for the Details screen's
-  ambient glow.
-- **Coroutines** (`kotlinx-coroutines-android`) for async server calls, **kotlinx-serialization**
-  because jellyfin-sdk-kotlin's models use it.
+- Home and Details: Jetpack Compose for TV
+- Library grid and browsing: Leanback
+- Playback: Media3 / ExoPlayer with a custom SurfaceView transport UI
+- Server API: Jellyfin SDK for Kotlin
+- Images: Glide with shared OkHttp networking
+- Color extraction: androidx.palette
+- Async work: Kotlin coroutines
+- Serialization: kotlinx.serialization
 
 ## Architecture
 
-```
+```text
 app/src/main/java/io/github/rt993/firetvjellyfin/
-├── JellyfinTvApplication.kt        Application entry point; boots JellyfinClientHolder, wires
-│                                    Glide onto OkHttp
+├── JellyfinTvApplication.kt         Application entry point; initializes the Jellyfin client and wires Glide into OkHttp
 ├── data/
-│   ├── JellyfinClientHolder.kt     Process-wide Jellyfin SDK instance + current ApiClient
-│   ├── CredentialStore.kt          SharedPreferences: server URL, access token, user id
-│   └── JellyfinRepository.kt       App-facing wrapper over the raw SDK calls (auth, browse, playback info)
+│   ├── JellyfinClientHolder.kt      Process-wide Jellyfin SDK instance and active API client
+│   ├── CredentialStore.kt           SharedPreferences-backed storage for server info and auth state
+│   └── JellyfinRepository.kt        App-facing wrapper for auth, browsing, and playback-info calls
 ├── playback/
-│   ├── DeviceProfileFactory.kt     Declares this device's playback capabilities to the server
-│   └── PlaybackDecisionMaker.kt    The direct-play/direct-stream/transcode decision point (see below)
+│   ├── DeviceProfileFactory.kt      Declares playback capabilities sent to the server
+│   └── PlaybackDecisionMaker.kt     Handles the direct-play/direct-stream/transcode decision
 └── ui/
-    ├── splash/   SplashActivity: launcher activity, plays the intro then routes to Home/Login
-    ├── login/    Server address -> username/password or Quick Connect (a hand-built step flow,
-    │             not GuidedStepSupportFragment)
-    ├── home/     HomeScreen (Compose): hero carousel, "Pick up where you left off" row, one poster
-    │             row per library, a hand-built top nav bar - see ui/theme/ for shared pieces
-    ├── library/  LibraryGridActivity/Fragment: VerticalGridSupportFragment (Leanback) - the
-    │             Movies/TV Shows poster grid reached from a Home nav bar item
-    ├── details/  DetailsScreen (Compose): split layout, technical badges, ambient poster glow,
-    │             inline season/episode picker for a series
-    ├── theme/    Shared Compose pieces: TreeHouseTheme (colors), TvCard (the focus scale/glow/
-    │             border treatment used by every card), AmbientColor/AmbientGlow (Details' poster glow)
-    └── playback/ PlaybackActivity: Media3 ExoPlayer over a raw SurfaceView with a custom
-                  transport UI, Skip Intro, and Play Next (see Features above)
+    ├── splash/                      Splash screen and launcher flow
+    ├── login/                      Server and account sign-in flow
+    ├── home/                       Compose home screen and browsing UI
+    ├── library/                    Leanback library grid and item browsing
+    ├── details/                    Compose details view with metadata and inline season selection
+    ├── theme/                      Shared TV styling and visual building blocks
+    └── playback/                   Custom playback activity with Media3 and transport controls
 ```
 
-### The direct-play vs. direct-stream vs. transcode decision
+## Direct play vs. direct stream vs. transcode
 
-This is the one architectural point the task called out explicitly, so it's deliberately isolated
-rather than inlined into the player:
+The playback decision is intentionally centralized instead of being scattered through the player.
 
-1. [`playback/DeviceProfileFactory.kt`](app/src/main/java/io/github/rt993/firetvjellyfin/playback/DeviceProfileFactory.kt)
-   declares what this app/device claims to support - containers, video/audio codecs, and one HLS
-   transcoding fallback profile. This is sent to the server, not decided locally.
-2. `JellyfinRepository.getPlaybackInfo()` POSTs that profile to `/Items/{id}/PlaybackInfo`. The
-   server matches it against the actual file and answers, per media source, whether it
-   `supportsDirectPlay`, `supportsDirectStream`, or only `supportsTranscoding` (with a ready-made
-   HLS URL).
-3. [`playback/PlaybackDecisionMaker.kt`](app/src/main/java/io/github/rt993/firetvjellyfin/playback/PlaybackDecisionMaker.kt)
-   turns that server answer into one concrete, playable URL. This is the single place in the app
-   where that choice is made - `PlaybackActivity` never inspects codecs itself, it just hands
-   ExoPlayer whatever URL comes out. Direct stream and transcode share the same code path there
-   (both ride the server's `transcodingUrl`/HLS machinery - the difference is purely whether ffmpeg
-   copies or re-encodes), differing only in the `PlaybackMode` tag used for the on-screen badge and
-   the playback-progress reports sent back to the server.
+1. `DeviceProfileFactory` declares what the app claims the device supports, including containers, codecs, and a fallback HLS transcode profile.
+2. `JellyfinRepository.getPlaybackInfo()` sends that profile to the Jellyfin server.
+3. `PlaybackDecisionMaker` converts the server response into a single playable URL.
+4. `PlaybackActivity` simply feeds that URL into ExoPlayer.
 
-`supportsDirectStream` (the server offering to remux into a compatible container without
-re-encoding, e.g. an .avi/.ts/.wmv rip whose video/audio codecs are already fine) went unchecked
-for a while - the decision jumped straight from direct-play to a full transcode, re-encoding video
-the server didn't actually need to touch. Fixed now; all three outcomes are handled.
+This keeps the decision in one place and ensures the app handles all three outcomes:
 
-The current codec list in `DeviceProfileFactory` is a reasonable generic baseline (H.264/HEVC,
-common containers). It is **not** tuned to a specific Fire TV Stick generation - different stick
-generations have different hardware decoders (some can't do HEVC or 4K at all). Querying
-`MediaCodecList` at runtime and feeding the result into the device profile would make this
-decision materially more accurate, and is the natural next step here.
+- direct play
+- direct stream
+- transcode
+
+The app specifically avoids jumping directly from direct play to full transcode when a server-supported direct stream would be sufficient.
+
+The device codec list is currently a reasonable generic baseline rather than a runtime query of the actual device’s `MediaCodecList`. That is a natural next step for improved accuracy.
 
 ## The minSdk situation
 
-The task this was scaffolded from originally asked for **minSdk 21** (Fire OS 5 / Android 5.1, the
-oldest common Fire TV Stick generation), with a note to verify it against the real device. That
-verification turned up a hard blocker worth recording:
+The project originally targeted API 21, but modern AndroidX versions now raise the practical minimum to API 23.
 
-**As of `androidx.activity:activity:1.12.0-alpha06` (August 2025), AndroidX's own default minSdk
-moved from API 21 to API 23 (Android 6.0) project-wide**, and that floor is already baked into the
-current stable releases of `androidx.activity` (pulled in transitively by `fragment-ktx`, which
-Leanback depends on). Building this project with `minSdk = 21` and today's stable AndroidX
-versions fails at manifest-merge time:
+As of recent stable AndroidX releases, `androidx.activity` and related libraries declare a minimum SDK of 23. Building with `minSdk = 21` fails during manifest merging because the app pulls in newer AndroidX libraries that require API 23 or higher.
 
-```
-uses-sdk:minSdkVersion 21 cannot be smaller than version 23 declared in library
-[androidx.activity:activity:1.13.0] ... as the library might be using APIs not available in 21
-```
+The project therefore targets `minSdk = 23`, not 21.
 
-So **this project targets `minSdk = 23`**, not 21. Reaching API 21/22 today would mean deliberately
-pinning `androidx.activity`, `androidx.fragment`, `androidx.core`, and `androidx.lifecycle` to
-versions older than their respective API-23 bumps and accepting unsupported/unpatched library
-versions - not worth it here.
-
-**Confirmed against the actual target device**: it reports Fire OS **7.7.1.5**, which is built on
-**Android 9 (API 28)** - the Fire TV Stick (2020, 3rd gen) / Fire TV Stick 4K / Fire TV Stick Lite
-generation (1.5GB RAM, quad-core 1.7GHz Cortex-A53). `minSdk = 23` comfortably covers this device;
-no dependency pinning needed. (minSdk is a floor, not a target - it doesn't need to equal the
-device's own API level, just be at or below it. `targetSdk` stays at the current SDK for
-up-to-date behavior/APIs.) The hardware is still weak by modern standards, so the lightweight
-Leanback + Media3 approach (rather than Compose/Flutter/RN) is still the right call.
+This still covers the real target hardware: the Fire TV Stick in use reports Fire OS 7.7.1.5, built on Android 9 (API 28). That is well above the project floor, so the app remains compatible without dependency pinning or legacy library downgrades.
 
 ## Building
 
-Requires JDK 17+ and the Android SDK (compileSdk/targetSdk 36, build-tools 36.0.0). No local
-Android Studio setup is required to build from the command line:
+Requirements:
+
+- JDK 17+
+- Android SDK
+- compileSdk / targetSdk 36
+- build-tools 36.0.0
+
+From the project root:
 
 ```bash
 ./gradlew assembleDebug
 ```
 
-The debug APK lands at `app/build/outputs/apk/debug/app-debug.apk`. Every push of a `v*` tag also
-builds this via [`.github/workflows/release.yml`](.github/workflows/release.yml) and publishes it
-as a [GitHub release](https://github.com/RT993/firetv-jellyfin-client/releases) - that's what the
-Downloader link above points at, and it can also be triggered manually from the Actions tab.
+The debug APK is written to:
 
-For performance testing on the actual (low-spec) target hardware, prefer `./gradlew assembleRelease`
-instead - debug builds carry real runtime overhead independent of anything this app's own code does
-(no dead-code/method optimization, extra non-skippable-composable bookkeeping from the Compose
-compiler, debug tooling hooks left active), which can read as "laggy" on a weak Fire Stick even when
-nothing is actually wrong. The release build signs with the same checked-in debug keystore (see
-`signingConfigs` in `app/build.gradle.kts` - this app is never published anywhere, just sideloaded,
-so a separate release signing identity isn't worth the key-management overhead), so it installs
-right over an existing debug install with no uninstall/signature-mismatch step needed. R8
-minification stays off in `release` for now; it needs real proguard rules worked out against this
-app's reflection-heavy dependencies (`kotlinx.serialization` models, Glide's generated API) before
-it's safe to turn on.
+```text
+app/build/outputs/apk/debug/app-debug.apk
+```
+
+Every push of a `v*` tag triggers a release workflow that publishes the APK as a GitHub release. That is the same path used by the Downloader install link above.
+
+For real performance testing on the actual low-spec target hardware, `assembleRelease` is preferred over debug builds because debug builds carry extra runtime overhead unrelated to the app’s actual logic.
+
+```bash
+./gradlew assembleRelease
+```
+
+The release build signs with the checked-in debug keystore so it can replace an existing debug install without an uninstall/signature-mismatch step.
+
+R8 minification remains off for now because the project uses reflection-heavy dependencies and needs real ProGuard rules before it is safe to enable.
 
 ### Installing via ADB instead
 
-1. On the Fire TV Stick: **Settings -> My Fire TV -> Developer Options** -> turn on **ADB
-   debugging** and **Apps from Unknown Sources**.
-2. Find the Stick's IP address: **Settings -> My Fire TV -> About -> Network**.
+1. On the Fire TV Stick, enable Developer Options and ADB debugging.
+2. Find the stick’s IP address in Settings -> My Fire TV -> About -> Network.
 3. From a machine on the same network:
+
    ```bash
    adb connect <fire-tv-ip>:5555
    ./gradlew installDebug
-   # or, if you already have the APK:
+   ```
+
+   Or install the APK directly:
+
+   ```bash
    adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
-4. Launch it from the Fire TV home screen, or directly via:
+
+4. Launch it from the Fire TV home screen, or directly with:
+
    ```bash
    adb shell monkey -p io.github.rt993.firetvjellyfin -c android.intent.category.LEANBACK_LAUNCHER 1
    ```
 
 ## Code graph
 
-`graphify-out/` holds a [Graphify](https://github.com/Graphify-Labs/graphify) knowledge graph of the
-Kotlin source (674 nodes, 1,509 edges, 30 communities), built code-only (no LLM extraction, no docs
-or config files). Open `graphify-out/graph.html` in a browser to explore it, or read
-`graphify-out/GRAPH_REPORT.md` for the summary. Regenerate with `graphify extract . --code-only`
-followed by `graphify cluster-only .`.
+`graphify-out/` contains a Graphify-generated knowledge graph of the Kotlin source. Open `graphify-out/graph.html` in a browser to explore it, or read `graphify-out/GRAPH_REPORT.md` for the summary.
+
+Regenerate it with:
+
+```bash
+graphify extract . --code-only
+graphify cluster-only .
+```
 
 ## Planned next
 
-- **Skip Outro**: Skip Intro already exists (`PlaybackActivity`'s `introSegment`/`btnSkipIntro`,
-  via the server's Media Segments API - only populated if the server has a plugin like Intro
-  Skipper tagging segments). Add the equivalent for the outro/credits segment the same API can
-  also return, so a credits-skip button shows up the same way near the end of an episode.
-- **Play from the beginning**: Details' Play/Resume button (`PlayButton` in `DetailsScreen.kt`)
-  always resumes from the saved position once one exists - there's no way to restart an
-  in-progress item from 0:00 without first clearing progress server-side. Add a second action
-  (a separate button, or an option alongside Resume) that explicitly starts playback from the
-  beginning while leaving the saved resume position untouched for next time.
+- Add skip-outro support using the same media-segment API used for intro skip
+- Add an explicit "play from the beginning" action without losing the saved resume position
+- Improve playback accuracy by querying `MediaCodecList` at runtime
 
 ## Known gaps / next steps
 
-- No automated tests yet.
-- The Compose-for-TV screens add real APK weight (Compose runtime + tv-material +
-  glide-compose + palette, on top of Leanback/Media3) - this is genuinely a two-toolkit app now,
-  not a single lightweight one, in exchange for the design work Compose enabled on Home/Details.
-  Worth revisiting if Library grid/Playback ever move to Compose too (drop Leanback) or if the
-  weight becomes a real problem on the target hardware.
-- `DeviceProfileFactory`'s codec list is generic, not queried from the actual device's
-  `MediaCodecList` - see the direct-play/transcode section above.
-- Login persists the access token in plain `SharedPreferences` (see `CredentialStore.kt`); move to
-  `EncryptedSharedPreferences` before any wider use.
-- `usesCleartextTraffic="true"` is set in the manifest because most self-hosted Jellyfin servers on
-  a home network are `http://`-only; scope this to a network security config allow-listing trusted
-  hosts before a wider release.
-- Releases are signed with Gradle's auto-generated debug keystore, not a dedicated release key -
-  fine for sideloading, but every install shares the same debug signature. Set up a real signing
-  config before distributing this any more widely.
-- A harmless manifest-merger warning appears about `org.jellyfin.sdk` being used as the namespace
-  by both `jellyfin-platform-android` and `jellyfin-core-android-debug` - that's inside the SDK
-  dependency itself, not this app's code.
+- No automated test suite yet
+- The app uses both Compose and Leanback, which is intentional but adds APK size
+- Login persists auth tokens in plain `SharedPreferences`; `EncryptedSharedPreferences` is the next step
+- `usesCleartextTraffic="true"` is enabled because many self-hosted Jellyfin servers are still `http://`; this should be narrowed with a network security config
+- Release builds use the generated debug keystore rather than a dedicated release key
+- A harmless manifest-merger warning remains due to the Jellyfin SDK namespace arrangement
+
+## Summary
+
+TreeHouse is a focused, TV-first Jellyfin client built around the realities of older Fire TV hardware: limited memory, old CPUs, and a need for responsive browsing and playback without sacrificing polish.
+
+It is a practical app for one household and one server, built to feel at home on a low-end Android TV device while still delivering a modern Jellyfin experience.
