@@ -2,7 +2,7 @@
 
 TreeHouse is a native Jellyfin client for Android TV, built to run well on older, low-spec Fire TV Stick hardware while keeping the UI polished and TV-first.
 
-This is a personal project for one household’s Fire TV Sticks and one Jellyfin server. It is not published to any app store and is not intended for general public distribution.
+This is a personal project. It is not published to any app store and is not intended for general public distribution.
 
 ## Why TreeHouse
 
