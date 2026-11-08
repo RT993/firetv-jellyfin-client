@@ -21,6 +21,20 @@ This keeps the experience responsive on low-end hardware while still feeling mod
 3. Details — poster view, metadata, season picker, watchlist controls, and rich media details
 4. Playback — direct play, direct stream, or transcode handoff with a custom transport UI
 
+## Screenshots
+
+<p align="center">
+  <img src="Home%20Page.png" alt="TreeHouse home screen" width="320" />
+  <img src="Server%20Page.png" alt="Server setup page" width="320" />
+  <img src="User%20Selection.png" alt="User selection screen" width="320" />
+</p>
+
+<p align="center">
+  <img src="Movie%20view.png" alt="Movie details view" width="320" />
+  <img src="Tv%20Show%20view.png" alt="TV show details view" width="320" />
+  <img src="Server%20Status.png" alt="Server status page" width="320" />
+</p>
+
 ## Installing on a Fire TV Stick
 
 The easiest method needs no computer.
